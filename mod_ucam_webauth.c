@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.39 2004-07-11 15:28:02 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.40 2004-07-11 16:56:15 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -97,6 +97,7 @@ MODULE-DEFINITION-END
 #define DEFAULT_no_cookie_msg    NULL
 #define DEFAULT_logout_msg       NULL
 #define DEFAULT_log_level        APLOG_WARNING
+#define DEFAULT_always_decode    0
 
 /* module configuration structure */
 
@@ -121,6 +122,7 @@ typedef struct {
   char *no_cookie_message;
   char *logout_msg;
   int   log_level;
+  int   always_decode;
 } mod_ucam_webauth_cfg;
 
 /* loggin macro. Note that it will only work in an environment where
@@ -1231,6 +1233,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->no_cookie_message = NULL;
   cfg->logout_msg = NULL;
   cfg->log_level = -1;    /* mustn't be a valid APLOG_* value */
+  cfg->always_decode = -1;
   return (void *)cfg;
 
 }
@@ -1291,6 +1294,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->logout_msg : base->logout_msg;
   merged->log_level = new->log_level != -1 ? 
     new->log_level : base->log_level;
+  merged->always_decode = new->always_decode != -1 ? 
+    new->always_decode : base->always_decode;
 
   return (void *)merged;
 
@@ -1318,14 +1323,8 @@ apply_config_defaults(request_rec *r,
       DEFAULT_response_timeout;
   n->clock_skew = c->clock_skew != -1 ? c->clock_skew :
       DEFAULT_clock_skew;
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "Defaulting: before %s", 
-		   c->key_dir == NULL ? "<NULL>" : c->key_dir);
   n->key_dir = c->key_dir != NULL ? c->key_dir :
       ap_server_root_relative(r->pool,DEFAULT_key_dir);
-  APACHE_LOG_ERROR(APLOG_DEBUG, "Defaulting: after %s", 
-		    n->key_dir == NULL ? "<NULL>" : n->key_dir);
-
   n->max_session_life = c->max_session_life != -1 ? c->max_session_life :
       DEFAULT_max_session_life;
   n->inactive_timeout = c->inactive_timeout != -1 ? c->inactive_timeout :
@@ -1354,6 +1353,8 @@ apply_config_defaults(request_rec *r,
       DEFAULT_logout_msg;
   n->log_level = c->log_level != -1 ? c->log_level :
       DEFAULT_log_level;
+  n->always_decode = c->always_decode != -1 ? c->always_decode :
+      DEFAULT_always_decode;
 
   return n;
 
@@ -1481,6 +1482,9 @@ dump_config(request_rec *r,
     msg = "unknown";
   }
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogLevel        = %s", msg);
+
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
+     c->always_decode);
   
 }
 
@@ -1684,29 +1688,28 @@ webauth_init(apr_pool_t *p,
 
 /* ---------------------------------------------------------------------- */
 
-/* Main auth handler */
-
-/* --- */
+/* Header Parser */
 
 static int  
-webauth_authn(request_rec *r) 
+webauth_header_parser(request_rec *r) 
      
 {
   
-  mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
-
-  char *old_cookie_str, *new_cookie_str, *token_str, *msg, *status, 
-       *request;
-  char *timeout_msg = NULL;
-  const char *this_url, *response_url;
-  int life, response_ticket_life, cookie_verify, sig_verify_result;
-  apr_table_t *old_cookie, *cookie, *response_ticket;
+  mod_ucam_webauth_cfg *c;
+  char *cookie_str, *new_cookie_str;
+  int life, cookie_verify;
+  apr_table_t *cookie;
   apr_time_t issue, last, now;
 
-  if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) {
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
+  c = apply_config_defaults(r,c);
+  dump_config(r,c);  
+
+  if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0 && !c->always_decode) {
     APACHE_LOG_ERROR
-      (APLOG_DEBUG,"Ucam WebAuth declining - not our auth type");
+      (APLOG_DEBUG,"mod_ucam_webauth header parser declining for %s",
+       r->uri);
     return DECLINED;
   }
   
@@ -1715,19 +1718,8 @@ webauth_authn(request_rec *r)
   
   APACHE_LOG_ERROR
     (APLOG_NOTICE, 
-     "mod_ucam_webauth (%s) authn handler started for %s", 
+     "mod_ucam_webauth (%s) header parser started for %s", 
      VERSION, r->uri);
-  
-  if (r->method_number == M_POST)
-    APACHE_LOG_ERROR
-      (APLOG_WARNING, "Ucam WebAuth hander invoked for POST request, "
-       "which it doesn't really support");
-
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
-
-  c = apply_config_defaults(r,c);
-  dump_config(r,c);  
 
   if (c->cookie_key == NULL) {
     APACHE_LOG_ERROR
@@ -1745,197 +1737,253 @@ webauth_authn(request_rec *r)
     return HTTP_INTERNAL_SERVER_ERROR;
   }
   
+  /* see if we already have authentication data stored in a cookie */ 
+
+  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
+
+  if (cookie_str == NULL || strcmp(cookie_str, TESTSTRING) == 0) {
+    APACHE_LOG_ERROR(APLOG_INFO, "no existing authentication cookie");
+    return DECLINED;
+  }
+  
+  APACHE_LOG_ERROR(APLOG_INFO, "found existing authentication cookie");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", cookie_str);
+  
+  cookie = make_cookie_table(r,  cookie_str);
+    
+  /* check cookie signature */
+  
+  cookie_verify = 
+    SHA1_sig_verify(r, c, 
+		    cookie_check_sig_string(r, cookie), 
+		    (char *)apr_table_get(cookie, "sig"));
+  
+  if (cookie_verify == 0) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie invalid or session key has changed");
+    return DECLINED;
+  }
+
+  APACHE_LOG_ERROR(APLOG_INFO, "Session cookie signature valid");
+      
+  /* check cookie status */
+
+  /* Note that if the stored status isn't 200 (OK) then we need to
+     report the failure here and we destroy the cookie so that if we
+     come back through here again we will fall through and repeat the
+     authentication */
+
+  if (strcmp((char *)apr_table_get(cookie, "status"), "410") == 0) {
+    APACHE_LOG_ERROR(APLOG_NOTICE, 
+		     "Authentication status = 410, user cancelled");
+    if (c->cancel_msg != NULL) {
+      ap_custom_response(r, HTTP_FORBIDDEN, c->cancel_msg);
+    } 
+    else {
+      ap_custom_response(r, HTTP_FORBIDDEN, auth_cancelled(r));
+    }
+    set_cookie(r, NULL, c);
+    return HTTP_FORBIDDEN;
+  }
+
+  if (strcmp((char *)apr_table_get(cookie, "status"), "200") != 0) {
+    APACHE_LOG_ERROR(APLOG_ERR, "Authentication error, status = %s, %s",
+		     apr_table_get(cookie, "status"),
+		     apr_table_get(cookie, "msg"));
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  }
+  
+  /* cookie timeout checks */
+  
+  APACHE_LOG_ERROR
+    (APLOG_DEBUG, "issue = %s, last = %s, life = %s", 
+     (char *)apr_table_get(cookie, "issue"),
+     (char *)apr_table_get(cookie, "last"),
+     (char *)apr_table_get(cookie, "life"));
+  
+  issue = iso2_time_decode
+    (r,(char *)apr_table_get(cookie, "issue"));
+  last = iso2_time_decode
+    (r,(char *)apr_table_get(cookie, "last"));
+  life = atoi((char *)apr_table_get(cookie, "life"));
+  
+  if (issue == -1) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie issue date incorrect length");
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  }
+  if (last == -1) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie last use date incorrect length");
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  }
+  if (life <= 0) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie lifetime unreadable");
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  }
+  
+  now = apr_time_now();
+  
+  APACHE_LOG_ERROR
+    (APLOG_DEBUG, "now = %s, issue = %s, last = %s, life = %d", 
+     iso2_time_encode(r, now), iso2_time_encode(r, issue), 
+     iso2_time_encode(r, last), life);
+  
+  if (issue > now) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie has issue date in the future");
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  } else if (last > now) {
+    APACHE_LOG_ERROR(APLOG_ERR,
+		     "Session cookie has last used date in the future");
+    set_cookie(r, NULL, c);
+    return HTTP_BAD_REQUEST;
+  } else if (now >= issue + apr_time_from_sec(life)) {
+    APACHE_LOG_ERROR(APLOG_NOTICE, 
+		     "Session cookie has expired");
+    apr_table_set(r->notes,"AATimeout","expiry");
+    return DECLINED;
+  } else if (c->inactive_timeout && 
+	     now >= last + apr_time_from_sec(c->inactive_timeout + 60)) {
+    APACHE_LOG_ERROR(APLOG_NOTICE, 
+		     "Session cookie has expired due to inactivity");
+    apr_table_set(r->notes,"AATimeout","inactivity");
+    return DECLINED;
+  }
+
+  /* otherwise it worked! Reset last if more than 60 sec have
+     passed. Note that this won't work for a 304 Not modified
+     response because Set-Cookie: headers are not allowed (and are
+     not sent) in this case. Such is life */
+  
+  if (c->inactive_timeout && apr_time_sec(now - last) > 60) {
+    apr_table_set(cookie,"last",iso2_time_encode(r, now));
+    new_cookie_str = make_cookie_str(r, c, cookie);
+    set_cookie(r, new_cookie_str, c);
+  }
+  
+  /* save info for future use */
+  
+#ifdef APACHE1_3
+  r->connection->user = (char *)apr_table_get(cookie, "principal");
+#else
+  r->user = (char *)apr_table_get(cookie, "principal");
+#endif
+  
+  apr_table_set(r->subprocess_env, 
+		"AAISSUE", 
+		apr_table_get(cookie, "issue"));
+  apr_table_set(r->subprocess_env, 
+		"AALAST", 
+		apr_table_get(cookie, "last"));
+  apr_table_set(r->subprocess_env, 
+		"AALIFE", 
+		apr_table_get(cookie, "life"));
+  apr_table_set(r->subprocess_env, 
+		"AATIMEOUT", 
+		apr_psprintf(r->pool,"%d",c->inactive_timeout));
+  apr_table_set(r->subprocess_env, 
+		"AAID", 
+		apr_table_get(cookie, "id"));
+  apr_table_set(r->subprocess_env, 
+		"AAPRINCIPAL", 
+		apr_table_get(cookie, "principal"));
+  apr_table_set(r->subprocess_env, 
+		"AAAUTH", 
+		apr_table_get(cookie, "auth"));
+  apr_table_set(r->subprocess_env, 
+		"AASSO", 
+		apr_table_get(cookie, "sso"));
+  
+  /* set a custom HTTP_UNAUTHORIZED page if there isn't one already
+     because the default Apache one if misleading in a Ucam WebAuth
+     context but will be displayed if the authz phase of mod_auth (or
+     equivalent) returns HTTP_UNAUTHORIZED */
+  
+  if (wls_response_code_string(r, HTTP_UNAUTHORIZED) == NULL)
+    ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
+  
+  APACHE_LOG_ERROR
+    (APLOG_NOTICE, "successfully decoded cookie for %s", 
+     (char *)apr_table_get(cookie, "principal"));
+  
+  /* Even though we may have been successfull, we return DECLINED so
+     as not to prevent other header_parsers from running */
+
+  return DECLINED;
+	
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* Main auth handler */
+
+/* --- */
+
+static int  
+webauth_authn(request_rec *r) 
+     
+{
+  
+  mod_ucam_webauth_cfg *c;
+  char *cookie_str, *new_cookie_str, *token_str, *msg, *status, 
+       *request;
+  const char *this_url, *response_url;
+  int life, response_ticket_life, sig_verify_result;
+  apr_table_t *cookie, *response_ticket;
+  apr_time_t issue, now;
+
+  if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) {
+    APACHE_LOG_ERROR
+      (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s",
+       r->uri);
+    return DECLINED;
+  }
+  
+  APACHE_LOG_ERROR
+    (APLOG_DEBUG,"######################################################");
+  
+  APACHE_LOG_ERROR
+    (APLOG_NOTICE, 
+     "mod_ucam_webauth (%s) authn handler started for %s", 
+     VERSION, r->uri);
+  
+  if (r->method_number == M_POST)
+    APACHE_LOG_ERROR
+      (APLOG_WARNING, "Ucam WebAuth hander invoked for POST request, "
+       "which it doesn't really support");
+
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+  c = apply_config_defaults(r,c);
+  dump_config(r,c);  
+  
   cache_control(r,c->cache_control);
 
-  /* FIRST: see if we already have authentication data stored in a
-     cookie. Note that if the stored status isn't 200 (OK) then we
-     need to report the failure here and we destroy the cookie so
-     that if we come back through here again we will fall through
-     and repeat the authentication */
-       
+  /* FIRST: see if we successfully decoded a session cookie in the
+     header parser */
+
   APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 1...");
 
-  old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
-
-  if (old_cookie_str == NULL) 
-    APACHE_LOG_ERROR(APLOG_INFO, "no existing authentication cookie found");
-
-  if (old_cookie_str != NULL && strcmp(old_cookie_str, TESTSTRING) != 0) {
-    APACHE_LOG_ERROR(APLOG_INFO, "found existing authentication cookie");
-
-    APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", old_cookie_str);
-    
-    old_cookie = make_cookie_table(r, old_cookie_str);
-    
-    /* check cookie signature */
-
-    cookie_verify = 
-      SHA1_sig_verify(r, c, 
-		      cookie_check_sig_string(r, old_cookie), 
-		      (char *)apr_table_get(old_cookie, "sig"));
-
-    if (cookie_verify == 0) {
-      APACHE_LOG_ERROR(APLOG_ERR,
-		       "Session cookie invalid or session key has changed");
-    } else {
-
-      APACHE_LOG_ERROR(APLOG_INFO, "Session cookie signature valid");
+  if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
+    APACHE_LOG_ERROR
+      (APLOG_NOTICE, "successfully identified %s", 
+       (char *)apr_table_get(r->subprocess_env, "AAPrincipal"));
+    return OK;
+  }
       
-      if (strcmp((char *)apr_table_get(old_cookie, "status"), "410") == 0) {
-	if (c->cancel_msg != NULL) {
-	  ap_custom_response(r, HTTP_FORBIDDEN, c->cancel_msg);
-	} 
-	else {
-	  ap_custom_response(r, HTTP_FORBIDDEN, auth_cancelled(r));
-	}
-	set_cookie(r, NULL, c);
-	
-	APACHE_LOG_ERROR(APLOG_NOTICE, 
-			 "Authentication status = 410, user cancelled");
-	return HTTP_FORBIDDEN;
-      }
-
-      if (strcmp((char *)apr_table_get(old_cookie, "status"), "200") != 0) {
-	APACHE_LOG_ERROR(APLOG_ERR, "Authentication error, status = %s, %s",
-			 apr_table_get(old_cookie, "status"),
-			 apr_table_get(old_cookie, "msg"));
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      }
-      
-      /* session cookie timeout check */
-      
-      APACHE_LOG_ERROR
-	(APLOG_DEBUG, "issue = %s, last = %s, life = %s", 
-	 (char *)apr_table_get(old_cookie, "issue"),
-	 (char *)apr_table_get(old_cookie, "last"),
-	 (char *)apr_table_get(old_cookie, "life"));
-
-      issue = iso2_time_decode
-	(r,(char *)apr_table_get(old_cookie, "issue"));
-      last = iso2_time_decode
-	(r,(char *)apr_table_get(old_cookie, "last"));
-      life = atoi((char *)apr_table_get(old_cookie, "life"));
-
-      if (issue == -1) {
-	APACHE_LOG_ERROR(APLOG_ERR,
-			 "Session cookie issue date incorrect length");
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      }
-      if (last == -1) {
-	APACHE_LOG_ERROR(APLOG_ERR,
-			 "Session cookie last use date incorrect length");
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      }
-      if (life <= 0) {
-	APACHE_LOG_ERROR(APLOG_ERR,
-			 "Session cookie lifetime unreadable");
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      }
-
-      now = apr_time_now();
-      
-      APACHE_LOG_ERROR
-	(APLOG_DEBUG, "now = %s, issue = %s, last = %s, life = %d", 
-	 iso2_time_encode(r, now), iso2_time_encode(r, issue), 
-	 iso2_time_encode(r, last), life);
-
-      if (issue > now) {
-	APACHE_LOG_ERROR(APLOG_ERR,
-			 "Session cookie has issue date in the future");
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      } else if (last > now) {
-	APACHE_LOG_ERROR(APLOG_ERR,
-			 "Session cookie has last used date in the future");
-	set_cookie(r, NULL, c);
-	return HTTP_BAD_REQUEST;
-      } else if (now >= issue + apr_time_from_sec(life)) {
-	APACHE_LOG_ERROR(APLOG_NOTICE, 
-			 "Session cookie has expired");
-	timeout_msg = c->timeout_msg;
-      } else if (c->inactive_timeout && 
-		 now >= last + apr_time_from_sec(c->inactive_timeout + 60)) {
-	APACHE_LOG_ERROR(APLOG_NOTICE, 
-			 "Session cookie has expired due to inactivity");
-	timeout_msg = c->timeout_msg;
-
-      /* otherwise it worked! */
-
-      } else {
-
-	/* reset last if more than 60 sec have passed. Note that this
-	   won't work for a 304 Not modified response because
-	   Set-Cookie: headers are not allowed (and are not sent) in
-	   this case. Such is life */
-
-	if (c->inactive_timeout && apr_time_sec(now - last) > 60) {
-	  apr_table_set(old_cookie,"last",iso2_time_encode(r, now));
-	  new_cookie_str = make_cookie_str(r, c, old_cookie);
-	  set_cookie(r, new_cookie_str, c);
-	}
-
-	/* extract useful info for future use */
-
-#ifdef APACHE1_3
-	r->connection->user = (char *)apr_table_get(old_cookie, "principal");
-#else
-	r->user = (char *)apr_table_get(old_cookie, "principal");
-#endif
-
-	apr_table_set(r->subprocess_env, 
-		      "AAISSUE", 
-		      apr_table_get(old_cookie, "issue"));
-	apr_table_set(r->subprocess_env, 
-		      "AALAST", 
-		      apr_table_get(old_cookie, "last"));
-	apr_table_set(r->subprocess_env, 
-		      "AALIFE", 
-		      apr_table_get(old_cookie, "life"));
-	apr_table_set(r->subprocess_env, 
-		      "AATIMEOUT", 
-		      apr_psprintf(r->pool,"%d",c->inactive_timeout));
-	apr_table_set(r->subprocess_env, 
-		      "AAID", 
-		      apr_table_get(old_cookie, "id"));
-	apr_table_set(r->subprocess_env, 
-		      "AAPRINCIPAL", 
-		      apr_table_get(old_cookie, "principal"));
-	apr_table_set(r->subprocess_env, 
-		      "AAAUTH", 
-		      apr_table_get(old_cookie, "auth"));
-	apr_table_set(r->subprocess_env, 
-		      "AASSO", 
-		      apr_table_get(old_cookie, "sso"));
-	
-	/* set a custom HTTP_UNAUTHORIZED page if there isn't one
-	   already because the default Apache one if misleading in a
-	   Ucam WebAuth context */
-
-	if (wls_response_code_string(r, HTTP_UNAUTHORIZED) == NULL)
-	  ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
-	
-	APACHE_LOG_ERROR
-	  (APLOG_NOTICE, "successful authentication for %s", 
-	   (char *)apr_table_get(old_cookie, "principal"));
-	   
-	return OK;
-	
-      }
-      
-    } /* end session cookie valid */ 
-    
-  } /* end found session cookie */ 
-
-  /* SECOND: Look to see if we are being invoked as the callback from 
+  /* SECOND: Look to see if we are being invoked as the callback from
      the WLS. If so, validate the response, check that the session
      cookie already exists with a test value (because otherwise we
-     probably don't have cookies enabled), set it, and redirect back to
-     the original URL to clear the browser's location bar of the WLS
-     response */
+     probably don't have cookies enabled), set it, and redirect back
+     to the original URL to clear the browser's location bar of the
+     WLS response */
   
   APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
 
@@ -1946,19 +1994,17 @@ webauth_authn(request_rec *r)
   
   if (token_str != NULL) {
     APACHE_LOG_ERROR(APLOG_INFO, "found WLS token");
-
     APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
 
-    /* Check that cookie actually exists because it should have
-      been created previously and if it's not there we'll probably
-      end up in a redirect loop */
+    /* Check that cookie exists because it should have been created
+       previously and if it's not there we'll probably end up in a
+       redirect loop */
 
     APACHE_LOG_ERROR(APLOG_INFO, "searching for cookie %s", c->cookie_name);
 
-    old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
-    if (old_cookie_str == NULL) {
+    cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
+    if (cookie_str == NULL) {
       APACHE_LOG_ERROR(APLOG_WARNING, "Browser not accepting session cookie");
-
       if (c->no_cookie_message != NULL) {
 	ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_message);
       } else {
@@ -1985,7 +2031,6 @@ webauth_authn(request_rec *r)
       APACHE_LOG_ERROR
 	(APLOG_ERR, "URL in response_token doesn't match this URL - %s != %s",
 	 response_url, this_url);
-
       return HTTP_BAD_REQUEST;
     }
 
@@ -1995,7 +2040,7 @@ webauth_authn(request_rec *r)
     msg = "";
     status = "200";
 
-    /* do all the validations  - protocol version */    
+    /* do all the validations  - protocol version first */    
     
     if (strcmp((char *)apr_table_get(response_ticket, "ver"), 
 	       PROTOCOL_VERSION) != 0) {
@@ -2023,8 +2068,7 @@ webauth_authn(request_rec *r)
 
     now = apr_time_now();
     issue = 
-      iso2_time_decode(r, 
-		       (char *)apr_table_get(response_ticket, "issue"));
+      iso2_time_decode(r, (char *)apr_table_get(response_ticket, "issue"));
 
     if (issue < 0) {
       msg = apr_psprintf
@@ -2034,8 +2078,7 @@ webauth_authn(request_rec *r)
       goto FINISHED;
     }
     
-    if (issue > now + apr_time_from_sec(c->clock_skew)) {
-      
+    if (issue > now + apr_time_from_sec(c->clock_skew) + 1) {
       msg = apr_psprintf
 	(r->pool,"Authentication response issued in the future "
 	 "(local clock incorrect?); issue time %s",
@@ -2044,7 +2087,7 @@ webauth_authn(request_rec *r)
       goto FINISHED;
     }
     
-    if (now - apr_time_from_sec(c->clock_skew) > 
+    if (now - apr_time_from_sec(c->clock_skew) - 1 > 
 	issue + apr_time_from_sec(c->response_timeout)) {
       msg = apr_psprintf
 	(r->pool,"Authentication response issued too long ago "
@@ -2054,7 +2097,7 @@ webauth_authn(request_rec *r)
       goto FINISHED;
     }
 
-    /* apropriate response if ForceInteract */
+    /* first-hand authentication if ForceInteract */
     
     if (c->force_interact == 1 && 
 	apr_table_get(response_ticket, "auth") == "") {
@@ -2071,12 +2114,6 @@ webauth_authn(request_rec *r)
 		     (char *)apr_table_get(response_ticket, "sig"), 
 		     c->key_dir,
 		     (char *)apr_table_get(response_ticket, "kid"));
-    /* RETURNS
-        -1 : verification error
-         0 : Unsuccessful verification
-         1 : successful verification
-         2 : error opening public key file
-         3 : error reading public key */
 
     if (sig_verify_result == 2) {
       APACHE_LOG_ERROR(APLOG_ALERT, "Error opening public key file");
@@ -2200,7 +2237,7 @@ webauth_authn(request_rec *r)
        "&desc=", escape_url(r->pool,c->description), 
        NULL);
   
-  if (timeout_msg != NULL)
+  if (apr_table_get(r->notes, "AATimeout") != NULL)
     request = apr_pstrcat
       (r->pool, 
        request, 
@@ -2209,10 +2246,10 @@ webauth_authn(request_rec *r)
   
   if (c->fail == 1)
     request = apr_pstrcat(r->pool, request, "&fail=yes", NULL);
-
+  
   if (c->force_interact == 1) 
     request = apr_pstrcat(r->pool, request, "&iact=yes", NULL);
-
+  
   request = apr_pstrcat
     (r->pool,
      c->auth_service, 
@@ -2224,13 +2261,13 @@ webauth_authn(request_rec *r)
   
   apr_table_set(r->headers_out, "Location", request);
   set_cookie(r, TESTSTRING, c);
-
-  APACHE_LOG_ERROR(APLOG_NOTICE, "redirecting to Raven login server");
-
+  
+  APACHE_LOG_ERROR(APLOG_NOTICE, "redirecting to login server");
+  
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
-
+  
   /* (phew!) */
-
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2457,13 +2494,20 @@ static const command_rec webauth_commands[] = {
 		RSRC_CONF | OR_AUTHCFG,
 		"Level of verbosity in error logging"),
   
+  AP_INIT_FLAG("AAAlwaysDecode", 
+	       ap_set_flag_slot, 
+	       (void *)APR_OFFSETOF
+	       (mod_ucam_webauth_cfg,always_decode),
+	       RSRC_CONF | OR_AUTHCFG,
+	       "Decode session cookie even if authentication is not required"),
+
   {NULL}
 
 };
 
 /* ---------------------------------------------------------------------- */
 
-/* make Apache aware of Raven authentication handler */
+/* make Apache aware of the handlers */
 
 #ifdef APACHE1_3
 
@@ -2488,7 +2532,7 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   NULL,                         /* type_checker */
   NULL,                         /* fixups */
   NULL,                         /* logger */
-  NULL,                         /* header parser */
+  webauth_header_parser,        /* header parser */
   NULL,                         /* child_init */
   NULL,                         /* child_exit */
   NULL                          /* post read-request */
@@ -2498,7 +2542,8 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
 
 static void webauth_register_hooks(apr_pool_t *p) {
   ap_hook_post_config(webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_check_user_id(webauth_authn, NULL, NULL, APR_HOOK_FIRST);
+  ap_hook_header_parser(webauth_header_parser, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_check_user_id(webauth_authn, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_handler(webauth_handler_logout, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
