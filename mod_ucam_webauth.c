@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.5 2004-06-11 10:58:42 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.6 2004-06-11 15:54:07 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -221,97 +221,97 @@ APACHE_MODULE ucam_webauth_module;
 /* functions */
 
 static int 
-ucam_webauth_handler            (request_rec *r);
+ucam_webauth_handler (request_rec *r);
 
 static void *
-create_server_config          (APACHE_POOL *p, 
-			       server_rec *s);
+create_server_config (APACHE_POOL *p, 
+		      server_rec *s);
 
 static char *
-get_cgi_param                 (request_rec *r, 
-			       char *parm_name);
+get_cgi_param (request_rec *r, 
+	       char *parm_name);
 
 static void 
-set_cookie                     (request_rec *r, 
-				char *value, 
-				mod_ucam_webauth_cfg *c);
+set_cookie (request_rec *r, 
+	    char *value, 
+	    mod_ucam_webauth_cfg *c);
 
 static char *
-SHA1_sign                     (request_rec *r, 
-			       mod_ucam_webauth_cfg *c,  
-			       char *data);
+SHA1_sign (request_rec *r, 
+	   mod_ucam_webauth_cfg *c,  
+	   char *data);
 
 static int 
-SHA1_sig_verify                 (request_rec *r, 
-				 mod_ucam_webauth_cfg *c, 
-				 char *data, 
-				 const char *sig);
+SHA1_sig_verify (request_rec *r, 
+		 mod_ucam_webauth_cfg *c, 
+		 char *data, 
+		 const char *sig);
 
 static int 
-RSA_sig_verify                  (request_rec *r, 
-				 char *data, 
-				 char *sig,   
-				 char *key_path, 
-				 char *key_id);
+RSA_sig_verify (request_rec *r, 
+		char *data, 
+		char *sig,   
+		char *key_path, 
+		char *key_id);
 
 static APACHE_TABLE *
-unwrap_wls_token              (request_rec *r, 
-			       char *token_str);
+unwrap_wls_token (request_rec *r, 
+		  char *token_str);
 
 static APACHE_TABLE *
-make_cookie_table             (request_rec *r, 
-			       char *cookie_str);
+make_cookie_table (request_rec *r, 
+		   char *cookie_str);
 
 static char *
-get_cookie_str                (request_rec *r, 
-			       char *cookie_name);
+get_cookie_str (request_rec *r, 
+	        char *cookie_name);
 
 static char *
-cookie_check_sig_string       (request_rec *r, 
-			       APACHE_TABLE *cookie);
+cookie_check_sig_string (request_rec *r, 
+			APACHE_TABLE *cookie);
 
 static char *
 wls_response_check_sig_string (request_rec *r, 
 			       APACHE_TABLE *wls_response);
 
 static char *
-wls_encode                    (request_rec *r, 
-			       char *string);
+wls_encode (request_rec *r, 
+	    char *string);
 
 static char *
-wls_decode                    (request_rec *r, 
-			       char *string);
+wls_decode (request_rec *r, 
+	    char *string);
 
 static char *
-iso2_time_encode              (request_rec *r, 
-			       APACHE_TIME t);
+iso2_time_encode (request_rec *r, 
+		  APACHE_TIME t);
 
 static APACHE_TIME 
-iso2_time_decode              (request_rec *r, 
-			       char *t_iso2);
+iso2_time_decode (request_rec *r, 
+		  char *t_iso2);
 
 static int 
-using_https                   (request_rec *r);
+using_https (request_rec *r);
 
 static char *
-full_cookie_name              (request_rec *r, 
-			       char *cookie_name);
+full_cookie_name (request_rec *r, 
+		  char *cookie_name);
 
 static char *
-get_url                       (request_rec *r);
+get_url (request_rec *r);
 
 static char *
-error_message                 (int err);
+error_message (int err);
 
 static char *
-no_cookie                     (request_rec *r, 
-			       mod_ucam_webauth_cfg *c);
+no_cookie (request_rec *r, 
+	   mod_ucam_webauth_cfg *c);
 
 static char *
-auth_cancelled                (request_rec *r);
+auth_cancelled (request_rec *r);
 
 static char *
-auth_required                 (request_rec *r);
+auth_required (request_rec *r);
 
 /* ---------------------------------------------------------------------- */
 
@@ -361,10 +361,11 @@ set_AADescription(cmd_parms *cmd,
 
 /* --- */
 
-static const char *set_AAResponseTimeout(cmd_parms *cmd, 
-					 void *mconfig, 
-					 const char *arg) 
-
+static const char *
+set_AAResponseTimeout(cmd_parms *cmd, 
+		      void *mconfig, 
+		      const char *arg) 
+     
 {
 
   mod_ucam_webauth_cfg *cfg;
@@ -1370,7 +1371,12 @@ ucam_webauth_handler(request_rec *r)
 
 /* get CGI parameter */
 
-static char *get_cgi_param(request_rec *r, char *parm_name) {
+static char *
+get_cgi_param(request_rec *r, 
+	      char *parm_name) 
+
+{
+
   const char *data = r->args;
   const char *pair;
 
@@ -1822,7 +1828,8 @@ iso2_time_encode(request_rec *r,
 /* --- */
 /* ISO 2 datetime decoding */
 
-static APACHE_TIME iso2_time_decode(request_rec *r, 
+static APACHE_TIME 
+iso2_time_decode(request_rec *r, 
 				    char *t_iso2) 
 
 {
@@ -1939,7 +1946,8 @@ static APACHE_TIME iso2_time_decode(request_rec *r,
 
 /* --- */
 
-static int using_https(request_rec *r) 
+static int 
+using_https(request_rec *r) 
 
 {
 
@@ -1966,9 +1974,12 @@ full_cookie_name(request_rec *r,
 
 /* --- */
 
-static char *get_url(request_rec *r) 
+static char *
+get_url(request_rec *r) 
 
 {
+
+  /* NO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 
   if (using_https(r)) {
     return APACHE_PSTRCAT
@@ -1986,7 +1997,8 @@ static char *get_url(request_rec *r)
 
 /* --- */
 
-static char *error_message(int err) {
+static char *
+error_message(int err) {
   switch (err) {
   case 200 : return "OK";
   case 410 : return "Authentication cancelled at user's request";
