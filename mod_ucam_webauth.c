@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.7 2004-06-12 20:49:08 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.8 2004-06-16 10:03:55 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1053,7 +1053,11 @@ ucam_webauth_handler(request_rec *r)
 	 iso2_time_encode(r, now), 
 	 iso2_time_encode(r, issue), iso2_time_encode(r, expire));
 
-      if (now < issue || now >= expire) {
+      if (issue > now) {
+	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+			 "session cookie has issue date in the future");
+	return APACHE_SERVER_ERROR;
+      } else if (now >= expire) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 			 "session cookie has timed out");
 	timeout_msg = c->AATimeoutMsg;
@@ -1268,6 +1272,12 @@ ucam_webauth_handler(request_rec *r)
 
     APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		     "expiry = %d", expiry);
+
+    if (expiry <= 0) {
+      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+		     "session expiry time less that one second");
+      return APACHE_SERVER_ERROR;
+    }
     
     /* set new session ticket (cookie) */
     
@@ -1276,7 +1286,7 @@ ucam_webauth_handler(request_rec *r)
        APACHE_TABLE_GET(response_ticket, "ver"), "!",
        status, "!",
        msg, "!",
-       APACHE_TABLE_GET(response_ticket, "issue"), "!",
+       iso2_time_encode(r, APACHE_TIME_NOW), "!",
        iso2_time_encode(r, APACHE_TIME_NOW + APACHE_TIME_FROM_SEC(expiry)),"!",
        APACHE_TABLE_GET(response_ticket, "id"), "!",
        APACHE_TABLE_GET(response_ticket, "principal"), "!",
