@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.15 2004-06-17 14:59:35 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.16 2004-06-17 15:22:40 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1174,10 +1174,17 @@ dump_config(request_rec *r,
     (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AATimeoutMsg      = %s",
      (c->AATimeoutMsg == NULL ? "NULL" : c->AATimeoutMsg));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieKey       = %s",
-     (c->AACookieKey == NULL ? "NULL" : c->AACookieKey));
-  
+  if (c->AACookieKey == NULL) {
+    APACHE_LOG_ERROR
+      (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
+       "  AACookieKey       = NULL");
+  } else {
+    APACHE_LOG_ERROR
+      (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
+       "  AACookieKey       = %4.4s ...", 
+       (c->AACookieKey == NULL ? "NULL" : c->AACookieKey));
+  }
+
   APACHE_LOG_ERROR
     (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieName      = %s",
      (c->AACookieName == NULL ? "NULL" : c->AACookieName));
