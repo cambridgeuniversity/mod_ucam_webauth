@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.44 2004-08-24 12:53:54 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.45 2004-08-25 08:32:02 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1086,9 +1086,8 @@ no_cookie(request_rec *r,
 
   char *cookie_name = 
     ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name));
+  char *sig = (char *)ap_psignature("<hr />", r);
   char *cookie_domain;
-  char *host = ap_escape_html(r->pool, ap_get_server_name(r));
-  char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
   if (c->cookie_domain != NULL) {
     cookie_domain = apr_pstrcat(r->pool,
 				"computers in the domain <tt>",
@@ -1111,8 +1110,7 @@ no_cookie(request_rec *r,
      "'<tt><b>", cookie_name, "</b></tt>' from ", cookie_domain,
      ".</p><p>This cookie will be deleted when you quit your "
      "web browser. It contains your identity and other information "
-     "used to manage authentication.</p><hr><i>mod_ucam_webauth "
-     "running on ", host, " Port ", port, "</i></body></hmtl>", NULL);
+     "used to manage authentication.</p>", sig, "</body></hmtl>", NULL);
 
 }
 
@@ -1124,8 +1122,7 @@ auth_cancelled(request_rec *r)
 
 {
 
-  char *host = ap_escape_html(r->pool, ap_get_server_name(r));
-  char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
+  char *sig = (char *)ap_psignature("<hr />", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
@@ -1145,9 +1142,8 @@ auth_cancelled(request_rec *r)
      "authentication system administrator to see if you can be "
      "registered. If you cancelled because of privacy concerns then you "
      "should contact the administrator of this server ", admin, " to see "
-     "if there are other ways for you to access this resource.</p>"
-     "<hr><i>mod_ucam_webauth running on ", host, " Port ", port,
-     "</i></body></html>", NULL);
+     "if there are other ways for you to access this resource.</p>",
+     sig, "</body></html>", NULL);
 
 }
 
@@ -1158,8 +1154,7 @@ auth_required(request_rec *r)
 
 {
 
-  char *host = ap_escape_html(r->pool, ap_get_server_name(r));
-  char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
+  char *sig = (char *)ap_psignature("<hr />", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
 #ifdef APACHE1_3
   char *user = ap_escape_html(r->pool, r->connection->user);
@@ -1185,14 +1180,14 @@ auth_required(request_rec *r)
      "<p>Access to the web resource you are trying to obtain is "
      "restricted. The identity that you have established ", user,
      " does not appear to be allowed access. Please contact the "
-     "administrator of this server ", admin, " for further details.</p>"
-     "<hr><i>mod_ucam_webauth running on ", host, " Port ", port,
-     "</i>\n\n"
+     "administrator of this server ", admin, " for further details.</p>",
+     sig,
+     "\n\n"
      "<!-- This is padding to convince STUPID INTERNET EXPLORER that"
      "     I do know what I'm doing and that this error message"
      "     contains useful information. Without the padding, IE"
      "     will by default 'helpfully' display a useless error page"
-     "     in place of my carefully crafted words. Bah! (Jon)"
+     "     in place of my carefully crafted words. Bah!"
      "--></body></html>", NULL);
 
 }
@@ -1367,88 +1362,92 @@ dump_config(request_rec *r,
 
   char *msg;
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "Config dump:");
+  if (r->server->loglevel >= APLOG_DEBUG) {
+
+    APACHE_LOG_ERROR(APLOG_DEBUG, "Config dump:");
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAuthService     = %s",
+		     (c->auth_service == NULL ? "NULL" : c->auth_service));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutService   = %s",
+		     (c->logout_service == NULL ? "NULL" : c->logout_service));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AADescription     = %s",
+		     (c->description == NULL ? "NULL" : c->description));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAResponseTimeout = %d",
+		     c->response_timeout);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAClockSkew       = %d",
+		     c->clock_skew);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAKeyDir          = %s",
+		     (c->key_dir == NULL ? "NULL" : c->key_dir));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAMaxSessionLife  = %d",
+		     c->max_session_life);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAInactiveTimeout = %d",
+		     c->inactive_timeout);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AATimeoutMsg      = %s",
+		     (c->timeout_msg == NULL ? "NULL" : c->timeout_msg));
+    
+    switch(c->cache_control) {
+    case CC_OFF:
+      msg = "off";
+      break;
+    case CC_ON:
+      msg = "on";
+      break;
+    case CC_PARANOID:
+      msg = "paranoid";
+      break;
+    case -1:
+      msg = "UNSET";
+      break;
+    default:
+      msg = "unknown";
+    }
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACacheControl    = %s", msg);
+    
+    if (c->cookie_key == NULL) {
+      APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieKey       = NULL");
+    } else {
+      APACHE_LOG_ERROR(APLOG_DEBUG, 
+	    "  AACookieKey       = %4.4s... (truncated, %d characters total)", 
+		       c->cookie_key, strlen(c->cookie_key));
+    }
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieName      = %s",
+		     (c->cookie_name == NULL ? "NULL" : c->cookie_name));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookiePath      = %s",
+		     (c->cookie_path == NULL ? "NULL" : c->cookie_path));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieDomain    = %s",
+		     (c->cookie_domain == NULL ? "NULL" : c->cookie_domain));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAForceInteract   = %d",
+		     c->force_interact);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAFail            = %d",
+		     c->fail);
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
+		     (c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg     = %s",
+		     (c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
+		     (c->logout_msg == NULL ? "NULL" : c->logout_msg));
+    
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
+		     c->always_decode);
   
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAuthService     = %s",
-     (c->auth_service == NULL ? "NULL" : c->auth_service));
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutService   = %s",
-     (c->logout_service == NULL ? "NULL" : c->logout_service));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AADescription     = %s",
-     (c->description == NULL ? "NULL" : c->description));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAResponseTimeout = %d",
-     c->response_timeout);
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAClockSkew       = %d",
-     c->clock_skew);
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAKeyDir          = %s",
-     (c->key_dir == NULL ? "NULL" : c->key_dir));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAMaxSessionLife  = %d",
-     c->max_session_life);
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAInactiveTimeout = %d",
-     c->inactive_timeout);
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AATimeoutMsg      = %s",
-     (c->timeout_msg == NULL ? "NULL" : c->timeout_msg));
- 
-  switch(c->cache_control) {
-  case CC_OFF:
-    msg = "off";
-    break;
-  case CC_ON:
-    msg = "on";
-    break;
-  case CC_PARANOID:
-    msg = "paranoid";
-    break;
-  case -1:
-    msg = "UNSET";
-    break;
-  default:
-    msg = "unknown";
   }
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACacheControl    = %s", msg);
 
-  if (c->cookie_key == NULL) {
-    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieKey       = NULL");
-  } else {
-    APACHE_LOG_ERROR(APLOG_DEBUG, 
-       "  AACookieKey       = %4.4s... (truncated, %d characters total)", 
-       c->cookie_key, strlen(c->cookie_key));
-  }
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieName      = %s",
-     (c->cookie_name == NULL ? "NULL" : c->cookie_name));
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookiePath      = %s",
-     (c->cookie_path == NULL ? "NULL" : c->cookie_path));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieDomain    = %s",
-     (c->cookie_domain == NULL ? "NULL" : c->cookie_domain));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAForceInteract   = %d",
-     c->force_interact);
-      
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAFail            = %d",
-     c->fail);
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
-     (c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg     = %s",
-     (c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
-     (c->logout_msg == NULL ? "NULL" : c->logout_msg));
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
-     c->always_decode);
-  
 }
 
 /* --- */
@@ -1609,7 +1608,7 @@ decode_cookie(request_rec *r,
     return DECLINED;
   }
   
-  APACHE_LOG_ERROR(APLOG_INFO, "Found existing authentication cookie");
+  APACHE_LOG_ERROR(APLOG_INFO, "Found authentication cookie");
   APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", cookie_str);
   
   cookie = make_cookie_table(r,  cookie_str);
@@ -1623,11 +1622,11 @@ decode_cookie(request_rec *r,
   
   if (cookie_verify == 0) {
     APACHE_LOG_ERROR(APLOG_ERR,
-		     "Session cookie invalid or session key has changed");
+		     "Cookie invalid or session key has changed");
     return DECLINED;
   }
 
-  APACHE_LOG_ERROR(APLOG_INFO, "Session cookie signature valid");
+  APACHE_LOG_ERROR(APLOG_INFO, "Cookie signature valid");
       
   /* check cookie status */
 
@@ -1785,17 +1784,19 @@ decode_cookie(request_rec *r,
 
 /* --- */
 
+/* Extract the WLS-Response CGI parameter (if there is one), unwrap it
+   and check that the URL parameter is at least sane */
+
 static int
 decode_response(request_rec *r, 
-		mod_ucam_webauth_cfg *c)
-     
+		mod_ucam_webauth_cfg *c,
+		apr_table_t **response)
+
 {
 
-  char *cookie_str, *new_cookie_str, *token_str, *msg, *status;
+  char *token_str;
   const char *this_url, *response_url;
-  int life, response_ticket_life, sig_verify_result;
-  apr_table_t *cookie, *response_ticket;
-  apr_time_t issue, now;
+  apr_table_t *response_ticket;
 
   /* See if we had a WLS-Response CGI parameter installed in our notes
      table by post_read_request. If we are a sub-request (r->main !=
@@ -1803,224 +1804,241 @@ decode_response(request_rec *r,
 
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
-  if (token_str != NULL) {
-    APACHE_LOG_ERROR(APLOG_INFO, "Found WLS token");
-    APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
+  if (token_str == NULL)
+    return DECLINED;
 
-    /* Check that cookie exists because it should have been created
-       previously and if it's not there we'll probably end up in a
-       redirect loop */
+  APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
 
-    APACHE_LOG_ERROR(APLOG_INFO, "Searching for cookie %s", c->cookie_name);
-
-    cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
-    if (cookie_str == NULL) {
-      APACHE_LOG_ERROR(APLOG_WARNING, "Browser not accepting session cookie");
-      if (c->no_cookie_msg != NULL) {
-	ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_msg);
-      } else {
-	ap_custom_response(r, HTTP_BAD_REQUEST, no_cookie(r, c));
-      }
-      return HTTP_BAD_REQUEST;
-    }
-
-    /* unwrap WLS token */
+  /* unwrap WLS token */
     
-    ap_unescape_url(token_str);
-    response_ticket = unwrap_wls_token(r, token_str);
+  ap_unescape_url(token_str);
+  response_ticket = unwrap_wls_token(r, token_str);
     
-    /* check that the URL in the token is plausible - note that if we
-       are in a sub-request it's the URL from the coresponding main
-       request that we need */  
+  /* check that the URL in the token is plausible - note that if we
+     are in a sub-request it's the URL from the coresponding main
+     request that we need */  
+  
+  this_url = get_url(r->main ? r->main : r);
+  this_url = ap_getword(r->pool, &this_url, '?');
+  response_url = apr_table_get(response_ticket, "url");
+  response_url = ap_getword(r->pool, &response_url, '?');
 
-    this_url = get_url(r->main ? r->main : r);
-    this_url = ap_getword(r->pool, &this_url, '?');
-    response_url = apr_table_get(response_ticket, "url");
-    response_url = ap_getword(r->pool, &response_url, '?');
-
-    if (strcmp(response_url, this_url) != 0) {
-      APACHE_LOG_ERROR
-	(APLOG_ERR, "URL in response_token doesn't match this URL - %s != %s",
-	 response_url, this_url);
-      return HTTP_BAD_REQUEST;
-    }
-
-    /* from now on we can (probably) safely redirect to the URL in the 
-       token so that we get 'clean' error messages */                
- 
-    msg = "";
-    status = "200";
-
-    /* do all the validations  - protocol version first */    
-    
-    if (strcmp((char *)apr_table_get(response_ticket, "ver"), 
-	       PROTOCOL_VERSION) != 0) {
-      msg = apr_psprintf
-	(r->pool,"wrong protocol version (%s) in authentication service reply",
-	 (char *)apr_table_get(response_ticket, "ver"));
-      status = "600";
-      goto FINISHED;
-    }
-
-    /* status */
-    
-    if (strcmp(apr_table_get(response_ticket, "status"), 
-	       "200") != 0) {
-      msg = error_message(atoi(apr_table_get(response_ticket, "status")));
-      if (apr_table_get(response_ticket, "msg") != NULL) {
-	msg = apr_pstrcat(r->pool, msg, 
-			     apr_table_get(response_ticket, "msg"), NULL);
-      }
-      status = (char*)apr_table_get(response_ticket, "status");
-      goto FINISHED;
-    }
-    
-    /* issue time */
-
-    now = apr_time_now();
-    issue = 
-      iso2_time_decode(r, (char *)apr_table_get(response_ticket, "issue"));
-
-    if (issue < 0) {
-      msg = apr_psprintf
-	(r->pool,"can't to parse issue time (%s) in auth service reply",
-	 (char *)apr_table_get(response_ticket, "issue"));
-      status = "600";
-      goto FINISHED;
-    }
-    
-    if (issue > now + apr_time_from_sec(c->clock_skew) + 1) {
-      msg = apr_psprintf
-	(r->pool,"Authentication response issued in the future "
-	 "(local clock incorrect?); issue time %s",
-	 (char *)apr_table_get(response_ticket, "issue"));
-      status = "600";
-      goto FINISHED;
-    }
-    
-    if (now - apr_time_from_sec(c->clock_skew) - 1 > 
-	issue + apr_time_from_sec(c->response_timeout)) {
-      msg = apr_psprintf
-	(r->pool,"Authentication response issued too long ago "
-	 "(local clock incorrect?); issue time %s",
-	 (char *)apr_table_get(response_ticket, "issue"));
-      status = "600";
-      goto FINISHED;
-    }
-
-    /* first-hand authentication if ForceInteract */
-    
-    if (c->force_interact == 1 && 
-	apr_table_get(response_ticket, "auth") == "") {
-      msg = "Non first-hand authentication under ForceInteract";
-      status = "600";
-      goto FINISHED;
-    }
-
-    /* signature valid */
-
-    sig_verify_result = 
-      RSA_sig_verify(r, 
-		     wls_response_check_sig_string(r, response_ticket),
-		     (char *)apr_table_get(response_ticket, "sig"), 
-		     c->key_dir,
-		     (char *)apr_table_get(response_ticket, "kid"));
-
-    if (sig_verify_result == 2) {
-      APACHE_LOG_ERROR(APLOG_CRIT, "Error opening public key file");
-      return HTTP_INTERNAL_SERVER_ERROR;
-    } else if (sig_verify_result == 3) {
-      APACHE_LOG_ERROR(APLOG_CRIT, "Error reading public key file");
-      return HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    if (sig_verify_result == 0) {
-      msg = "missing or invalid signature in authentication service reply";
-      status = "600";
-      goto FINISHED;
-    } else if (sig_verify_result != 1) {
-      msg = "Signature verification error on authentication reply";
-      status = "600";
-      goto FINISHED;
-    }
-
-    /* seems OK */
-
-  FINISHED:
-
-    /* calculate session expiry */
-
-    life = c->max_session_life;
-    response_ticket_life = atoi(apr_table_get(response_ticket, "life"));
-    if (apr_table_get(response_ticket, "life") != NULL && 
-	response_ticket_life < life)
-      life = response_ticket_life;
-
-    APACHE_LOG_ERROR(APLOG_DEBUG, "life = %d", life);
-    
-    if (status == "200" && life <= 0) {
-      msg = "Requested session expiry time less that one second";
-      status = "600";
-    }
-
-    /* log the outcome */
-    
-    if (status == "200") {
-      APACHE_LOG_ERROR
-	(APLOG_INFO, "Successfully validated WLS token ID %s, principal %s", 
-	 apr_table_get(response_ticket, "id"),
-	 apr_table_get(response_ticket, "principal"));
-    } else {
-      APACHE_LOG_ERROR
-	(APLOG_ERR, "Failed to validate WLS token ID %s: %s: %s", 
-	 apr_table_get(response_ticket, "id"), status, msg);
-    }
-
-    /* set new session ticket (cookie) */
-    
-    cookie = (apr_table_t *)apr_table_make(r->pool, 11);
-    
-    apr_table_set(cookie, "ver", 
-		  apr_table_get(response_ticket, "ver"));
-    apr_table_set(cookie, "status", 
-		  status);
-    apr_table_set(cookie, "msg", 
-		  msg);
-    apr_table_set(cookie, "issue", 
-		  iso2_time_encode(r, apr_time_now())); 
-    apr_table_set(cookie, "last",  
-		  iso2_time_encode(r, apr_time_now()));
-    apr_table_set(cookie, "life", 
-		  apr_psprintf(r->pool,"%d",life));
-    apr_table_set(cookie, "id", 
-		  apr_table_get(response_ticket, "id"));
-    apr_table_set(cookie, "principal", 
-		  apr_table_get(response_ticket, "principal"));
-    apr_table_set(cookie, "auth", 
-		  apr_table_get(response_ticket, "auth"));
-    apr_table_set(cookie, "sso", 
-		  apr_table_get(response_ticket, "sso"));
-    apr_table_set(cookie, "params", 
-		  apr_table_get(response_ticket, "params"));
-    
-    new_cookie_str = make_cookie_str(r, c, cookie);
-    APACHE_LOG_ERROR(APLOG_DEBUG, "session ticket = %s", new_cookie_str);
-    set_cookie(r, new_cookie_str, c);  
-    
-    /* redirect */
-    
-    APACHE_LOG_ERROR(APLOG_INFO, "Issuing redirect to original URL");
-    
-    apr_table_set(r->headers_out, 
-		  "Location", 
-		  apr_table_get(response_ticket, "url"));
-    
-    return (r->method_number == M_GET) ? 
-      HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
-    
+  if (strcmp(response_url, this_url) != 0) {
+    APACHE_LOG_ERROR
+      (APLOG_ERR, "URL in response_token doesn't match this URL - %s != %s",
+       response_url, this_url);
+    return HTTP_BAD_REQUEST;
   }
 
-  return DECLINED;
+  *response = response_ticket;
+  return OK;
+
+}
+
+/* --- */
+
+static int
+validate_response(request_rec *r, 
+		  mod_ucam_webauth_cfg *c,
+		  apr_table_t *response_ticket)
+
+{
+
+  char *cookie_str, *new_cookie_str, *msg, *status, *url;
+  int life, response_ticket_life, sig_verify_result;
+  apr_table_t *cookie;
+  apr_time_t issue, now;
+
+  /* Check that cookie exists because it should have been created
+     previously and if it's not there we'll probably end up in a
+     redirect loop */
+  
+  APACHE_LOG_ERROR(APLOG_DEBUG, "Searching for cookie %s", c->cookie_name);
+  
+  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
+  if (cookie_str == NULL) {
+    APACHE_LOG_ERROR(APLOG_WARNING, "Browser not accepting session cookie");
+    if (c->no_cookie_msg != NULL) {
+      ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_msg);
+    } else {
+      ap_custom_response(r, HTTP_BAD_REQUEST, no_cookie(r, c));
+    }
+    return HTTP_BAD_REQUEST;
+  }
+
+  msg = "";
+  status = "200";
+  
+  /* do all the validations  - protocol version first */
+    
+  APACHE_LOG_ERROR(APLOG_DEBUG, "validating version");
+  if (response_ticket == NULL)
+    APACHE_LOG_ERROR(APLOG_DEBUG, "response_ticket is NULL");
+  if (strcmp((char *)apr_table_get(response_ticket, "ver"), 
+	     PROTOCOL_VERSION) != 0) {
+    msg = apr_psprintf
+      (r->pool,"wrong protocol version (%s) in authentication service reply",
+       (char *)apr_table_get(response_ticket, "ver"));
+    status = "600";
+    goto FINISHED;
+  }
+  APACHE_LOG_ERROR(APLOG_DEBUG, "validated version");
+  
+  /* status */
+  
+  if (strcmp(apr_table_get(response_ticket, "status"), 
+	     "200") != 0) {
+    msg = error_message(atoi(apr_table_get(response_ticket, "status")));
+    if (apr_table_get(response_ticket, "msg") != NULL) {
+      msg = apr_pstrcat(r->pool, msg, 
+			apr_table_get(response_ticket, "msg"), NULL);
+    }
+    status = (char*)apr_table_get(response_ticket, "status");
+    goto FINISHED;
+  }
+  
+  /* issue time */
+  
+  now = apr_time_now();
+  issue = 
+    iso2_time_decode(r, (char *)apr_table_get(response_ticket, "issue"));
+  
+  if (issue < 0) {
+    msg = apr_psprintf
+      (r->pool,"can't to parse issue time (%s) in auth service reply",
+       (char *)apr_table_get(response_ticket, "issue"));
+    status = "600";
+    goto FINISHED;
+  }
+  
+  if (issue > now + apr_time_from_sec(c->clock_skew) + 1) {
+    msg = apr_psprintf
+      (r->pool,"Authentication response issued in the future "
+       "(local clock incorrect?); issue time %s",
+       (char *)apr_table_get(response_ticket, "issue"));
+    status = "600";
+    goto FINISHED;
+  }
+  
+  if (now - apr_time_from_sec(c->clock_skew) - 1 > 
+      issue + apr_time_from_sec(c->response_timeout)) {
+    msg = apr_psprintf
+      (r->pool,"Authentication response issued too long ago "
+       "(local clock incorrect?); issue time %s",
+       (char *)apr_table_get(response_ticket, "issue"));
+    status = "600";
+    goto FINISHED;
+  }
+  
+  /* first-hand authentication if ForceInteract */
+  
+  if (c->force_interact == 1 && 
+      apr_table_get(response_ticket, "auth") == "") {
+    msg = "Non first-hand authentication under ForceInteract";
+    status = "600";
+    goto FINISHED;
+  }
+  
+  /* signature valid */
+  
+  sig_verify_result = 
+    RSA_sig_verify(r, 
+		   wls_response_check_sig_string(r, response_ticket),
+		   (char *)apr_table_get(response_ticket, "sig"), 
+		   c->key_dir,
+		   (char *)apr_table_get(response_ticket, "kid"));
+  
+  if (sig_verify_result == 2) {
+    APACHE_LOG_ERROR(APLOG_CRIT, "Error opening public key file");
+    return HTTP_INTERNAL_SERVER_ERROR;
+  } else if (sig_verify_result == 3) {
+    APACHE_LOG_ERROR(APLOG_CRIT, "Error reading public key file");
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+  
+  if (sig_verify_result == 0) {
+    msg = "missing or invalid signature in authentication service reply";
+    status = "600";
+    goto FINISHED;
+  } else if (sig_verify_result != 1) {
+    msg = "Signature verification error on authentication reply";
+    status = "600";
+    goto FINISHED;
+  }
+
+  /* seems OK */
+  
+ FINISHED:
+
+  /* calculate session expiry */
+  
+  life = c->max_session_life;
+  response_ticket_life = atoi(apr_table_get(response_ticket, "life"));
+  if (response_ticket_life > 0 && response_ticket_life < life)
+    life = response_ticket_life;
+  
+  APACHE_LOG_ERROR(APLOG_DEBUG, "life = %d", life);
+  
+  if (status == "200" && life <= 0) {
+    msg = "Requested session expiry time less that one second";
+    status = "600";
+  }
+  
+  /* log the outcome */
+  
+  if (status == "200") {
+    APACHE_LOG_ERROR
+      (APLOG_INFO, "Successfully validated WLS token ID %s, principal %s", 
+       apr_table_get(response_ticket, "id"),
+       apr_table_get(response_ticket, "principal"));
+  } else {
+    APACHE_LOG_ERROR
+      (APLOG_ERR, "Failed to validate WLS token ID %s: %s: %s", 
+       apr_table_get(response_ticket, "id"), status, msg);
+  }
+  
+  /* set new session ticket (cookie) */
+  
+  cookie = (apr_table_t *)apr_table_make(r->pool, 11);
+  
+  apr_table_set(cookie, "ver", 
+		apr_table_get(response_ticket, "ver"));
+  apr_table_set(cookie, "status", 
+		status);
+  apr_table_set(cookie, "msg", 
+		msg);
+  apr_table_set(cookie, "issue", 
+		iso2_time_encode(r, apr_time_now())); 
+  apr_table_set(cookie, "last",  
+		iso2_time_encode(r, apr_time_now()));
+  apr_table_set(cookie, "life", 
+		apr_psprintf(r->pool,"%d",life));
+  apr_table_set(cookie, "id", 
+		apr_table_get(response_ticket, "id"));
+  apr_table_set(cookie, "principal", 
+		apr_table_get(response_ticket, "principal"));
+  apr_table_set(cookie, "auth", 
+		apr_table_get(response_ticket, "auth"));
+  apr_table_set(cookie, "sso", 
+		apr_table_get(response_ticket, "sso"));
+  apr_table_set(cookie, "params", 
+		apr_table_get(response_ticket, "params"));
+  
+  new_cookie_str = make_cookie_str(r, c, cookie);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "session ticket = %s", new_cookie_str);
+  set_cookie(r, new_cookie_str, c);  
+  
+  /* redirect */
+  
+  url = (char *)apr_table_get(response_ticket, "url"); 
+  APACHE_LOG_ERROR(APLOG_INFO, "Issuing redirect to original URL %s",url);
+  
+  apr_table_set(r->headers_out, 
+		"Location", 
+		url);
+  
+  return (r->method_number == M_GET) ? 
+    HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
 }
 
@@ -2082,7 +2100,8 @@ construct_request(request_rec *r,
   apr_table_set(r->headers_out, "Location", request);
   set_cookie(r, TESTSTRING, c);
   
-  APACHE_LOG_ERROR(APLOG_INFO, "Redirecting to login server");
+  APACHE_LOG_ERROR(APLOG_INFO, "Redirecting to login server at %s",
+		   c->auth_service);
   
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
@@ -2137,12 +2156,7 @@ webauth_post_read_request(request_rec *r)
      the _original_ args for future reference */ 
 
   APACHE_LOG_ERROR
-    (APLOG_INFO, "** mod_ucam_webauth (%s) post read handler started for %s", 
-     VERSION, r->uri);
-
-  if (r->args) {
-    APACHE_LOG_ERROR(APLOG_DEBUG,"args -> %s ", r->args);
-  }
+    (APLOG_DEBUG, "post_read_request: for %s, args %s", r->uri, r->args);
 
   apr_table_set(r->notes, "AA_orig_args", r->args); 
 
@@ -2218,6 +2232,7 @@ webauth_authn(request_rec *r)
 {
   
   mod_ucam_webauth_cfg *c;
+  apr_table_t *response;
   int rc;
 
   /* Do anything? */
@@ -2245,23 +2260,49 @@ webauth_authn(request_rec *r)
   
   cache_control(r,c->cache_control);
 
-  /* FIRST: see if we successfully decoded a session cookie in the
-     header parser */
-
-  APACHE_LOG_ERROR(APLOG_INFO, "Stage 1...");
-
-  /* if r->main != NULL then this is a sub-request, and if it's a
-     sub-request the the header parser hasn't been run ('cos they
-     aren't in subrequests) so we don't have any cookie decoded. So we
-     decode it here */
+  /* decode the cookie if we haven't already: if r->main != NULL then
+     this is a sub-request, and if it's a sub-request the the header
+     parser hasn't been run ('cos they aren't in subrequests) so we
+     don't have any cookie decoded. So we decode it here */
 
   if (r->main != NULL) {
-    APACHE_LOG_ERROR(APLOG_DEBUG, "manually running decode_cookie");
+    APACHE_LOG_ERROR(APLOG_INFO, "Manually running decode_cookie");
     rc = decode_cookie(r,c);
     if (rc != DECLINED)
       return rc;
   }
+
+  /* main processing */
+
+  /* look to see if we have a WLS Response in the URL and if so
+     extract it. If that worked but we also found a cookie then just
+     redirect to the URL from the response to clear the browser's
+     location bar */
+
+  rc = decode_response(r, c, &response);
+  if (rc != OK && rc != DECLINED) 
+    return rc;
+
+  if (rc == OK) {
+    APACHE_LOG_ERROR(APLOG_INFO, "Found a WLS response");
+    if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
+      APACHE_LOG_ERROR
+	(APLOG_INFO, "Alredy authenticated - redirecting to reset location");
+      apr_table_set(r->headers_out, 
+		    "Location", 
+		    apr_table_get(response, "url"));
+      return (r->method_number == M_GET) ? 
+	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
+    }
+    APACHE_LOG_ERROR(APLOG_INFO, "Validating response");
+    rc = validate_response(r, c, response);
+    if (rc != DECLINED)
+      return rc;
+  }
   
+  /* having got this far we can return if we got an identity from the
+     cookie */
+
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
     APACHE_LOG_ERROR
       (APLOG_INFO, "Successfully authenticated %s accessing %s", 
@@ -2269,26 +2310,14 @@ webauth_authn(request_rec *r)
     return OK;
   }
 
-  /* SECOND: Look to see if we are being invoked as the callback from
-     the WLS. If so, validate the response, check that the session
-     cookie already exists with a test value (because otherwise we
-     probably don't have cookies enabled), set it, and redirect back
-     to the original URL to clear the browser's location bar of the
-     WLS response */
+  /* and if none of that worked then send a request to the WLS. While
+     we are at it then set a test value cookie so we can test that
+     it's still available when we get back. */
   
-  APACHE_LOG_ERROR(APLOG_INFO, "Stage 2...");
-
-  rc = decode_response(r, c);
-  if (rc != DECLINED)
-    return rc;
-
-  /* THIRD: send a request to the WLS. Also set a test value cookie so
-     we can test that it's still available when we get back. */
-  
-  APACHE_LOG_ERROR(APLOG_INFO, "Stage 3..."); 
+  APACHE_LOG_ERROR(APLOG_INFO, "Generating authentication request");
   
   return construct_request(r,c);
-  
+
 }
 
 /* ---------------------------------------------------------------------- */
