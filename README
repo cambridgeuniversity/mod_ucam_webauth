@@ -5,7 +5,7 @@ Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
 Current with version 0.99_1.0.0rc5
-$Id: README,v 1.9 2004-07-09 17:11:14 jw35 Exp $
+$Id: README,v 1.10 2004-07-12 14:22:36 jw35 Exp $
 
 1. Installation
 ===============
@@ -397,18 +397,44 @@ messages. Logging at 'info' or below is _very_ verbose. The default is
 'LogLevel' directive - for example to see 'debug' messages from this
 module it is necessary to set both AALogLevel and LogLevel to 'debug'.
 
+AAAlwaysDecode
+
+If this directive is in force for a particular URL then the module
+will always attempt to decode the session cookie and store the results
+in the environment (see below) even if authentication isn't actively
+required. This could be useful for a site that wanted to make
+information publicly available but to customise the information if the
+user had authenticated, or for a site that wanted to mediate all
+accesses through a single point (such as page.php) but wanted to
+impose its own authorization decisions on who sees what. For example
+
+      AACookieKey <whatever>
+      AAAlwaysDecode On
+      <Location /login/>
+        AuthType WebAuth
+        Require vaid-user
+      </Location>
+
+would allow everyone to see anything outside /login/. Visiting
+/login/login.html would trigger authentication. Content elsewhere in
+the site (foo.cgi, foo.php, etc) can check if the current user is
+logged-in, and if so who they are, by inspecting the REMOTE_USER
+environment variable. The acceptable values for this directive are
+'On' and 'off', the default is 'Off'.
+  
 2.2. Authentication Information
 -------------------------------
 
-Following a successful authentication, Apache's internal view of cur-
-rent user is set to the user involved. As a result this value can be
-logged using the '%u' log format token (which is by default the third
-entry in 'Common Log Format'), and will appear as the value of the
-environment variable REMOTE_USER in the environment of CGI programs.
+Following a successful authentication, Apache's internal view of
+current user is set to the user involved. As a result this value can
+be logged using the '%u' log format token (which is by default the
+third entry in 'Common Log Format'), and will appear as the value of
+the environment variable REMOTE_USER in the environment of CGI
+programs.
  
-In addition, the module provides the following additional environment
-variables to CGI programs. The variables can be logged using the
-'%{...}e' log format token.
+In addition, the module provides the following environment variables
+to CGI programs. If required these variables can also be logged using
+the '%{...}e' log format token.
        
 AAISSUE
 

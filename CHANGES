@@ -1,3 +1,46 @@
+0.99-1.0.0rc6 - 2004-07-12 jw
+
+ Enhancements:
+
+  . New config directive AAAlwaysDecode. If in force for a particular
+    URL then the module will always attempt to decode the session
+    cookie and store the results in the environment even if
+    authentication isn't actively required. This could be
+    useful for a site that wanted to make information publicly
+    available but to customise the information if the user had
+    authenticated, or for a site that wanted to mediate all accesses
+    through a single point (such as page.php) but wanted to impose its
+    own authorization decisions on who sees what. For example
+
+      AACookieKey <whatever>
+      AAAlwaysDecode On
+      <Location /login/>
+        AuthType WebAuth
+        Require vaid-user
+      </Location>
+
+    would allow everyone to see anything outside /login/. Visiting
+    /login/login.html would trigger authentication. Content elsewhere
+    in the site (foo.cgi, foo.php, etc) can check if the current user
+    is logged-in, and if so who they are, by inspecting the
+    REMOTE_USER environment variable.
+
+ Bugs fixed:
+
+  . Fixed a problem that was causing signatures on cookies containing
+    space not to verify properly
+
+  . Added +/- 1 sec in addition to clock_skew when validating
+    response issue to allow for sub-second clock differences that
+    might still take us over a second boundary (suggested by Ben Harris)
+
+  . Fixed compilation problem under Solaris (reported by John Line)
+
+  . Added some cosmetic spaces to Set-Cookie headers
+
+  . Moved most code from main authentication routine into separate
+    routines
+
 0.99-1.0.0rc5 - 2004-07-09 jw
 
  Bugs fixed:
@@ -16,7 +59,7 @@
         AuthType webauth
         ...
 
-    is in efect) we may end up with the browser actually requesting
+    is in effect) we may end up with the browser actually requesting
     the target of the sub-request which is quite likely to fail. This
     problem should now be resolved, though it's possible that the
     resolution will have introduced different problems in other
