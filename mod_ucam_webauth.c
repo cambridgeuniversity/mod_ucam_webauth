@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.38 2004-07-09 17:22:49 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.39 2004-07-11 15:28:02 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc5"
+#define VERSION "0.99_1.0.0rc6"
 
 /*
 MODULE-DEFINITION-START
@@ -198,6 +198,10 @@ module AP_MODULE_DECLARE_DATA ucam_webauth_module;
 /* Utility routines */
 
 /* --- */
+/* return a new string that is 'from' with all url-unsafe characters
+   converted to escapes. Note that Apache's ap_unescape_url doesn't
+   seem to decode '+' into space so we don't use that encoding here
+   either */
 
 static char *
 escape_url(apr_pool_t *p,
@@ -216,10 +220,7 @@ escape_url(apr_pool_t *p,
   ptr = to;
 
   while (*from != '\0') {
-    if (*from == ' ') {
-      *(ptr++) = '+';
-    }
-    else if (strchr(safechars,*from)) {
+    if (strchr(safechars,*from)) {
       *(ptr++) = *from; 
     }
     else {
