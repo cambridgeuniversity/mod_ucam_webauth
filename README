@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.0.6
-$Id: README,v 1.18 2004-10-18 11:32:44 jw35 Exp $
+Current with version 1.0.7
+$Id: README,v 1.19 2004-12-07 17:54:45 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -400,8 +400,10 @@ AACookieName
   Override: AuthConfig
   Module:   mod_ucam_webauth
 
-  The name used for the session cookie. When used for access to
-  resources over https the string '-S' is appended to this name.
+  The name used for the session cookie. For servers running on
+  non-default ports the string '-<port>' is appended to this name, and
+  when used for access to resources over https the string '-S' is also
+  appended..
 
 AACookiePath
 

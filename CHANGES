@@ -1,3 +1,32 @@
+1.0.7 - 2004-12-07 jw
+
+ Enhancements
+
+ . On the internal default 401 error page, don't display the value of
+   ServerAdmin if this is the unhelpful Apache default of "[no address
+   given]". General re-wording of this page in an attempt to make its
+   meaning easier to understand.
+
+ . For servers running on non-default ports, the port number is added
+   to the name of the cookie. While this doesn't provide any
+   additional security between multiple port-based servers, it does
+   reduce the likelihood of cookies from separate configurations
+   interfering with each other.
+
+ . The implementation of AAAlwaysDecode was unnecessarily
+   complicated, and could still lead to problems (with Apache
+   sub-requests in particular). A simpler implementation (decoding the
+   cookie in the Apache 'fixup' handler when necessary) has been
+   implemented.
+
+ Bugs fixed
+
+ . Under some circumstances, the presence of this module would cause
+   mod_perl's test suite to fail. This seems to be because the test
+   suite enumerates the Apache notes table and mod_perl aborts if it
+   finds a null pointer in the table. Such a null pointer used to
+   appear if the current request isn't have a query string.
+
 1.0.6 - 2004-10-18 jw
 
  Bugs fixed
@@ -9,7 +38,7 @@
 
  Bugs fixed
 
- . A bug in fix for Host: and hostname not matching in 1.0.4 caused a
+ . A bug in fix for Host: and host name not matching in 1.0.4 caused a
    redirect loop when used by servers that were not running on the
    default port (80 for http, 443 for https). Now fixed. 
 
@@ -28,13 +57,13 @@
 
  . Added README.WIN32
 
- . Added a redirect if the hostname the user specified (as indicated
+ . Added a redirect if the host name the user specified (as indicated
    by the 'Host' header) doesn't match the server's configured
    name. Without this there is all sorts of scope for confusion with
    cookies being set under one domain and then tested for in another
    (e.g user requests http://www/, by the time he's been bounced via
    the WLS he'll be accessing http://www.example.com/. While these
-   URLs may be identical as far as the user's browsere is concerned,
+   URLs may be identical as far as the user's browser is concerned,
    the test cookie will have been set with domain www and therefore
    won't be found) (todo#29)
 
@@ -169,7 +198,7 @@
     available but to customise the information if the user had
     authenticated, or for a site that wanted to mediate all accesses
     through a single point (such as page.php) but wanted to impose its
-    own authorization decisions on who sees what. For example
+    own authorisation decisions on who sees what. For example
 
       AACookieKey <whatever>
       AAAlwaysDecode On
