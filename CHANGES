@@ -1,3 +1,20 @@
+1.0.1 - 2004-09-10 jw
+
+ Enhancements
+
+  . AACancelMsg and friends now accept 'none' (case insensitive) as a
+    request to revert to their default, built-in messages.
+
+  . The built-in descriptions of the values expected by the various
+    configuration directives, as used in some error messages, have
+    been improved.
+
+ Bugs fixed
+
+  . Fixed an error that caused the module to emit bogus warning
+    messages of the form "Failed to validate WLS response ID
+    1234567890-12345-1: 200:" (where "200" represents "no error"!).
+
 1.0.0 - 2004-08-24 jw
 
  What the heck, lets call this 1.0.0!

@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.0.0
-$Id: README,v 1.13 2004-08-26 14:15:42 jw35 Exp $
+Current with version 1.0.1
+$Id: README,v 1.14 2004-09-10 14:14:38 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -73,7 +73,7 @@ to the WLS is triggered by an HTTP POST request then any parameters
 submitted along with the POST request will be lost. This is
 particularly annoying if you e.g. submit a carefully constructed
 message to a bulletin board only to discover that your session cookie
-has expired while you were composing the message. A warning mesage is
+has expired while you were composing the message. A warning message is
 logged to the error log if a redirect is required when responding to a
 POST request.
 
@@ -85,7 +85,7 @@ POST request.
 
 Using the module obviously requires a copy of Apache. The module only
 provides an authentication service and so something to make
-authorization decisions (such as the authorization component of the
+authorisation decisions (such as the authorisation component of the
 standard mod_auth module) must also be available to Apache.
 
 Using the module also requires a copy of the OpenSSL library. Building
@@ -337,7 +337,7 @@ AAInactiveTimeout
 
 AATimeoutMsg
 
-  Syntax:   AATimeoutMsg <text>
+  Syntax:   AATimeoutMsg <text|'none'>
   Default:  AATimeoutMsg "your session on the site has expired"
   Context:  all
   Override: AuthConfig
@@ -346,7 +346,8 @@ AATimeoutMsg
   A re-authentication by the WLS will be triggered when a session
   expires. This option sets a text string which is sent to the WLS to
   explain to the user why they are being asked to authenticate
-  again. HTML markup is suppressed as for AADescription above.
+  again. HTML markup is suppressed as for AADescription above. Setting
+  a value of 'none' (case insensitive) will restore the default action.
 
 AACacheControl
 
@@ -475,43 +476,44 @@ AAFail
 
 AACancelMsg
 
-  Syntax:   AACancelMsg <document>
+  Syntax:   AACancelMsg <document|'none'>
   Context:  all
   Override: AuthConfig
   Module:   mod_ucam_webauth
 
   If set, this identifies the message that will be displayed on the
   user's browser if the user cancelled the authentication (assuming
-  that AAAFail is not set). If unset, a standard message will be
-  displayed. <document> can be a text message (enclosed in quotes), or
-  a partial or full URL. See the Custom Error Pages section below.
+  that AAAFail is not set). If unset or 'none' (case insensitive), a
+  standard message will be displayed. <document> can be a text message
+  (enclosed in quotes), or a partial or full URL. See the Custom Error
+  Pages section below.
 
 AANoCookieMsg
 
-  Syntax:   AANoCookieMsg <document>
+  Syntax:   AANoCookieMsg <document|'none'>
   Context:  all
   Override: AuthConfig
   Module:   mod_ucam_webauth
 
   If set, this identifies the message that will be displayed on the
   user's browser if the browser does not appear to be accepting the
-  session cookie (without which this module won't work). If unset, a
-  standard message will be displayed. <document> can be a text message
-  (enclosed in quotes), or a partial or full URL. See the Custom Error
-  Pages section.
+  session cookie (without which this module won't work). If unset or
+  'none' (case insensitive), a standard message will be
+  displayed. <document> can be a text message (enclosed in quotes), or
+  a partial or full URL. See the Custom Error Pages section.
 
 AALogoutMsg
 
-  Syntax:   AALogoutMsg <document>
+  Syntax:   AALogoutMsg <document|'none'>
   Context:  all
   Override: AuthConfig
   Module:   mod_ucam_webauth
 
   If set, this identifies the message that will be displayed on the
-  user's browser when they access a logout page. If unset, a standard
-  message will be displayed. <document> can be a text message
-  (enclosed in quotes), or a partial or full URL. See the Logout page
-  section below.
+  user's browser when they access a logout page. If unset or 'none'
+  (case insensitive), a standard message will be displayed. <document>
+  can be a text message (enclosed in quotes), or a partial or full
+  URL. See the Logout page section below.
 
 AAAlwaysDecode
 
@@ -529,14 +531,14 @@ AAAlwaysDecode
   provide customisation if the user is already identified (presumably
   as a result of accessing something else), or for a site that wanted
   to mediate all accesses through a single point (such as page.php)
-  but wanted to impose its own authorization decisions on who sees
+  but wanted to impose its own authorisation decisions on who sees
   what. For example
 
     AACookieKey <whatever>
     AAAlwaysDecode On
     <Location /login.html>
       AuthType WebAuth
-      Require vaid-user
+      Require valid-user
     </Location>
 
   would allow everyone to see anything other than login.html. Visiting
@@ -748,7 +750,7 @@ Authentication error, status = %s, %s
   540: Interaction with the user would be required
 
     The request to the WLS required that authentication should take
-    place wit hno interaction with the user, but this was not
+    place with no interaction with the user, but this was not
     possible. This should not be able to happen with mod_ucam_webauth.
 
   560: Web server not authorised to use the authentication service
@@ -900,7 +902,7 @@ URL in  WLS response doesn't match this URL - %s != %s
 Redirect required on a POST request - POSTed data will be lost
 
   (W) A redirect to the WLS was required (either for initial
-  authentication or becasue authentication had expired) when servicing
+  authentication or because authentication had expired) when servicing
   a POST request. Because of the way that mod_ucam_webauth is
   implemented any parameters submitted along with the POST request
   will be lost.
