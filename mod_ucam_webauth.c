@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.29 2004-06-22 15:48:32 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.30 2004-06-23 07:08:07 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0_pre1"
+#define VERSION "0.99_1.0.0_pre2"
 
 /*
 MODULE-DEFINITION-START
@@ -135,7 +135,7 @@ typedef struct {
 #define APACHE_LOG_ERROR(level, ...) \
   if (level <= ((mod_ucam_webauth_cfg *) \
     ap_get_module_config(r->per_dir_config,&ucam_webauth_module))->log_level)\
-  ap_log_rerror(APLOG_MARK, 0, level | APLOG_NOERRNO, r, __VA_ARGS__)
+  ap_log_rerror(APLOG_MARK, level, 0, r, __VA_ARGS__)
 #endif
 
 /* ---------------------------------------------------------------------- */
@@ -177,6 +177,7 @@ typedef struct {
 #define apr_table_make ap_make_table
 #define apr_table_set ap_table_set
 #define apr_table_unset ap_table_unset
+#define apr_time_sec(sec) sec
 #define apr_time_from_sec(sec) sec
 #define apr_uri_parse ap_parse_uri_components
 #define apr_uri_unparse ap_unparse_uri_components
@@ -191,8 +192,6 @@ typedef struct {
   {name, func, data, override, TAKE1, errmsg}
 #define AP_INIT_FLAG(name, func, data, override, errmsg) \
   {name, func, data, override, FLAG, errmsg}
-#define AP_INIT_RAW_ARGS(name, func, data, override, errmsg) \
-  {name, func, data, override, RAW_ARGS, errmsg}
 
 #endif
 
@@ -898,8 +897,13 @@ get_url(request_rec *r)
      component with what we know we are really called
   */
 
+#ifdef APACHE1_3
   if (apr_uri_parse(r->pool, url, &uri) != HTTP_OK)
     APACHE_LOG_ERROR(APLOG_CRIT, "Failed to parse own URL");
+#else
+  if (apr_uri_parse(r->pool, url, &uri))
+    APACHE_LOG_ERROR(APLOG_CRIT, "Failed to parse own URL");
+#endif
   uri.hostname = r->server->server_hostname;
   result = apr_uri_unparse(r->pool, &uri, (unsigned)0);
 
@@ -1305,7 +1309,7 @@ dump_config(request_rec *r,
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
      (c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
   
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMessage     = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMessage = %s",
      (c->no_cookie_message == NULL ? "NULL" : c->no_cookie_message));
   
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
@@ -1350,23 +1354,6 @@ dump_config(request_rec *r,
 
 /* Note that most string and flag parameters are processed by the generic
    ap_set_string_slot and ap_set flag_slot routines */
-
-/* --- */
-
-static const char * 
-set_raw_slot(cmd_parms *cmd,
-	     void *struct_ptr, 
-	     const char *arg)
-{
-  
-  char *text = apr_pstrdup(cmd->pool,arg);
-  int offset = (int) (long) cmd->info;
-  *(char **) (struct_ptr + offset) = text;
-  return NULL;
-  
-}
-
-/* --- */
 
 static const char *
 set_response_timeout(cmd_parms *cmd, 
@@ -1734,12 +1721,12 @@ webauth_authn(request_rec *r)
 			 "Session cookie has last used date in the future");
 	set_cookie(r, NULL, c);
 	return HTTP_BAD_REQUEST;
-      } else if (now >= issue + life) {
+      } else if (now >= issue + apr_time_from_sec(life)) {
 	APACHE_LOG_ERROR(APLOG_NOTICE, 
 			 "Session cookie has expired");
 	timeout_msg = c->timeout_msg;
       } else if (c->inactive_timeout && 
-		 now >= last + c->inactive_timeout + 60) {
+		 now >= last + apr_time_from_sec(c->inactive_timeout + 60)) {
 	APACHE_LOG_ERROR(APLOG_NOTICE, 
 			 "Session cookie has expired due to inactivity");
 	timeout_msg = c->timeout_msg;
@@ -1753,7 +1740,7 @@ webauth_authn(request_rec *r)
 	   Set-Cookie: headers are not allowed (and are not sent) in
 	   this case. Such is life */
 
-	if (c->inactive_timeout && now - last > 60) {
+	if (c->inactive_timeout && apr_time_sec(now - last) > 60) {
 	  apr_table_set(old_cookie,"last",iso2_time_encode(r, now));
 	  new_cookie_str = make_cookie_str(r, c, old_cookie);
 	  set_cookie(r, new_cookie_str, c);
@@ -2196,12 +2183,12 @@ static const command_rec webauth_commands[] = {
 		RSRC_CONF | OR_AUTHCFG,
 		"Authentication server logout service URL"),
   
-  AP_INIT_RAW_ARGS("AADescription", 
-		   set_raw_slot,
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,description), 
-		   RSRC_CONF | OR_AUTHCFG,
-		   "Description of the protected resource"),
+  AP_INIT_TAKE1("AADescription", 
+		ap_set_string_slot,
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,description), 
+		RSRC_CONF | OR_AUTHCFG,
+		"Description of the protected resource"),
   
   AP_INIT_TAKE1("AAResponseTimeout", 
 		set_response_timeout, 
@@ -2237,13 +2224,13 @@ static const command_rec webauth_commands[] = {
 		RSRC_CONF | OR_AUTHCFG,
 		"Session inactivity timeout, in seconds"),
   
-  AP_INIT_RAW_ARGS("AATimeoutMsg", 
-		   set_raw_slot, 
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,timeout_msg),
-		   RSRC_CONF | OR_AUTHCFG,
-		   "Message for display by the authentication service "
-		   "during an authentication caused by session expiry"),
+  AP_INIT_TAKE1("AATimeoutMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,timeout_msg),
+		RSRC_CONF | OR_AUTHCFG,
+		"Message for display by the authentication service "
+		"during an authentication caused by session expiry"),
   
   AP_INIT_TAKE1("AACacheControl", 
 		set_cache_control, 
@@ -2251,12 +2238,12 @@ static const command_rec webauth_commands[] = {
 		RSRC_CONF | OR_AUTHCFG,
 		"Automatic addition of cache control headers"),
   
-  AP_INIT_RAW_ARGS("AACookieKey", 
-		   set_raw_slot, 
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,cookie_key), 
-		   RSRC_CONF | OR_AUTHCFG,
-		   "Secret key for session cookie - required"),
+  AP_INIT_TAKE1("AACookieKey", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,cookie_key), 
+		RSRC_CONF | OR_AUTHCFG,
+		"Secret key for session cookie - required"),
   
   AP_INIT_TAKE1("AACookieName", 
 		ap_set_string_slot, 
@@ -2292,27 +2279,27 @@ static const command_rec webauth_commands[] = {
 	       RSRC_CONF | OR_AUTHCFG,
 	       "Require authentication server to display all errors"),
   
-  AP_INIT_RAW_ARGS("AACancelMsg", 
-		   set_raw_slot, 
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,cancel_msg),
-		   RSRC_CONF | OR_AUTHCFG,
+  AP_INIT_TAKE1("AACancelMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,cancel_msg),
+		RSRC_CONF | OR_AUTHCFG,
 		   "Custom error for authentication cancelled"),
   
-  AP_INIT_RAW_ARGS("AANoCookieMsg", 
-		   set_raw_slot, 
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,no_cookie_message), 
-		   RSRC_CONF | OR_AUTHCFG,
-		   "Custom error if cookies don't seem to be being "
-		   "accepted"),
+  AP_INIT_TAKE1("AANoCookieMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,no_cookie_message), 
+		RSRC_CONF | OR_AUTHCFG,
+		"Custom error if cookies don't seem to be being "
+		"accepted"),
   
-  AP_INIT_RAW_ARGS("AALogoutMsg", 
-		   set_raw_slot, 
-		   (void *)APR_OFFSETOF
-		   (mod_ucam_webauth_cfg,logout_msg), 
-		   RSRC_CONF | OR_AUTHCFG,
-		   "Message or page to display on visiting logout URL"),
+  AP_INIT_TAKE1("AALogoutMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,logout_msg), 
+		RSRC_CONF | OR_AUTHCFG,
+		"Message or page to display on visiting logout URL"),
   
   AP_INIT_TAKE1("AALogLevel", 
 		set_log_level, 
