@@ -1,7 +1,7 @@
 University of Cambridge Web Authentication Agent Manual
 =======================================================
 
-$Id: README,v 1.4 2004-05-17 15:34:47 jw35 Exp $
+$Id: README,v 1.5 2004-06-21 16:54:48 jw35 Exp $
 
 1. Installation
 
@@ -171,22 +171,24 @@ and it must be set to some random string.
 
 A number of error conditions will be reported by passing an error page
 to the user's browser. This module may need to report 'User declined
-to authenticate', 'Browser not accepting session cookie', and 'General
-server error'. In addition, the standard authorisation modules which
-can be used along with this module may raise 'Authorization Required'
-if the authenticated user is not actually allowed access.
+to authenticate', 'Browser not accepting session cookie', 'Bad
+Request', and 'General server error'. In addition, the standard
+authorisation modules which can be used along with this module may
+raise 'Authorization Required' if the authenticated user is not
+actually allowed access.
 
 In all cases, how these errors are reported can be controlled by using
 Apache's 'Custom Error Pages' system. This allows a web designer to
 replace the default pages with versions that, for example, more
 closely match the look and feel of the site.
 
-Error pages for 'General server error' and 'Authorization Required'
-can be established if required using the standard ErrorDocument
-directive for status codes 500 and 401 status codes. A default 401
-page will be provided if a custom one is not defined since the Apache
-default is misleading. The default Apache 500 will be used (and may
-well be satisfactory) if a custom page is not defined.
+Error pages for 'Bad Request', 'General server error' and
+'Authorization Required' can be established if required using the
+standard ErrorDocument directive for status codes 400, 500 and 401
+status codes. A default 401 page will be provided if a custom one is
+not defined since the Apache default is misleading. The default Apache
+400 and 500 pages will be used (and may well be satisfactory) if a
+custom page is not defined.
 
 Custom error pages for 'User declined to authenticate' and 'Browser
 not accepting session cookie' can be established using the AACancelMsg
@@ -195,8 +197,9 @@ if custom ones are not defined.
 
 Custom messages can be either a simple text string, a partial URL
 starting '/' (in which case it will be assumed to be on the current
-server), or a full URL in which case the user will be redirected
-there.
+server), or a full URL in which case the user will be redirected there
+(except for Authorization Required where a full URL will be ingired if
+provided).
 
 If the error document is a local one then a number of environment
 variables with names starting 'REDIRECT_' will contain additional
@@ -241,33 +244,62 @@ AAClockSkew
 Interpretation of AAResponseTimeout is difficult if the clocks on the
 server running this handler and on the authentication server are out
 of step. Both servers should use NTP to synchronise their clocks, but
-if they don't then this parameter should be set to an estimate of the
-maximum expected difference between them (in seconds).
+if they don't then this parameter must be set to an estimate of the
+maximum expected difference between them (in seconds). Error messages
+containing the text 'local clock incorrect?'  are likely if this
+parameter is not used on a serve rthat needs it.  The default is 0
+seconds.
 
 AAKeyDir
 
 The name of a directory containing the public key(s) required to
 validate authentication responses sent by the server. If this name
 does not start with '/' then it is interpreted relative to
-DocumentRoot. Default conf/webauth_keys
+DocumentRoot. Default 'conf/webauth_keys'.
 
 AAMaxSessionLife
 
 The maximum period of time (in seconds) for which an established
 session will be valid. This may be overridden if the authentication
-reply contains a shorter 'life' parameter. Note that this does NOT
-define an expiry time for the session cookie - session cookies are
-always set without an expiry time, causing them to expire when the
-browser session finishes. Default is 2 hours.
+reply contains a shorter 'life' parameter. Once a session ceases to be
+valid users will be referred to the web login service to
+re-authentiocate. Note that this does NOT define an expiry time for
+the session cookie - session cookies are always set without an expiry
+time, causing them to expire when the browser session
+finishes. Default is 7200 seconds (2 hours).
+
+AAInactiveTimeout
+
+The length of time (in seconds) after which an inactive session can be
+assumed to have expired. Inactivity tracking is rather aproximate
+thanks to various forms of caching. In particular, revisiting a page
+that hasn't change since you last visited it may not count as
+activity. Setting AACacheControl to 'paranoid' may help with this, at
+the expense of increased network traffic and delays. If set to 0 (the
+default) this feature is disabled.
 
 AATimeoutMessage
 
 A re-authentication by the authentication service will be triggered
 when an established session expires. This option sets a text string,
-default 'your login to the site has expired', which is sent to the
+default 'your session on the site has expired', which is sent to the
 authentication server to explain to the user why they are being asked
 to authenticate again. HTML markup is suppressed as for AADescription
 above.
+
+AACacheControl
+
+Caches, both those in browsers and shared proxy caches, can cause
+problems for cookie-based authentication systems. This option alows
+you to control what the module does to work around this. It kas three
+possible options:
+
+  On       : Headers are automatically sent that should disable most caching
+  Off      : No additional headers are sent
+  Paranoid : Almost everything possible is done to discourage re-use
+             of cached content
+
+Default value is 'On'.
 
 AACookieKey
 
@@ -312,6 +344,19 @@ running the script. Be aware that some people may treat with suspicion
 cookies with domain attributes that are wider than the host setting
 the cookie.
 
+AAAuthType
+
+[Reserved]
+
+AAForceInteract
+
+If set, users will have to enter their passwords every time they are
+refered to the authentication server and will not be able to take
+advantage of the 'single sign-on' features. Setting this may be
+apropriate for some applications that have higher than normal
+security requirements, but doing so may significantly reduce user
+convinience. Posible values are 'On' and 'Off'. Default is 'Off'.
+
 AAFail
 
 If true, sets the fail parameter in any authentication request sent to
@@ -334,3 +379,20 @@ If set, this identifies the message that will be displayed on the
 users browser if the browser does not appear to be accepting the
 session cookie (without which this module won't work). See the Custom
 Error Pages section.
+
+AAlogoutMsg
+
+[Reverved]
+
+AALogLevel
+
+This directive adjusts the verbosity of the messages from this module
+that are recorded in the error logs (see the Apache ErrorLog
+directive). When a particular level is specified, messages from all
+other levels of higher significance will be reported as well. E.g.,
+when AALogLevel info is specified, then messages with log levels of
+notice and warn will also be posted. Posible values (from highest to
+lowest) are: 'emerg', 'alert', 'crit', 'error', 'warn', 'notice',
+'info', 'debug'.  Logging at 'warn' should omit all 'routine'
+messages. Logging at 'info' or below is _very_ verbose. The default is
+'warn'.
