@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.12 2004-06-16 17:22:58 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.13 2004-06-17 09:48:55 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -83,9 +83,10 @@ MODULE-DEFINITION-END
 #define APACHE_PSPRINTF ap_psprintf
 #define APACHE_FOPEN(p, filepath, flags) ap_pfopen(p, filepath, flags)
 #define APACHE_FCLOSE(p, f) ap_pfclose(p, f)
-#define APACHE_BASE64_ENCODE(p, string) ap_uuencode(p, string)
-#define APACHE_BASE64_DECODE(p, string) \
-  (unsigned char *)ap_uudecode(p, string)
+#define APACHE_BASE64ENCODE ap_base64encode
+#define APACHE_BASE64ENCODE_LEN ap_base64encode_len
+#define APACHE_BASE64DECODE ap_base64decode
+#define APACHE_BASE64DECODE_LEN ap_base64decode_len
 #define APACHE_PARSE_HTTP_DATE ap_parseHTTPdate
 #define APACHE_PSTRDUP ap_pstrdup
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
@@ -105,6 +106,7 @@ MODULE-DEFINITION-END
 #include "http_connection.h"
 #include "apr_strings.h"
 #include "apr_fnmatch.h"
+#include "apr_base64.h"
 #include "apr_date.h"
 
 /* types */
@@ -134,10 +136,10 @@ MODULE-DEFINITION-END
 #define APACHE_PSPRINTF apr_psprintf
 #define APACHE_FOPEN(p, filepath, flags) (FILE *)fopen(filepath, flags)
 #define APACHE_FCLOSE(p, f) fclose(f)
-#define APACHE_BASE64_ENCODE(p, string) \
-  ap_pbase64encode(p, string)
-#define APACHE_BASE64_DECODE(p, string) \
-  ap_pbase64decode(p, (const char *)string)
+#define APACHE_BASE64ENCODE apr_base64_encode
+#define APACHE_BASE64ENCODE_LEN apr_base64_encode_len
+#define APACHE_BASE64DECODE apr_base64_decode
+#define APACHE_BASE64DECODE_LEN apr_base64_decode_len
 #define APACHE_PARSE_HTTP_DATE(d) apr_date_parse_http(d)
 #define APACHE_PSTRDUP apr_pstrdup
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
@@ -259,12 +261,15 @@ wls_response_check_sig_string (request_rec *r,
 			       APACHE_TABLE *wls_response);
 
 static char *
-wls_encode (request_rec *r, 
-	    char *string);
 
-static char *
-wls_decode (request_rec *r, 
-	    char *string);
+wls_encode(request_rec *r, 
+	   unsigned char *data,
+           int len);
+
+static int
+wls_decode(request_rec *r, 
+	   char *string,
+	   unsigned char **data);
 
 static char *
 iso2_time_encode (request_rec *r, 
@@ -1457,8 +1462,7 @@ SHA1_sign(request_rec *r,
 
   HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
-  // *(new_sig+sig_len) = '\0';
-  new_sig = (unsigned char*)wls_encode(r, (char *)new_sig);
+  new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		    "new sig = %s", new_sig);
@@ -1490,8 +1494,7 @@ SHA1_sig_verify(request_rec *r,
 
   HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
-  // *(new_sig+sig_len) = '\0';
-  new_sig = (unsigned char*)wls_encode(r, (char *)new_sig);
+  new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		   "new sig = %s", new_sig);
@@ -1553,8 +1556,7 @@ RSA_sig_verify(request_rec *r,
   
   if (public_key == NULL) return 3;
 
-  decoded_sig = (unsigned char *)wls_decode(r, sig);
-  sig_length = 128;
+  sig_length = wls_decode(r, sig, &decoded_sig);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		    "digest length = %d", strlen(digest));
@@ -1760,18 +1762,28 @@ wls_response_check_sig_string(request_rec *r,
 }
 
 /* --- */
+
+/* You'd expect that this routing (and wls_decode) could use
+   ap_pbase64encode/ap_pbase64encode to do their work, but I don't see
+   how you can handle the raw data as a C string (with no explicit length
+   indication) which is what these do. So do it by hand... */
+
 /* modified base64 encoding */
 
 static char *
 wls_encode(request_rec *r, 
-	   char *string) 
+	   unsigned char *data,
+           int len) 
 
 {
 
-  char *result = APACHE_BASE64_ENCODE(r->pool, string);
-  int i;
+  int rlen, i;
+
+  char *result = (char*)APACHE_PALLOC(r->pool, 1+APACHE_BASE64ENCODE_LEN(len));
+  rlen = APACHE_BASE64ENCODE(result,(const char*)data,len);
+  result[rlen] = '\0';
   
-  for (i = 0; i < strlen(result); i++) {
+  for (i = 0; i < rlen; i++) {
     if (result[i] == '+') result[i] = '-';
     else if (result[i] == '/') result[i] = '.';
     else if (result[i] == '=') result[i] = '_';
@@ -1784,22 +1796,49 @@ wls_encode(request_rec *r,
 /* --- */
 /* modified base64 decoding */
 
-static char *
+static int
 wls_decode(request_rec *r, 
-	   char *string) 
+	   char *string,
+	   unsigned char **data)
 
 {
 
-  char *result = APACHE_PSTRDUP(r->pool, string);
-  int i;
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode...");
 
-  for (i = 0; i < strlen(result); i++) {
-    if (result[i] == '-') result[i] = '+';
-    else if (result[i] == '.') result[i] = '/';
-    else if (result[i] == '_') result[i] = '=';
+  int len, i;
+  char * d;
+
+  d = APACHE_PSTRDUP(r->pool, string);
+
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode[1]");
+
+  for (i = 0; i < strlen(d); i++) {
+    if (d[i] == '-') d[i] = '+';
+    else if (d[i] == '.') d[i] = '/';
+    else if (d[i] == '_') d[i] = '=';
   }
 
-  return (char *)APACHE_BASE64_DECODE(r->pool, result);
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode[2]");
+
+  *data = (char*)APACHE_PALLOC(r->pool, 1+APACHE_BASE64DECODE_LEN(d));
+
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode[3]");
+
+  len = APACHE_BASE64DECODE(*data, d);
+
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode[4]");
+
+  (*data)[len] = '\0'; /* for safety if nothing else */
+
+    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "wls_decode[5]");
+
+  return len;
 
 }
 
