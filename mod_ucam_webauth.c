@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.43 2004-08-11 14:27:01 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.44 2004-08-24 12:53:54 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc7"
+#define VERSION "1.0.0"
 
 /*
 MODULE-DEFINITION-START
@@ -494,7 +494,13 @@ get_cgi_param(request_rec *r,
 
 {
 
-  const char *data = r->args;
+  /* note that we use the copy of args saved in the post_read_request
+     handler since r->rags can get overriten. note that
+     post_read_request isn't run for sub-requests, but that should be
+     OK becasue we are always called with r pointing to a main
+     request */
+
+  const char *data = apr_table_get(r->notes, "AA_orig_args");
   const char *pair;
 
   APACHE_LOG_ERROR(APLOG_DEBUG, "get_cgi_param, r->args = %s", data);
@@ -510,6 +516,7 @@ get_cgi_param(request_rec *r,
     }
   }
   return NULL;
+
 }
 
 /* --- */
@@ -1625,9 +1632,9 @@ decode_cookie(request_rec *r,
   /* check cookie status */
 
   /* Note that if the stored status isn't 200 (OK) then we need to
-     report the failure here and we destroy the cookie so that if we
-     come back through here again we will fall through and repeat the
-     authentication */
+     report the failure here and we reset the cookie to teststring so
+     that if we come back through here again we will fall through and
+     repeat the authentication */
 
   if (strcmp((char *)apr_table_get(cookie, "status"), "410") == 0) {
     APACHE_LOG_ERROR(APLOG_INFO, 
@@ -1638,7 +1645,7 @@ decode_cookie(request_rec *r,
     else {
       ap_custom_response(r, HTTP_FORBIDDEN, auth_cancelled(r));
     }
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_FORBIDDEN;
   }
 
@@ -1646,7 +1653,7 @@ decode_cookie(request_rec *r,
     APACHE_LOG_ERROR(APLOG_ERR, "Authentication error, status = %s, %s",
 		     apr_table_get(cookie, "status"),
 		     apr_table_get(cookie, "msg"));
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
   
@@ -1667,19 +1674,19 @@ decode_cookie(request_rec *r,
   if (issue == -1) {
     APACHE_LOG_ERROR(APLOG_ERR,
 		     "Session cookie issue date incorrect length");
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
   if (last == -1) {
     APACHE_LOG_ERROR(APLOG_ERR,
 		     "Session cookie last use date incorrect length");
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
   if (life <= 0) {
     APACHE_LOG_ERROR(APLOG_ERR,
 		     "Session cookie lifetime unreadable");
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
   
@@ -1693,12 +1700,12 @@ decode_cookie(request_rec *r,
   if (issue > now) {
     APACHE_LOG_ERROR(APLOG_ERR,
 		     "Session cookie has issue date in the future");
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   } else if (last > now) {
     APACHE_LOG_ERROR(APLOG_ERR,
 		     "Session cookie has last used date in the future");
-    set_cookie(r, NULL, c);
+    set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   } else if (now >= issue + apr_time_from_sec(life)) {
     APACHE_LOG_ERROR(APLOG_INFO, 
@@ -1713,10 +1720,10 @@ decode_cookie(request_rec *r,
     return DECLINED;
   }
 
-  /* otherwise it worked! Reset last if more than 60 sec have
-     passed. Note that this won't work for a 304 Not modified
-     response because Set-Cookie: headers are not allowed (and are
-     not sent) in this case. Such is life */
+  /* otherwise it worked! Reset last if there is an inactivity timeout
+     and more than 60 sec have passed. Note that this won't work for a
+     304 Not modified response because Set-Cookie: headers are not
+     allowed (and are not sent) in this case. Such is life */
   
   if (c->inactive_timeout && apr_time_sec(now - last) > 60) {
     apr_table_set(cookie,"last",iso2_time_encode(r, now));
@@ -1790,10 +1797,10 @@ decode_response(request_rec *r,
   apr_table_t *cookie, *response_ticket;
   apr_time_t issue, now;
 
-  /* See if we have a WLS-Response CGI parameter. If we are a
-     sub-request (r->main != NULL) then look for the token in the
-     corresponsing main request */
-  
+  /* See if we had a WLS-Response CGI parameter installed in our notes
+     table by post_read_request. If we are a sub-request (r->main !=
+     NULL) then user the corresponsing main request */
+
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
   if (token_str != NULL) {
@@ -2117,6 +2124,34 @@ webauth_init(apr_pool_t *p,
 
 /* ---------------------------------------------------------------------- */
 
+/* Post read request */
+   
+static int
+webauth_post_read_request(request_rec *r)
+     
+{
+
+  /* In some cases (mod_rewrite with a proxy target that includes a
+     query string for example) r->args has been overriten by a new
+     value by the time webauth_authn gets to run. So we save a copy of
+     the _original_ args for future reference */ 
+
+  APACHE_LOG_ERROR
+    (APLOG_INFO, "** mod_ucam_webauth (%s) post read handler started for %s", 
+     VERSION, r->uri);
+
+  if (r->args) {
+    APACHE_LOG_ERROR(APLOG_DEBUG,"args -> %s ", r->args);
+  }
+
+  apr_table_set(r->notes, "AA_orig_args", r->args); 
+
+  return DECLINED;
+
+}
+
+/* ---------------------------------------------------------------------- */
+
 /* Header Parser */
 
 static int  
@@ -2144,10 +2179,8 @@ webauth_header_parser(request_rec *r)
     return DECLINED;
   }
   
-  APACHE_LOG_ERROR (APLOG_DEBUG,"###########################################");
-  
   APACHE_LOG_ERROR
-    (APLOG_INFO, "mod_ucam_webauth (%s) header parser started for %s", 
+    (APLOG_INFO, "** mod_ucam_webauth (%s) header parser started for %s", 
      VERSION, r->uri);
   dump_config(r,c);
 
@@ -2198,7 +2231,7 @@ webauth_authn(request_rec *r)
   }
   
   APACHE_LOG_ERROR
-    (APLOG_INFO, "mod_ucam_webauth (%s) authn handler started for %s", 
+    (APLOG_INFO, "** mod_ucam_webauth (%s) authn handler started for %s", 
      VERSION, r->uri);
 
   c = (mod_ucam_webauth_cfg *) 
@@ -2278,13 +2311,10 @@ webauth_handler_logout(request_rec *r)
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: declining");
     return DECLINED;
   }
-
-  APACHE_LOG_ERROR
-    (APLOG_DEBUG,"######################################################");
   
   APACHE_LOG_ERROR
     (APLOG_INFO, 
-     "mod_ucam_webauth (%s) logout handler started for %s", 
+     "** mod_ucam_webauth (%s) logout handler started for %s", 
      VERSION, r->uri);
 
   c = (mod_ucam_webauth_cfg *) 
@@ -2525,16 +2555,22 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   webauth_header_parser,        /* header parser */
   NULL,                         /* child_init */
   NULL,                         /* child_exit */
-  NULL                          /* post read-request */
+  webauth_post_read_request     /* post read-request */
 };
 
 #else
 
 static void webauth_register_hooks(apr_pool_t *p) {
-  ap_hook_post_config(webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_header_parser(webauth_header_parser, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_check_user_id(webauth_authn, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_handler(webauth_handler_logout, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_post_config
+    (webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_post_read_request
+    (webauth_post_read_request, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_header_parser
+    (webauth_header_parser, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_check_user_id
+    (webauth_authn, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_handler
+    (webauth_handler_logout, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 module AP_MODULE_DECLARE_DATA ucam_webauth_module = {

@@ -12,7 +12,7 @@ SUFFIX=so              # Use 'make .... SUFFIX=la for Apache 2
 #DEF=-Dmy_define=my_value
 #INC=-Imy/include/dir
 #LIB=-Lmy/lib/dir -lmylib
-#OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
+#OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/ -Wc,-Wall
 
 #   the default target
 
@@ -21,7 +21,7 @@ all: mod_ucam_webauth.$(SUFFIX)
 #   compile the DSO file
 
 mod_ucam_webauth.$(SUFFIX): mod_ucam_webauth.c
-	$(APXS) -c -lcrypto -Wc,-Wall $(DEF) $(INC) $(LIB) $(OPT) \
+	$(APXS) -c -lcrypto $(DEF) $(INC) $(LIB) $(OPT) \
 	mod_ucam_webauth.c
 
 #   install the DSO file into the Apache installation
