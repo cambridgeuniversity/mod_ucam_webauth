@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.55 2004-11-08 15:01:55 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.56 2004-11-09 09:54:57 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.6b"
+#define VERSION "1.0.6c"
 
 /*
 MODULE-DEFINITION-START
@@ -71,6 +71,7 @@ MODULE-DEFINITION-END
 #define PROTOCOL_VERSION "1"
 #define AUTH_TYPE1 "webauth"
 #define AUTH_TYPE2 "ucam-webauth"
+#define AUTH_TYPE_NULL "ucam-webauth-noprompt"
 #define TESTSTRING "Not-authenticated"
 
 #define CC_OFF      0
@@ -2267,8 +2268,9 @@ webauth_authn(request_rec *r)
   /* Do anything? */
 
   if (ap_auth_type(r) == NULL || 
-      (strcasecmp(ap_auth_type(r), AUTH_TYPE1) != 0 &&
-       strcasecmp(ap_auth_type(r), AUTH_TYPE2) != 0)) {
+      (strcasecmp(ap_auth_type(r), AUTH_TYPE1)     != 0 &&
+       strcasecmp(ap_auth_type(r), AUTH_TYPE2)     != 0 &&
+       strcasecmp(ap_auth_type(r), AUTH_TYPE_NULL) != 0)) {
     APACHE_LOG2
       (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s "
        "(AuthType = %s)",
@@ -2311,17 +2313,11 @@ webauth_authn(request_rec *r)
   
   cache_control(r,c->cache_control);
 
-  /* decode the cookie if we haven't already: if r->main != NULL then
-     this is a sub-request, and if it's a sub-request the the header
-     parser hasn't been run ('cos they aren't in subrequests) so we
-     don't have any cookie decoded. So we decode it here */
+  /* try to decode the cookie */
 
-  if (r->main != NULL) {
-    APACHE_LOG0(APLOG_INFO, "Manually running decode_cookie");
-    rc = decode_cookie(r,c);
-    if (rc != DECLINED)
-      return rc;
-  }
+  rc = decode_cookie(r,c);
+  if (rc != DECLINED)
+    return rc;
 
   /* main processing */
 
@@ -2351,14 +2347,26 @@ webauth_authn(request_rec *r)
   }
   
   /* having got this far we can return if we got an identity from the
-     cookie */
+     cookie. And if we didn't and we don't need to authenticate then
+     we can also just return, though nwe need to set a dummy userid */
 
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
     APACHE_LOG2(APLOG_INFO, "Successfully authenticated %s accessing %s", 
        (char *)apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
     return OK;
   }
-
+  else if (strcasecmp(ap_auth_type(r), AUTH_TYPE_NULL) == 0) {
+    APACHE_LOG1(APLOG_INFO, 
+		"Returning dummy id for unauthenticated user accessing %s", 
+                r->uri);
+#ifdef APACHE1_3
+    r->connection->user = "";
+#else
+    r->user = "";
+#endif
+    return OK;
+  }
+    
   /* and if none of that worked then send a request to the WLS. While
      we are at it then set a test value cookie so we can test that
      it's still available when we get back. */
@@ -2636,7 +2644,7 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   NULL,                         /* type_checker */
   NULL,                         /* fixups */
   NULL,                         /* logger */
-  webauth_header_parser,        /* header parser */
+  NULL,                         /* header parser */
   NULL,                         /* child_init */
   NULL,                         /* child_exit */
   webauth_post_read_request     /* post read-request */
@@ -2649,8 +2657,6 @@ static void webauth_register_hooks(apr_pool_t *p) {
     (webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_post_read_request
     (webauth_post_read_request, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_header_parser
-    (webauth_header_parser, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_check_user_id
     (webauth_authn, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_handler
