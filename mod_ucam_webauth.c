@@ -1,20 +1,34 @@
 /* 
 
-   University of Cambridge Web Authentication System
-   Application Agent for Apache 1.3 and 2
+   This file is part of the University of Cambridge Web Authentication 
+   System Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.58 2004-12-07 17:54:46 jw35 Exp $
+   Copyright (c) University of Cambridge 2004,2005
 
-   Copyright (c) University of Cambridge 2004 
-   See the file NOTICE for conditions of use and distribution.
+   This application agent is free software; you can redistribute it
+   and/or modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
 
-   Author: Robin Brady-Roche <rbr268@cam.ac.uk>, based on a mod_perl
-   application agent by Jon Warbrick <jw35@cam.ac.uk>
+   The agent is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+  
+   You should have received a copy of the GNU Lesser General Public
+   License along with this toolkit; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+   USA
+
+   $Id: mod_ucam_webauth.c,v 1.59 2005-03-22 11:30:57 jw35 Exp $
+
+   Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
+           Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.0.7"
+#define VERSION "1.1.0"
 
 /*
 MODULE-DEFINITION-START

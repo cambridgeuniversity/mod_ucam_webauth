@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.0.7
-$Id: README,v 1.19 2004-12-07 17:54:45 jw35 Exp $
+Current with version 1.1.0
+$Id: README,v 1.20 2005-03-22 11:30:56 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -997,3 +997,26 @@ Use the command
 
 to check that the module has been successfully incorporated into the
 Apache server. It should be listed as mod_ucam_webauth.c.
+
+6. Licencing
+============
+
+Copyright (c) University of Cambridge 2004,2005
+
+This application agent is free software; you can redistribute it
+and/or modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either version
+2.1 of the License, or (at your option) any later version.
+
+The agent is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+  
+You should have received a copy of the GNU Lesser General Public
+License along with this toolkit; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+USA
+
+See the file COPYING for details.
+

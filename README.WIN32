@@ -5,7 +5,7 @@ Using mod_ucam_webauth with Windows Apache
 ==========================================
 
 Current with version 1.0.2
-$Id: README.WIN32,v 1.2 2004-09-28 08:53:42 jw35 Exp $
+$Id: README.WIN32,v 1.3 2005-03-22 11:30:57 jw35 Exp $
 
 Binary distributions of mod_ucam_webauth are available for use with
 Apache running on a windows platform. There are separate distributions
@@ -77,3 +77,33 @@ following:
     C:\Program Files\Apache Group\Apache\logs\error.log  [Apache 1]
     C:\Program Files\Apache Group\Apache2\logs\error.log [Apache 2]    
    
+Licencing
+=========
+
+Copyright (c) University of Cambridge 2004,2005
+
+This application agent is free software; you can redistribute it
+and/or modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either version
+2.1 of the License, or (at your option) any later version.
+
+The agent is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+  
+You should have received a copy of the GNU Lesser General Public
+License along with this toolkit; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+USA
+
+See the file COPYING.txt for details.
+
+
+
+
+
+
+
+
+

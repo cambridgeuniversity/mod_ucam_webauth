@@ -16,13 +16,13 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
 Name: mod_ucam_webauth13
-Version: 1.0.7
+Version: 1.1.0
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
 Source: mod_ucam_webauth-%{version}.tar.gz
-License: GPL
+License: LGPL
 BuildRoot: %{_tmppath}/%{name}-root
 BuildPrereq: apache-devel, openssl-devel
 Requires: apache, openssl
