@@ -50,7 +50,7 @@ make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
 %{apache_libexecdir}/mod_ucam_webauth.so
 %doc CHANGES
 %doc README
-%doc NOTICE
+%doc COPYING
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
