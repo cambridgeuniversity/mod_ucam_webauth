@@ -1,4 +1,4 @@
-require Apache2;
+#require Apache2;
 require Apache::TestMM;
 require Apache::TestRunPerl;
 
