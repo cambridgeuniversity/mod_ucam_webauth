@@ -1,0 +1,8 @@
+#LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+
+AACookieKey voknwrjlnwernxcwSF
+
+<Directory "/">
+	AuthType WebAuth
+	Require valid-user
+</Directory>
