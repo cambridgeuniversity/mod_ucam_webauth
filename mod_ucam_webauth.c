@@ -1,5 +1,20 @@
-// University of Cambridge Web Authentication Agent for Apache 1.3 and 2
-// v0.43
+/* 
+
+   University of Cambridge Web Authentication System
+   Application Agent for Apache 1.3 and 2
+   See http://raven.cam.ac.uk/ for more details
+
+   $ID:$
+
+   Copyright (c) University of Cambridge 2004 
+   See the file NOTICE for conditions of use and distribution.
+
+   Author: Robin Brady-Roche <rbr268@cam.ac.uk>, based on a mod_perl
+   application agent by Jon Warbrick <jw35@cam.ac.uk>
+
+*/
+
+#define VERSION "0.44"
 
 /*
 MODULE-DEFINITION-START
@@ -29,8 +44,6 @@ MODULE-DEFINITION-END
 
 #include <string.h>
 #include <time.h>
-
-#define VERSION "0.43"
 
 // APACHE 1.3
 
@@ -312,8 +325,8 @@ static const char *set_AATimeoutMsg(cmd_parms *cmd, void *mconfig, const char *a
 }
 
 static const char *set_AACookieKey(cmd_parms *cmd, void *mconfig, const char *arg) {
-  if (arg == NULL) return "AACookieKey not defined";
   mod_ucam_webauth_cfg *cfg;
+  if (arg == NULL) return "AACookieKey not defined";
  
   if (cmd->path != NULL) {
     cfg = (mod_ucam_webauth_cfg *)mconfig;
@@ -528,6 +541,19 @@ static int ucam_webauth_handler(request_rec *r) {
 
   mod_ucam_webauth_cfg *server_c = (mod_ucam_webauth_cfg *) ap_get_module_config(r->server->module_config, &ucam_webauth_module);
   mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+  char *old_cookie_str;
+  char *timeout_msg = NULL;
+  APACHE_TABLE *old_cookie;
+  APACHE_TIME issue, expire, now;
+  char *token_str;
+  APACHE_TABLE *response_ticket;
+  char *msg, *status;
+  int expiry, response_ticket_life;
+  char *session_ticket;
+  char *request;
+  char *this_url;
+  int sig_verify_result;
+  const char *response_url;
   /*
   if (r->main != NULL) {
     // *** use ucam_webauth_authz ***
@@ -574,9 +600,6 @@ static int ucam_webauth_handler(request_rec *r) {
   // that if we come back through here again we will fall through
   // and repeat the authentication
       
-  char *old_cookie_str;
-  char *timeout_msg = NULL;
-
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 		   "entering FIRST stage...");
 
@@ -584,8 +607,6 @@ static int ucam_webauth_handler(request_rec *r) {
 
   if (old_cookie_str == NULL) APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
 					       "no existing authentication cookie found");
-
-  APACHE_TABLE *old_cookie;
 
   if (old_cookie_str != NULL && strcmp(old_cookie_str, TESTSTRING) != 0) {
     APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
@@ -631,8 +652,8 @@ static int ucam_webauth_handler(request_rec *r) {
 
       // session cookie timeout check
       
-      APACHE_TIME issue = iso2_time_decode(r, (char *)APACHE_TABLE_GET(old_cookie, "issue"));
-      APACHE_TIME expire = iso2_time_decode(r, (char *)APACHE_TABLE_GET(old_cookie, "expire"));
+      issue = iso2_time_decode(r, (char *)APACHE_TABLE_GET(old_cookie, "issue"));
+      expire = iso2_time_decode(r, (char *)APACHE_TABLE_GET(old_cookie, "expire"));
 
       if (issue == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
@@ -645,7 +666,7 @@ static int ucam_webauth_handler(request_rec *r) {
 	return APACHE_SERVER_ERROR;
       }
 
-      APACHE_TIME now = APACHE_TIME_NOW;
+      now = APACHE_TIME_NOW;
 
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		       "issue = %s, expire = %s", (char *)APACHE_TABLE_GET(old_cookie, "issue"), (char *)APACHE_TABLE_GET(old_cookie, "expire"));
@@ -694,7 +715,7 @@ static int ucam_webauth_handler(request_rec *r) {
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 		   "entering SECOND stage...");
 
-  char *token_str = get_cgi_param(r, "WLS-Response");
+  token_str = get_cgi_param(r, "WLS-Response");
 
   if (token_str != NULL) {
     APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
@@ -727,12 +748,12 @@ static int ucam_webauth_handler(request_rec *r) {
     // unwrap WLS token
     
     ap_unescape_url(token_str);
-    APACHE_TABLE *response_ticket = unwrap_wls_token(r, token_str);
+    response_ticket = unwrap_wls_token(r, token_str);
     
     // check that the URL in the token is plausable (strip URL from cookie str, get this from request?)
 
-    char *this_url = get_url(r);
-    const char *response_url = APACHE_TABLE_GET(response_ticket, "url");
+    this_url = get_url(r);
+    response_url = APACHE_TABLE_GET(response_ticket, "url");
     response_url = ap_getword(r->pool, &response_url, '?');
 
     if (strcmp(response_url, this_url) != 0) {
@@ -745,11 +766,11 @@ static int ucam_webauth_handler(request_rec *r) {
 
     // from now on we can (probably) safely redirect to the URL in the token so that
     // we get 'clean' error messages
-    
-    char *msg = "";
-    char *status = "200";
 
-    int sig_verify_result = RSA_sig_verify(r, wls_response_check_sig_string(r, response_ticket),
+    msg = "";
+    status = "200";
+
+    sig_verify_result = RSA_sig_verify(r, wls_response_check_sig_string(r, response_ticket),
 					   (char *)APACHE_TABLE_GET(response_ticket, "sig"), c->AAKeyDir,
 					   (char *)APACHE_TABLE_GET(response_ticket, "kid"));
     // RETURNS
@@ -823,8 +844,8 @@ static int ucam_webauth_handler(request_rec *r) {
 
     // calculate session expiry
 
-    int expiry = c->AAMaxSessionLife;
-    int response_ticket_life = atoi(APACHE_TABLE_GET(response_ticket, "life"));
+    expiry = c->AAMaxSessionLife;
+    response_ticket_life = atoi(APACHE_TABLE_GET(response_ticket, "life"));
     if (APACHE_TABLE_GET(response_ticket, "life") != NULL && response_ticket_life < expiry)
       expiry = response_ticket_life;
 
@@ -833,7 +854,7 @@ static int ucam_webauth_handler(request_rec *r) {
 
     // set new session ticket (cookie)
     
-    char *session_ticket = APACHE_PSTRCAT(r->pool,
+    session_ticket = APACHE_PSTRCAT(r->pool,
 					  APACHE_TABLE_GET(response_ticket, "ver"), "!",
 					  status, "!",
 					  msg, "!",
@@ -870,7 +891,7 @@ static int ucam_webauth_handler(request_rec *r) {
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 		   "entering THIRD stage..."); 
 
-  char *request = APACHE_PSTRCAT(r->pool,
+  request = APACHE_PSTRCAT(r->pool,
 				 "ver=", PROTOCOL_VERSION,
 				 "&url=", get_url(r),
 				 NULL);
@@ -1025,6 +1046,8 @@ static int RSA_sig_verify(request_rec *r, char *data, char *sig, char *key_path,
 								  APACHE_PSTRCAT(r->pool, "pubkey", key_id, NULL)));
   FILE *key_file;
   char *digest = APACHE_PALLOC(r->pool, 21);
+  RSA *public_key;
+  int openssl_error;
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		   "RSA_sig_verify...");
@@ -1038,7 +1061,7 @@ static int RSA_sig_verify(request_rec *r, char *data, char *sig, char *key_path,
     return 2;
   }
 
-  RSA *public_key = (RSA *)PEM_read_RSAPublicKey(key_file, NULL, NULL, NULL);
+  public_key = (RSA *)PEM_read_RSAPublicKey(key_file, NULL, NULL, NULL);
   APACHE_FCLOSE(r->pool, key_file);
   
   if (public_key == NULL) return 3;
@@ -1051,9 +1074,9 @@ static int RSA_sig_verify(request_rec *r, char *data, char *sig, char *key_path,
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		    "sig length = %d", sig_length);
 
-  result = RSA_verify(NID_sha1, (const unsigned char *)digest, 20, decoded_sig, sig_length, public_key);
+  result = RSA_verify(NID_sha1, (unsigned char *)digest, 20, decoded_sig, sig_length, public_key);
 
-  int openssl_error = ERR_get_error();
+  openssl_error = ERR_get_error();
   if (openssl_error) {
     APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r,
 		     "last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
@@ -1069,8 +1092,9 @@ static int RSA_sig_verify(request_rec *r, char *data, char *sig, char *key_path,
 
 static APACHE_TABLE *unwrap_wls_token(request_rec *r, char *token_str) {
   const char *pair;
+  APACHE_TABLE *wls_token;
   pair = token_str;
-  APACHE_TABLE *wls_token = (APACHE_TABLE *)APACHE_TABLE_MAKE(r->pool, 11);
+  wls_token = (APACHE_TABLE *)APACHE_TABLE_MAKE(r->pool, 11);
 
   APACHE_TABLE_ADD(wls_token, "ver", (const char *)ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(wls_token, "status", (const char *)ap_getword_nulls(r->pool, &pair, '!'));
@@ -1091,8 +1115,9 @@ static APACHE_TABLE *unwrap_wls_token(request_rec *r, char *token_str) {
 
 static APACHE_TABLE *make_cookie_table(request_rec *r, char *cookie_str) {
   const char *pair;
+  APACHE_TABLE *cookie;
   pair = cookie_str;
-  APACHE_TABLE *cookie = (APACHE_TABLE *)APACHE_TABLE_MAKE(r->pool, 11);
+  cookie = (APACHE_TABLE *)APACHE_TABLE_MAKE(r->pool, 11);
 
   APACHE_TABLE_ADD(cookie, "ver", ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(cookie, "status", ap_getword_nulls(r->pool, &pair, '!'));
@@ -1114,12 +1139,14 @@ static APACHE_TABLE *make_cookie_table(request_rec *r, char *cookie_str) {
 
 static char *get_cookie_str(request_rec *r, char *cookie_name) {
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "get_cookie_str...");
 
   const char *data = APACHE_TABLE_GET(r->headers_in, "Cookie");
 
   const char *pair;
+
+  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+		   "get_cookie_str...");
+
   if (!data) return NULL;
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
@@ -1214,11 +1241,11 @@ static char *iso2_time_encode(request_rec *r, APACHE_TIME t) {
 // ISO 2 datetime decoding
 
 static APACHE_TIME iso2_time_decode(request_rec *r, char *t_iso2) {
+  
+  char *t_http = (char*)APACHE_PALLOC(r->pool, 27);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		   "iso2_time_decode...");
-  
-  char *t_http = (char*)APACHE_PALLOC(r->pool, 27);
 
   if (strlen(t_iso2) < 16) return -1;
   t_http[0] = ',';
