@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.41 2004-07-12 13:47:52 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.42 2004-07-12 14:21:50 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -2392,8 +2392,7 @@ webauth_handler_logout(request_rec *r)
   ap_send_http_header(r);
 #endif
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: sending response",
-		    response);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: sending response");
 
   if (response != NULL) {
     ap_rputs(response,r);
