@@ -61,7 +61,7 @@ make install APXS=%{apxs} SUFFIX=la \
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
-* Thu 14 Oct 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.4-1
+* Thu Oct 14 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.4-1
 - Updated for 1.0.4
 
 * Fri Sep 10 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.2-1
