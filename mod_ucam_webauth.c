@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.19 2004-06-18 10:28:18 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.20 2004-06-18 12:16:35 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -888,6 +888,28 @@ get_url(request_rec *r)
 
 }
 
+/* --- */
+
+static void
+set_cache_control(request_rec *r,
+		  int option)
+
+{
+
+  if (option == CC_ON) {
+    r->no_cache = 1;
+    APACHE_TABLE_ADD(r->headers_out, "Cache-Control", "no-cache");
+    APACHE_TABLE_ADD(r->headers_out, "Pragma", "no-cache");
+  } else if (option == CC_PARANOID) {
+    r->no_cache = 1;
+    APACHE_TABLE_ADD(r->headers_out, "Cache-Control", 
+		     "no-store, no-cache, max-age=0, must-revalidate");
+    APACHE_TABLE_ADD(r->headers_out, "Pragma", "no-cache");
+  }
+
+}
+    
+    
 /* ---------------------------------------------------------------------- */
 
 /* Error messages, custom error pages */
@@ -1583,6 +1605,8 @@ ucam_webauth_handler(request_rec *r)
     return HTTP_INTERNAL_SERVER_ERROR;
   }
   
+  set_cache_control(r,c->AACacheControl);
+
   /* FIRST: see if we already have authentication data stored in a
      cookie. Note that if the stored status isn't 200 (OK) then we
      need to report the failure here and we destroy the cookie so
@@ -1616,7 +1640,7 @@ ucam_webauth_handler(request_rec *r)
 			(char *)APACHE_TABLE_GET(old_cookie, "sig"))) {
 
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		       "Session cookie signature valid or keys have changed");
+		       "Session cookie signature valid");
       
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "410") == 0) {
 	if (c->AACancelMsg != NULL) {
@@ -1719,7 +1743,7 @@ ucam_webauth_handler(request_rec *r)
     } else {
 
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-		       "Session cookie signature invalid");
+		       "Session cookie invalid or session key has changed");
       set_cookie(r, NULL, c);
       return HTTP_BAD_REQUEST;
 
