@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.45 2004-08-25 08:32:02 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.46 2004-08-26 12:11:07 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -66,8 +66,9 @@ MODULE-DEFINITION-END
 #endif
 
 #define PROTOCOL_VERSION "1"
-#define AUTH_TYPE "webauth"
-#define TESTSTRING "Test"
+#define AUTH_TYPE1 "webauth"
+#define AUTH_TYPE2 "ucam-webauth"
+#define TESTSTRING "Not-authenticated"
 
 #define CC_OFF      0
 #define CC_ON       1
@@ -597,6 +598,24 @@ set_cookie(request_rec *r,
 }
 
 /* --- */
+/* log_openssl_errors */
+
+static void
+log_openssl_errors(request_rec *r,
+		   int level)
+
+{
+
+  int code;
+  char msg[120];
+
+  while ((code = ERR_get_error())) {
+    (void)ERR_error_string_n(code, &msg[0], 120);
+    APACHE_LOG_ERROR(level, "  OpenSSL %s", msg);
+  }
+}
+
+/* --- */
 /* SHA1 sign */
 
 static char *
@@ -664,13 +683,6 @@ RSA_sig_verify(request_rec *r,
 
 {
 
-  /* RETURNS
-      -1 : verification error
-       0 : Unsuccessful verification
-       1 : successful verification
-       2 : error opening public key file
-       3 : error reading public key */
-
   unsigned char* decoded_sig;
   int sig_length;
   int result;
@@ -678,7 +690,6 @@ RSA_sig_verify(request_rec *r,
   FILE *key_file;
   char *digest = apr_palloc(r->pool, 21);
   RSA *public_key;
-  int openssl_error;
 
   APACHE_LOG_ERROR(APLOG_DEBUG, "RSA_sig_verify...");
   APACHE_LOG_ERROR(APLOG_DEBUG, "key_path: %s", key_path);
@@ -696,8 +707,9 @@ RSA_sig_verify(request_rec *r,
   key_file = (FILE *)fopen(key_full_path, "r");
 #endif
   if (key_file == NULL) {
-    APACHE_LOG_ERROR(APLOG_CRIT, "Error opening file: %s", key_full_path);
-    return 2;
+    APACHE_LOG_ERROR(APLOG_CRIT, "Error opening public key file %s: %s", 
+		     key_full_path, strerror(errno));
+    return HTTP_INTERNAL_SERVER_ERROR;
   }
 
   public_key = (RSA *)PEM_read_RSAPublicKey(key_file, NULL, NULL, NULL);
@@ -707,8 +719,14 @@ RSA_sig_verify(request_rec *r,
 #else
   fclose(key_file);
 #endif
-  
-  if (public_key == NULL) return 3;
+
+  if (public_key == NULL) {
+    APACHE_LOG_ERROR
+      (APLOG_CRIT, "Error reading public key from %s "
+       "(additional information may follow)", key_full_path);
+    log_openssl_errors(r,APLOG_CRIT);
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
 
   sig_length = wls_decode(r, sig, &decoded_sig);
 
@@ -721,20 +739,20 @@ RSA_sig_verify(request_rec *r,
 		      decoded_sig, 
 		      sig_length, 
 		      public_key);
-  
-  openssl_error = ERR_get_error();
-  if (openssl_error) {
-    APACHE_LOG_ERROR
-      (APLOG_CRIT, 
-       "Last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
-  }
 
   APACHE_LOG_ERROR
     (APLOG_DEBUG, "RSA verify result = %d", result);
 
+  if (result != 1) {
+    APACHE_LOG_ERROR
+      (APLOG_CRIT, "Error validating WLS response signature "
+       "(dditional information may follow)");
+    log_openssl_errors(r,APLOG_CRIT);
+  }
+
   RSA_free(public_key);
   
-  return result;
+  return (result == 1 ? OK : HTTP_BAD_REQUEST);
 
 }
 
@@ -1086,7 +1104,7 @@ no_cookie(request_rec *r,
 
   char *cookie_name = 
     ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name));
-  char *sig = (char *)ap_psignature("<hr />", r);
+  char *sig = (char *)ap_psignature("<hr>", r);
   char *cookie_domain;
   if (c->cookie_domain != NULL) {
     cookie_domain = apr_pstrcat(r->pool,
@@ -1099,6 +1117,7 @@ no_cookie(request_rec *r,
   
   return apr_pstrcat
     (r->pool,
+     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
      "<html><head><title>Error - missing cookie</title></head>"
      "<body><h1>Error - missing cookie</h1>"
      "<p>The web resource you are trying to access is protected "
@@ -1108,9 +1127,9 @@ no_cookie(request_rec *r,
      "been configured to reject some or all cookies. To access "
      "this resource you must at least accept a cookie called "
      "'<tt><b>", cookie_name, "</b></tt>' from ", cookie_domain,
-     ".</p><p>This cookie will be deleted when you quit your "
+     ".<p>This cookie will be deleted when you quit your "
      "web browser. It contains your identity and other information "
-     "used to manage authentication.</p>", sig, "</body></hmtl>", NULL);
+     "used to manage authentication.", sig, "</body></hmtl>", NULL);
 
 }
 
@@ -1122,7 +1141,7 @@ auth_cancelled(request_rec *r)
 
 {
 
-  char *sig = (char *)ap_psignature("<hr />", r);
+  char *sig = (char *)ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
@@ -1132,17 +1151,18 @@ auth_cancelled(request_rec *r)
 
   return apr_pstrcat
     (r->pool,
+     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
      "<html><head><title>Error - authentication cancelled</title></head>"
      "<body><h1>Error - authentication cancelled</h1>"
      "<p>Authentication has been cancelled at your request. Unfortunately "
      "this means you will not be able to access the resource that you "
-     "requested</p>"
+     "requested"
      "<p>If you cancelled authentication because you do not have a "
      "suitable username and password then you should contact the "
      "authentication system administrator to see if you can be "
      "registered. If you cancelled because of privacy concerns then you "
      "should contact the administrator of this server ", admin, " to see "
-     "if there are other ways for you to access this resource.</p>",
+     "if there are other ways for you to access this resource.",
      sig, "</body></html>", NULL);
 
 }
@@ -1154,7 +1174,7 @@ auth_required(request_rec *r)
 
 {
 
-  char *sig = (char *)ap_psignature("<hr />", r);
+  char *sig = (char *)ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
 #ifdef APACHE1_3
   char *user = ap_escape_html(r->pool, r->connection->user);
@@ -1175,12 +1195,13 @@ auth_required(request_rec *r)
 
   return apr_pstrcat
     (r->pool,
+     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
      "<html><head><title>Error - authorization required</title></head>"
      "<body><h1>Error - authorization required</h1>"
      "<p>Access to the web resource you are trying to obtain is "
      "restricted. The identity that you have established ", user,
      " does not appear to be allowed access. Please contact the "
-     "administrator of this server ", admin, " for further details.</p>",
+     "administrator of this server ", admin, " for further details.",
      sig,
      "\n\n"
      "<!-- This is padding to convince STUPID INTERNET EXPLORER that"
@@ -1608,7 +1629,7 @@ decode_cookie(request_rec *r,
     return DECLINED;
   }
   
-  APACHE_LOG_ERROR(APLOG_INFO, "Found authentication cookie");
+  APACHE_LOG_ERROR(APLOG_INFO, "Found session cookie");
   APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", cookie_str);
   
   cookie = make_cookie_table(r,  cookie_str);
@@ -1622,11 +1643,11 @@ decode_cookie(request_rec *r,
   
   if (cookie_verify == 0) {
     APACHE_LOG_ERROR(APLOG_ERR,
-		     "Cookie invalid or session key has changed");
+		     "Session cookie invalid or key has changed");
     return DECLINED;
   }
 
-  APACHE_LOG_ERROR(APLOG_INFO, "Cookie signature valid");
+  APACHE_LOG_ERROR(APLOG_INFO, "Session cookie signature valid");
       
   /* check cookie status */
 
@@ -1807,7 +1828,7 @@ decode_response(request_rec *r,
   if (token_str == NULL)
     return DECLINED;
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "WLS response data = %s", token_str);
 
   /* unwrap WLS token */
     
@@ -1825,7 +1846,7 @@ decode_response(request_rec *r,
 
   if (strcmp(response_url, this_url) != 0) {
     APACHE_LOG_ERROR
-      (APLOG_ERR, "URL in response_token doesn't match this URL - %s != %s",
+      (APLOG_ERR, "URL in WLS response doesn't match this URL - %s != %s",
        response_url, this_url);
     return HTTP_BAD_REQUEST;
   }
@@ -1877,7 +1898,7 @@ validate_response(request_rec *r,
   if (strcmp((char *)apr_table_get(response_ticket, "ver"), 
 	     PROTOCOL_VERSION) != 0) {
     msg = apr_psprintf
-      (r->pool,"wrong protocol version (%s) in authentication service reply",
+      (r->pool,"Wrong protocol version (%s) in WLS response",
        (char *)apr_table_get(response_ticket, "ver"));
     status = "600";
     goto FINISHED;
@@ -1905,7 +1926,7 @@ validate_response(request_rec *r,
   
   if (issue < 0) {
     msg = apr_psprintf
-      (r->pool,"can't to parse issue time (%s) in auth service reply",
+      (r->pool,"Can't to parse issue time (%s) in WLS response",
        (char *)apr_table_get(response_ticket, "issue"));
     status = "600";
     goto FINISHED;
@@ -1913,7 +1934,7 @@ validate_response(request_rec *r,
   
   if (issue > now + apr_time_from_sec(c->clock_skew) + 1) {
     msg = apr_psprintf
-      (r->pool,"Authentication response issued in the future "
+      (r->pool,"WLS response issued in the future "
        "(local clock incorrect?); issue time %s",
        (char *)apr_table_get(response_ticket, "issue"));
     status = "600";
@@ -1923,7 +1944,7 @@ validate_response(request_rec *r,
   if (now - apr_time_from_sec(c->clock_skew) - 1 > 
       issue + apr_time_from_sec(c->response_timeout)) {
     msg = apr_psprintf
-      (r->pool,"Authentication response issued too long ago "
+      (r->pool,"WLS response issued too long ago "
        "(local clock incorrect?); issue time %s",
        (char *)apr_table_get(response_ticket, "issue"));
     status = "600";
@@ -1948,24 +1969,17 @@ validate_response(request_rec *r,
 		   c->key_dir,
 		   (char *)apr_table_get(response_ticket, "kid"));
   
-  if (sig_verify_result == 2) {
-    APACHE_LOG_ERROR(APLOG_CRIT, "Error opening public key file");
-    return HTTP_INTERNAL_SERVER_ERROR;
-  } else if (sig_verify_result == 3) {
-    APACHE_LOG_ERROR(APLOG_CRIT, "Error reading public key file");
-    return HTTP_INTERNAL_SERVER_ERROR;
+  if (sig_verify_result == HTTP_BAD_REQUEST) {
+    msg = "Missing or invalid signature in authentication service reply";
+    status = "600";
+    goto FINISHED;
   }
+  else if (sig_verify_result != OK) {
+    msg = "Web server configuration error";
+    status = "600";
+    goto FINISHED;
+  } 
   
-  if (sig_verify_result == 0) {
-    msg = "missing or invalid signature in authentication service reply";
-    status = "600";
-    goto FINISHED;
-  } else if (sig_verify_result != 1) {
-    msg = "Signature verification error on authentication reply";
-    status = "600";
-    goto FINISHED;
-  }
-
   /* seems OK */
   
  FINISHED:
@@ -1988,12 +2002,12 @@ validate_response(request_rec *r,
   
   if (status == "200") {
     APACHE_LOG_ERROR
-      (APLOG_INFO, "Successfully validated WLS token ID %s, principal %s", 
+      (APLOG_INFO, "Successfully validated WLS response ID %s, principal %s", 
        apr_table_get(response_ticket, "id"),
        apr_table_get(response_ticket, "principal"));
   } else {
     APACHE_LOG_ERROR
-      (APLOG_ERR, "Failed to validate WLS token ID %s: %s: %s", 
+      (APLOG_ERR, "Failed to validate WLS response ID %s: %s: %s", 
        apr_table_get(response_ticket, "id"), status, msg);
   }
   
@@ -2182,10 +2196,11 @@ webauth_header_parser(request_rec *r)
   c = apply_config_defaults(r,c);
 
   /* do anything? */
-
-  if (!c->always_decode && 
-      (ap_auth_type(r) == NULL || 
-       strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0)) {
+  
+  if (!(c->always_decode || 
+	(ap_auth_type(r) != NULL && 
+	 (strcasecmp(ap_auth_type(r), AUTH_TYPE1) == 0 || 
+	  strcasecmp(ap_auth_type(r), AUTH_TYPE2) == 0)))) {
     APACHE_LOG_ERROR
       (APLOG_DEBUG,"mod_ucam_webauth header parser declining for %s "
        "(AuthType = %s; AAAlwaysDecode = %d)",r->uri,
@@ -2237,7 +2252,9 @@ webauth_authn(request_rec *r)
 
   /* Do anything? */
 
-  if (ap_auth_type(r) == NULL || strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) {
+  if (ap_auth_type(r) == NULL || 
+      (strcasecmp(ap_auth_type(r), AUTH_TYPE1) != 0 &&
+       strcasecmp(ap_auth_type(r), AUTH_TYPE2) != 0)) {
     APACHE_LOG_ERROR
       (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s "
        "(AuthType = %s)",
@@ -2252,11 +2269,6 @@ webauth_authn(request_rec *r)
   c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
-
-  if (r->method_number == M_POST)
-    APACHE_LOG_ERROR
-      (APLOG_WARNING, "Ucam WebAuth hander invoked for POST request, "
-       "which it doesn't really support");
   
   cache_control(r,c->cache_control);
 
@@ -2287,7 +2299,7 @@ webauth_authn(request_rec *r)
     APACHE_LOG_ERROR(APLOG_INFO, "Found a WLS response");
     if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
       APACHE_LOG_ERROR
-	(APLOG_INFO, "Alredy authenticated - redirecting to reset location");
+	(APLOG_INFO, "Alredy authenticated - redirecting");
       apr_table_set(r->headers_out, 
 		    "Location", 
 		    apr_table_get(response, "url"));
@@ -2314,7 +2326,12 @@ webauth_authn(request_rec *r)
      we are at it then set a test value cookie so we can test that
      it's still available when we get back. */
   
-  APACHE_LOG_ERROR(APLOG_INFO, "Generating authentication request");
+  APACHE_LOG_ERROR(APLOG_INFO, "Generating WLS request");
+
+  if (r->method_number == M_POST)
+    APACHE_LOG_ERROR
+      (APLOG_WARNING, "Redirect required on a POST request - "
+       "POSTed data will be lost");
   
   return construct_request(r,c);
 
@@ -2333,8 +2350,8 @@ webauth_handler_logout(request_rec *r)
 
   mod_ucam_webauth_cfg *c;
   char *response;
-  char *host = ap_escape_html(r->pool, ap_get_server_name(r));
-  char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
+
+  char *sig = (char *)ap_psignature("<hr>", r);
 
   if (strcasecmp(r->handler, "aalogout")) {
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: declining");
@@ -2353,7 +2370,7 @@ webauth_handler_logout(request_rec *r)
   
   cache_control(r,c->cache_control);
 
-  set_cookie(r, NULL, c);
+  set_cookie(r, TESTSTRING, c);
   response = c->logout_msg;
 
   if (response && ap_is_url(response)) {
@@ -2382,18 +2399,19 @@ webauth_handler_logout(request_rec *r)
   } else {
     ap_rprintf
       (r,
+       "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
        "<html><head><title>Logout</title></head>"
        "<body><h1>Logout</h1>"
-       "<p>You have logged out of this site.</p>"
+       "<p>You have logged out of this site."
        "<p>If you have finished browsing, then you should completely "
        "exit your web browser. This is the best way to prevent others "
        "from accessing your personal information and visiting web sites "
        "using your identity. If for any reason you can't exit your browser "
        "you should first log-out of all other personalized sites that you "
        "have accessed and then <a href=\"%s\">logout from the "
-       "central authentication service</a>.</p>"
-       "<hr><i>mod_ucam_webauth running on %s Port %s</i>"
-       "</body></hmtl>", c->logout_service, host, port);
+       "central authentication service</a>."
+       "%s"
+       "</body></hmtl>", c->logout_service, sig);
   }
   return OK;
 
