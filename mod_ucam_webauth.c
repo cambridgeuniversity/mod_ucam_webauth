@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.37 2004-07-09 15:33:00 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.38 2004-07-09 17:22:49 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -210,7 +210,7 @@ escape_url(apr_pool_t *p,
     "abcdefghijklmnopqrstuvwxyz"
     "01234567890-_.!~*'()";
 
-  char *to = (char*)ap_pcalloc(p,(strlen(from)*3)+1);
+  char *to = (char*)apr_pcalloc(p,(strlen(from)*3)+1);
   char *ptr;
   
   ptr = to;
@@ -241,7 +241,7 @@ escape_sig(apr_pool_t *p,
 
 {
 
-  char *to = (char*)ap_pcalloc(p,(strlen(from)*3)+1);
+  char *to = (char*)apr_pcalloc(p,(strlen(from)*3)+1);
   char *ptr;
   
   ptr = to;
