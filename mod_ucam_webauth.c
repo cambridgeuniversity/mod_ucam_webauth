@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.6 2004-06-11 15:54:07 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.7 2004-06-12 20:49:08 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1383,12 +1383,14 @@ get_cgi_param(request_rec *r,
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		   "get_cgi_param, r->args = %s", data);
   
-  while (data != NULL && (pair = ap_getword(r->pool, &data, '&'))) {
-    const char *name;
-    name = ap_getword(r->pool, &pair, '=');
-
-    if (strcmp(name, parm_name) == 0) {
-      return (char *)pair;
+  if (data != NULL) {
+    while (*data && (pair = ap_getword(r->pool, &data, '&'))) {
+      const char *name;
+      name = ap_getword(r->pool, &pair, '=');
+      
+      if (strcmp(name, parm_name) == 0) {
+	return (char *)pair;
+      }
     }
   }
   return NULL;
@@ -1672,7 +1674,7 @@ make_cookie_table(request_rec *r,
   APACHE_TABLE_ADD(cookie, "auth", ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(cookie, "sso", ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(cookie, "params", ap_getword_nulls(r->pool, &pair, '!'));
-  //APACHE_TABLE_ADD(cookie, "sigtype", ap_getword_nulls(r->pool, &pair, '!')); 
+  //APACHE_TABLE_ADD(cookie, "sigtype", ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(cookie, "key", ap_getword_nulls(r->pool, &pair, '!')); 
   //APACHE_TABLE_ADD(cookie, "dflt_key", ap_getword_nulls(r->pool, &pair, '!'));
   APACHE_TABLE_ADD(cookie, "sig", ap_getword_nulls(r->pool, &pair, '!'));

@@ -24,8 +24,8 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: %{base}2
-Version: 0.44
-Release: 1
+Version: 0.45
+Release: 3
 Group: System Environment/Daemons
 URL: http://raven.cam.ac.uk/
 Source: %{base}-%{version}.tar.gz
@@ -60,6 +60,9 @@ mkdir -p $RPM_BUILD_ROOT%{apache_libexecdir}
 %doc README
 
 %changelog
+* Sat Jun 12 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.45
+- Updated to 0.45 - posible resolution of memory problems
+
 * Tue May 04 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.44
 - Update to 0.44
 - Changes source to .tar.gz file
