@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.16 2004-06-17 15:22:40 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.17 2004-06-17 15:53:55 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1181,7 +1181,7 @@ dump_config(request_rec *r,
   } else {
     APACHE_LOG_ERROR
       (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
-       "  AACookieKey       = %4.4s ...", 
+       "  AACookieKey       = %4.4s... (truncated)", 
        (c->AACookieKey == NULL ? "NULL" : c->AACookieKey));
   }
 
@@ -1652,6 +1652,13 @@ ucam_webauth_handler(request_rec *r)
       return HTTP_BAD_REQUEST;
 
     }
+    
+    if (c->AAForceInteract == 1 && 
+	APACHE_TABLE_GET(response_ticket, "auth") == "") {
+      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
+		       "Non first-hand authentication under ForceInteract");
+      return HTTP_BAD_REQUEST;
+    }
 
     /* calculate session expiry */
 
@@ -1743,10 +1750,12 @@ ucam_webauth_handler(request_rec *r)
 			     request,
 			     "&date=", 
 			     iso2_time_encode(r, APACHE_TIME_NOW),
-			     "&skew=", 
-			     APACHE_PSPRINTF(r->pool, "%d", c->AAClockSkew), 
 			     NULL);
   }
+  if (c->AAForceInteract == 1) {
+    request = APACHE_PSTRCAT(r->pool, request, "&iact=yes", NULL);
+  }
+
   request = APACHE_PSTRCAT(r->pool,
 			   c->AAAuthService, 
 			   "?",
