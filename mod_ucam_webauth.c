@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.14 2004-06-17 10:21:08 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.15 2004-06-17 14:59:35 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.46p1"
+#define VERSION "0.46p2"
 
 /*
 MODULE-DEFINITION-START
@@ -64,8 +64,8 @@ MODULE-DEFINITION-END
 #define DEFAULT_AACookiePath      "/"
 #define DEFAULT_AACookieDomain    NULL
 #define DEFAULT_AAAuthType        "pwd"
-#define DEFAULT_AAInteract        NULL
-#define DEFAULT_AAFail            NULL
+#define DEFAULT_AAForceInteract   0
+#define DEFAULT_AAFail            0
 #define DEFAULT_AACancelMsg       NULL
 #define DEFAULT_AANoCookieMsg     NULL
 
@@ -84,8 +84,8 @@ typedef struct {
   char *AACookiePath;
   char *AACookieDomain;
   char *AAAuthType;
-  char *AAInteract;
-  char *AAFail;
+  int   AAForceInteract;
+  int   AAFail;
   char *AACancelMsg;
   char *AANoCookieMsg;
 } mod_ucam_webauth_cfg;
@@ -138,11 +138,14 @@ typedef struct {
 #define APACHE_PSTRDUP ap_pstrdup
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
   ap_log_rerror(x, y, rqst, __VA_ARGS__)
+#define APACHE_OFFSETOF XtOffsetOf
 
 /* definitions */
 
 #define APACHE_CMD_REC_TAKE1(name, func, data, override, errmsg) \
   {name, func, data, override, TAKE1, errmsg}
+#define APACHE_CMD_REC_FLAG(name, func, data, override, errmsg) \
+  {name, func, data, override, FLAG, errmsg}
 
 #else
 
@@ -151,8 +154,10 @@ typedef struct {
 /* include */
 
 #include "http_connection.h"
+#include "http_config.h"
 #include "apr_strings.h"
 #include "apr_fnmatch.h"
+#include "apr_general.h"
 #include "apr_base64.h"
 #include "apr_date.h"
 
@@ -191,10 +196,12 @@ typedef struct {
 #define APACHE_PSTRDUP apr_pstrdup
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
   ap_log_rerror(x, y, 0, rqst, __VA_ARGS__)
+#define APACHE_OFFSETOF APR_OFFSETOF
 
 /* definitions */
 
 #define APACHE_CMD_REC_TAKE1 AP_INIT_TAKE1
+#define APACHE_CMD_REC_FLAG  AP_INIT_FLAG
 
 #endif
 
@@ -601,11 +608,9 @@ RSA_sig_verify(request_rec *r,
   int sig_length;
   int result;
   char *key_full_path = 
-    ap_server_root_relative
-    (r->pool, 
      ap_make_full_path(r->pool, 
 		       key_path, 
-		       APACHE_PSTRCAT(r->pool, "pubkey", key_id, NULL)));
+		       APACHE_PSTRCAT(r->pool, "pubkey", key_id, NULL));
   FILE *key_file;
   char *digest = APACHE_PALLOC(r->pool, 21);
   RSA *public_key;
@@ -1034,8 +1039,8 @@ create_dir_config(APACHE_POOL *p,
   cfg->AACookiePath = NULL;
   cfg->AACookieDomain = NULL;
   cfg->AAAuthType = NULL;
-  cfg->AAInteract = NULL;;
-  cfg->AAFail = NULL;
+  cfg->AAForceInteract = -1;
+  cfg->AAFail = -1;
   cfg->AACancelMsg = NULL;
   cfg->AANoCookieMsg = NULL;
   return (void *)cfg;
@@ -1043,34 +1048,168 @@ create_dir_config(APACHE_POOL *p,
 }
 
 /* --- */
-/* create per-server config */
+/* merge per-directory config */
 
 static void *
-create_server_config(APACHE_POOL *p, 
-		     server_rec *s) 
+merge_dir_config(APACHE_POOL *p, 
+		 void *bconf,
+		 void *nconf)
 
 {
 
-  mod_ucam_webauth_cfg *cfg = 
-    (mod_ucam_webauth_cfg *)APACHE_PCALLOC(p, sizeof(mod_ucam_webauth_cfg));
-  cfg->AAAuthService = DEFAULT_AAAuthService;
-  cfg->AADescription = DEFAULT_AADescription;
-  cfg->AAResponseTimeout = DEFAULT_AAResponseTimeout;
-  cfg->AAClockSkew = DEFAULT_AAClockSkew;
-  cfg->AAKeyDir = DEFAULT_AAKeyDir;
-  cfg->AAMaxSessionLife = DEFAULT_AAMaxSessionLife;
-  cfg->AATimeoutMsg = DEFAULT_AATimeoutMsg;
-  cfg->AACookieKey = DEFAULT_AACookieKey;
-  cfg->AACookieName = DEFAULT_AACookieName;
-  cfg->AACookiePath = DEFAULT_AACookiePath;
-  cfg->AACookieDomain = DEFAULT_AACookieDomain;
-  cfg->AAAuthType = DEFAULT_AAAuthType;
-  cfg->AAInteract = DEFAULT_AAInteract;
-  cfg->AAFail = DEFAULT_AAFail;
-  cfg->AACancelMsg = DEFAULT_AACancelMsg;
-  cfg->AANoCookieMsg = DEFAULT_AANoCookieMsg;
-  return (void *)cfg;
+  mod_ucam_webauth_cfg *merged = 
+    (mod_ucam_webauth_cfg *)APACHE_PCALLOC(p, sizeof(mod_ucam_webauth_cfg)); 
 
+  mod_ucam_webauth_cfg *base = (mod_ucam_webauth_cfg *)bconf;
+  mod_ucam_webauth_cfg *new  = (mod_ucam_webauth_cfg *)nconf;
+
+  fprintf(stderr,
+     "Merging, MaxSessionLife: base %d, new %d", 
+     base->AAMaxSessionLife, new->AAMaxSessionLife);
+
+  merged->AAAuthService = new->AAAuthService != NULL ? 
+    new->AAAuthService : base->AAAuthService;
+  merged->AADescription = new->AADescription != NULL ? 
+    new->AADescription : base->AADescription;
+  merged->AAResponseTimeout = new->AAResponseTimeout != -1 ? 
+    new->AAResponseTimeout : base->AAResponseTimeout;
+  merged->AAClockSkew = new->AAClockSkew != -1 ? 
+    new->AAClockSkew : base->AAClockSkew;
+  merged->AAKeyDir = new->AAKeyDir != NULL ? 
+    new->AAKeyDir : base->AAKeyDir;
+  merged->AAMaxSessionLife = new->AAMaxSessionLife != -1 ? 
+    new->AAMaxSessionLife : base->AAMaxSessionLife;
+  merged->AATimeoutMsg = new->AATimeoutMsg != NULL ? 
+    new->AATimeoutMsg : base->AATimeoutMsg;
+  merged->AACookieKey = new->AACookieKey != NULL ? 
+    new->AACookieKey : base->AACookieKey;
+  merged->AACookieName = new->AACookieName != NULL ? 
+    new->AACookieName : base->AACookieName;
+  merged->AACookiePath = new->AACookiePath != NULL ? 
+    new->AACookiePath : base->AACookiePath;
+  merged->AACookieDomain = new->AACookieDomain != NULL ? 
+    new->AACookieDomain : base->AACookieDomain;
+  merged->AAAuthType = new->AAAuthType !=NULL ? 
+    new->AAAuthType : base->AAAuthType;
+  merged->AAForceInteract = new->AAForceInteract != -1 ? 
+    new->AAForceInteract : base->AAForceInteract;
+  merged->AAFail = new->AAFail != -1 ? 
+    new->AAFail : base->AAFail;
+  merged->AACancelMsg = new->AACancelMsg != NULL ? 
+    new->AACancelMsg : base->AACancelMsg;
+  merged->AANoCookieMsg = new->AANoCookieMsg != NULL ? 
+    new->AANoCookieMsg : base->AANoCookieMsg;
+
+  return (void *)merged;
+
+} 
+
+/* --- */
+/* apply the defaults to a merged config structure */
+
+static void
+apply_config_defaults(request_rec *r, mod_ucam_webauth_cfg *c)
+
+{
+
+  if (c->AAAuthService == NULL) c->AAAuthService = DEFAULT_AAAuthService; 
+  if (c->AADescription == NULL)c->AADescription = DEFAULT_AADescription;
+  if (c->AAResponseTimeout == -1) c->AAResponseTimeout = 
+				    DEFAULT_AAResponseTimeout;
+  if (c->AAClockSkew == -1) c->AAClockSkew = DEFAULT_AAClockSkew;  
+  if (c->AAKeyDir == NULL) c->AAKeyDir = 
+			    ap_server_root_relative(r->pool,DEFAULT_AAKeyDir); 
+  if (c->AAMaxSessionLife == -1) c->AAMaxSessionLife = 
+				   DEFAULT_AAMaxSessionLife;
+  if (c->AATimeoutMsg == NULL) c->AATimeoutMsg = DEFAULT_AATimeoutMsg;
+  if (c->AACookieKey == NULL) c->AACookieKey = DEFAULT_AACookieKey; 
+  if (c->AACookieName == NULL) c->AACookieName = DEFAULT_AACookieName;
+  if (c->AACookiePath == NULL) c->AACookiePath = DEFAULT_AACookiePath;
+  if (c->AACookieDomain == NULL) c->AACookieDomain = DEFAULT_AACookieDomain;
+  if (c->AAAuthType == NULL) c->AAAuthType = DEFAULT_AAAuthType;
+  if (c->AAForceInteract == -1) c->AAForceInteract = DEFAULT_AAForceInteract;  
+  if (c->AAFail == -1) c->AAFail = DEFAULT_AAFail; 
+  if (c->AACancelMsg == NULL) c->AACancelMsg = DEFAULT_AACancelMsg; 
+  if (c->AANoCookieMsg == NULL) c->AANoCookieMsg = DEFAULT_AANoCookieMsg;
+
+}
+
+/* --- */
+/* dump a config structure */
+
+static void 
+dump_config(request_rec *r,
+           mod_ucam_webauth_cfg *c)
+
+{
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "Config dump:");
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAAuthService     = %s",
+     (c->AAAuthService == NULL ? "NULL" : c->AAAuthService));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AADescription     = %s",
+     (c->AADescription == NULL ? "NULL" : c->AADescription));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAResponseTimeout = %d",
+     c->AAResponseTimeout);
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAClockSkew       = %d",
+     c->AAClockSkew);
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAKeyDir          = %s",
+     (c->AAKeyDir == NULL ? "NULL" : c->AAKeyDir));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAMaxSessionLife  = %d",
+     c->AAMaxSessionLife);
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AATimeoutMsg      = %s",
+     (c->AATimeoutMsg == NULL ? "NULL" : c->AATimeoutMsg));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieKey       = %s",
+     (c->AACookieKey == NULL ? "NULL" : c->AACookieKey));
+  
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieName      = %s",
+     (c->AACookieName == NULL ? "NULL" : c->AACookieName));
+  
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookiePath      = %s",
+     (c->AACookiePath == NULL ? "NULL" : c->AACookiePath));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieDomain    = %s",
+     (c->AACookieDomain == NULL ? "NULL" : c->AACookieDomain));
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAAuthType        = %s",
+     (c->AAAuthType == NULL ? "NULL" : c->AAAuthType));
+   
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAForceInteract   = %d",
+     c->AAForceInteract);
+      
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAFail            = %d",
+     c->AAFail);
+
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACancelMsg       = %s",
+     (c->AACancelMsg == NULL ? "NULL" : c->AACancelMsg));
+  
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AANoCookieMsg     = %s",
+     (c->AANoCookieMsg == NULL ? "NULL" : c->AANoCookieMsg));
+  
 }
 
 /* --- */
@@ -1078,51 +1217,8 @@ create_server_config(APACHE_POOL *p,
 
 APACHE_MODULE ucam_webauth_module;
 
-/* --- */
-
-static const char *
-set_AAAuthService (cmd_parms *cmd, 
-		   void *mconfig, 
-		   const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
-  
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AAAuthService = (char *)arg;
-  
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AADescription(cmd_parms *cmd, 
-		  void *mconfig, 
-		  const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
-  
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AADescription = (char *)arg;
-  return NULL;
-}
+/* Note that most string and flag parameters are processed by the generic
+   ap_set_string_slot and ap_set flag_slot routines */
 
 /* --- */
 
@@ -1133,18 +1229,12 @@ set_AAResponseTimeout(cmd_parms *cmd,
      
 {
 
-  mod_ucam_webauth_cfg *cfg;
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
  
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
   cfg->AAResponseTimeout = atoi(arg);
   if (cfg->AAResponseTimeout < 0) 
     return "AAResponseTimeout must be a positive number";
+
   return NULL;
 
 }
@@ -1158,39 +1248,12 @@ set_AAClockSkew(cmd_parms *cmd,
 
 {
 
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
   cfg->AAClockSkew = atoi(arg);
-  return NULL;
+  if (cfg->AAClockSkew < 0) 
+    return "AAClockSkew must be a positive number";
 
-}
-
-/* --- */
-
-static const char *
-set_AAKeyDir(cmd_parms *cmd, 
-	     void *mconfig, 
-	     const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AAKeyDir = (char *)arg;
   return NULL;
 
 }
@@ -1204,252 +1267,15 @@ set_AAMaxSessionLife(cmd_parms *cmd,
 
 {
 
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
   cfg->AAMaxSessionLife = atoi(arg);
-  if (cfg->AAMaxSessionLife < 0) 
-    return "AAMaxSessionLife must be a positive number";
+  if (cfg->AAMaxSessionLife < 300) 
+    return "AAMaxSessionLife must be at least 300 sec (5 min)";
   return NULL;
 
 }
 
-/* --- */
-
-static const char *
-set_AATimeoutMsg(cmd_parms *cmd, 
-		 void *mconfig, 
-		 const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AATimeoutMsg = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AACookieKey(cmd_parms *cmd, 
-		void *mconfig, 
-		const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
-  if (arg == NULL) return "AACookieKey not defined";
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AACookieKey = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AACookieName(cmd_parms *cmd, 
-		 void *mconfig, 
-		 const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AACookieName = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AACookiePath(cmd_parms *cmd, 
-		 void *mconfig, 
-		 const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AACookiePath = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AACookieDomain(cmd_parms *cmd, 
-		   void *mconfig, 
-		   const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AACookieDomain = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AAAuthType(cmd_parms *cmd, 
-	       void *mconfig, 
-	       const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AAAuthType = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AAInteract(cmd_parms *cmd, 
-	       void *mconfig, 
-	       const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AAInteract = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AAFail(cmd_parms *cmd, 
-	   void *mconfig, 
-	   const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->server == NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AAFail = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AACancelMsg(cmd_parms *cmd, 
-		void *mconfig, 
-		const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AACancelMsg = (char *)arg;
-  return NULL;
-
-}
-
-/* --- */
-
-static const char *
-set_AANoCookieMsg(cmd_parms *cmd, 
-		  void *mconfig, 
-		  const char *arg) 
-
-{
-
-  mod_ucam_webauth_cfg *cfg;
- 
-  if (cmd->path != NULL) {
-    cfg = (mod_ucam_webauth_cfg *)mconfig;
-  } else {
-    cfg = (mod_ucam_webauth_cfg *) 
-      ap_get_module_config(cmd->server->module_config, &ucam_webauth_module);
-  }
-
-  cfg->AANoCookieMsg = (char *)arg;
-  return NULL;
-
-}
 
 /* ---------------------------------------------------------------------- */
 
@@ -1462,8 +1288,6 @@ ucam_webauth_handler(request_rec *r)
      
 {
   
-  mod_ucam_webauth_cfg *server_c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->server->module_config, &ucam_webauth_module);
   mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   char *old_cookie_str;
@@ -1499,38 +1323,18 @@ ucam_webauth_handler(request_rec *r)
        "ApacheAA hander invoked for POST request, "
        "which it doesn't really support");
 
-  if (c->AAAuthService == NULL) 
-    c->AAAuthService = server_c->AAAuthService;
-  if (c->AADescription == NULL) 
-    c->AADescription = server_c->AADescription;
-  if (c->AAResponseTimeout == -1) 
-    c->AAResponseTimeout = server_c->AAResponseTimeout;
-  if (c->AAClockSkew == -1) 
-    c->AAClockSkew = server_c->AAClockSkew;
-  if (c->AAKeyDir == NULL) 
-    c->AAKeyDir = server_c->AAKeyDir;
-  if (c->AAMaxSessionLife == -1) 
-    c->AAMaxSessionLife = server_c->AAMaxSessionLife;
-  if (c->AATimeoutMsg == NULL) 
-    c->AATimeoutMsg = server_c->AATimeoutMsg;
-  if (c->AACookieKey == NULL) 
-    c->AACookieKey = server_c->AACookieKey;
-  if (c->AACookieName == NULL) 
-    c->AACookieName = server_c->AACookieName;
-  if (c->AACookiePath == NULL) 
-    c->AACookiePath = server_c->AACookiePath;
-  if (c->AACookieDomain == NULL) 
-    c->AACookieDomain = server_c->AACookieDomain;
-  if (c->AAAuthType == NULL) 
-    c->AAAuthType = server_c->AAAuthType;
-  if (c->AAInteract == NULL) 
-    c->AAInteract = server_c->AAInteract;
-  if (c->AAFail == NULL) 
-    c->AAFail = server_c->AAFail;
-  if (c->AACancelMsg == NULL) 
-    c->AACancelMsg = server_c->AACancelMsg;
-  if (c->AANoCookieMsg == NULL) 
-    c->AANoCookieMsg = server_c->AANoCookieMsg;
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
+
+  apply_config_defaults(r,c);
+  dump_config(r,c);  
+
+  if (c->AACookieKey == NULL) {
+    APACHE_LOG_ERROR
+      (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+       "AACookieKey is required but is not defined");
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
 
   if (APACHE_FNMATCH(APACHE_PSTRCAT(r->pool, c->AACookiePath, "*", NULL),
 		     r->parsed_uri.path,
@@ -1575,7 +1379,7 @@ ucam_webauth_handler(request_rec *r)
 			(char *)APACHE_TABLE_GET(old_cookie, "sig"))) {
 
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		       "session cookie signature valid");
+		       "Session cookie signature valid or keys have changed");
       
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "410") == 0) {
 	if (c->AACancelMsg != NULL) {
@@ -1924,7 +1728,7 @@ ucam_webauth_handler(request_rec *r)
 			     c->AATimeoutMsg, 
 			     NULL);
   }
-  if (c->AAFail != NULL) {
+  if (c->AAFail == 1) {
     request = APACHE_PSTRCAT(r->pool, request, "&fail=yes", NULL);
   }
   if (c->AAClockSkew != 0) {
@@ -1964,100 +1768,106 @@ ucam_webauth_handler(request_rec *r)
 static const command_rec config_commands[] = {
 
   APACHE_CMD_REC_TAKE1("AAAuthService", 
-		       set_AAAuthService, 
-		       NULL, 
+		       ap_set_string_slot, 
+                       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAAuthService), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "Raven authentication server logon site"),
+		       "Authentication server logon servive URL"),
 
   APACHE_CMD_REC_TAKE1("AADescription", 
-		       set_AADescription, 
-		       NULL, 
+		       ap_set_string_slot,
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AADescription), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "site description"),
+		       "Description of the protected resource"),
 
   APACHE_CMD_REC_TAKE1("AAResponseTimeout", 
 		       set_AAResponseTimeout, 
 		       NULL, 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "timeout for response messages"),
+		       "Expected maximum delay in forwarding response message "
+                       "from the authentication server"),
 
   APACHE_CMD_REC_TAKE1("AAClockSkew", 
 		       set_AAClockSkew, 
 		       NULL, 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "max server/client clock difference"),
+		       "Maximum expected clock difference between this "
+                       "servers clock and the clock on the authentication "
+                       "server"),
 
   APACHE_CMD_REC_TAKE1("AAKeyDir", 
-		       set_AAKeyDir, 
-		       NULL, 
+                       ap_set_file_slot,
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAKeyDir), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "directory containing WLS keys"),
+		       "Directory containing WLS keys (relative to "
+                       "server root if not absolute"),
 
   APACHE_CMD_REC_TAKE1("AAMaxSessionLife", 
 		       set_AAMaxSessionLife, 
 		       NULL, 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "timeout for WAA session"),
+		       "MAximum hard session lifetime"),
 
   APACHE_CMD_REC_TAKE1("AATimeoutMessage", 
-		       set_AATimeoutMsg, 
-		       NULL, 
+		       ap_set_string_slot, 
+		     (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AATimeoutMsg),
 		       RSRC_CONF | OR_AUTHCFG,
-		       "message on WAA session timeout"),
+		       "Message for display by the authentication service "
+                       "during an authentication caused by session expiry"),
 
   APACHE_CMD_REC_TAKE1("AACookieKey", 
-		       set_AACookieKey, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieKey), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "key for session cookie"),
+		       "Secret key for session cookie - required"),
 
   APACHE_CMD_REC_TAKE1("AACookieName", 
-		       set_AACookieName, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieName), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "name for session cookie"),
+		       "Name for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AACookiePath", 
-		       set_AACookiePath, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookiePath), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "path prefix for session cookie"),
+		       "Path prefix for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AACookieDomain", 
-		       set_AACookieDomain, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieDomain),
 		       RSRC_CONF | OR_AUTHCFG,
-		       "domain for session cookie"),
+		       "Domain setting for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AAAuthType", 
-		       set_AAAuthType, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAAuthType), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "authentication type required"),
+		       "Type(s) of authentication required"),
 
-  APACHE_CMD_REC_TAKE1("AAInteract", 
-		       set_AAInteract, 
-		       NULL, 
+  APACHE_CMD_REC_FLAG("AAForceInteract", 
+		       ap_set_flag_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAForceInteract),
 		       RSRC_CONF | OR_AUTHCFG,
-		       "force re-authentication?"),
+		       "Force user interaction with authentication server"),
 
-  APACHE_CMD_REC_TAKE1("AAFail", 
-		       set_AAFail, 
-		       NULL, 
+  APACHE_CMD_REC_FLAG("AAFail", 
+		       ap_set_flag_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAFail),
 		       RSRC_CONF | OR_AUTHCFG,
-		       "fail at WLS and, don't return?"),
+		       "Require authentication server to display all errors"),
 
   APACHE_CMD_REC_TAKE1("AACancelMsg", 
-		       set_AACancelMsg, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACancelMsg),
 		       RSRC_CONF | OR_AUTHCFG,
-		       "custom error for authentication cancelled"),
+		       "Custom error for authentication cancelled"),
 
   APACHE_CMD_REC_TAKE1("AANoCookieMsg", 
-		       set_AANoCookieMsg, 
-		       NULL, 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACancelMsg), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "custom error for no cookie"),
+		       "Custom error if cookies don't seem to be being "
+                       "accepted"),
 
   {NULL}
 
@@ -2073,8 +1883,8 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   STANDARD_MODULE_STUFF,
   NULL,
   create_dir_config,
+  merge_dir_config,
   NULL,
-  create_server_config,
   NULL,
   config_commands,
   NULL,
@@ -2101,8 +1911,8 @@ static void register_hooks(apr_pool_t *p) {
 module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
   STANDARD20_MODULE_STUFF,
   create_dir_config,    /* create per-directory config structures */
-  NULL,                 /* merge per-directory config structures  */
-  create_server_config, /* create per-server config structures    */
+  merge_dir_config,     /* merge per-directory config structures  */
+  NULL,                 /* create per-server config structures    */
   NULL,                 /* merge per-server config structures     */
   config_commands,      /* command handlers */
   register_hooks        /* register hooks */
@@ -2111,4 +1921,6 @@ module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
 #endif
 
 /* ---------------------------------------------------------------------- */
+
+
 
