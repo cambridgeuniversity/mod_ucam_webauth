@@ -37,7 +37,7 @@ The agent uses RSA public keys to verify that any messages from the
 Raven server really were sent by Raven and are not some attempt by a
 third-party to gain access to protected resources. The public keys
 require are available from https://raven.cam.ac.uk/project/keys/ and
-should be placed in the PREFIX/conf/webauth-keys directory, which you
+should be placed in the PREFIX/conf/webauth_keys directory, which you
 will have to create. If for some reason this is not an appropriate
 location for the keys on your system a different directory can be
 defined. See the Configuration section below for more details.
@@ -234,7 +234,7 @@ AAKeyDir
 The name of a directory containing the public key(s) required to
 validate authentication responses sent by the server. If this name
 does not start with '/' then it is interpreted relative to
-DocumentRoot. Default conf/webauth-keys
+DocumentRoot. Default conf/webauth_keys
 
 AAMaxSessionLife
 
