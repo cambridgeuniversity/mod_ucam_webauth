@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 0.99_1.0.0rc2
-$Id: README,v 1.8 2004-07-09 15:33:00 jw35 Exp $
+Current with version 0.99_1.0.0rc5
+$Id: README,v 1.9 2004-07-09 17:11:14 jw35 Exp $
 
 1. Installation
 ===============
