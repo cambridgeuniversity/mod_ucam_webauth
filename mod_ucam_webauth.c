@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.42 2004-07-12 14:21:50 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.43 2004-08-11 14:27:01 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc6"
+#define VERSION "0.99_1.0.0rc7"
 
 /*
 MODULE-DEFINITION-START
@@ -96,7 +96,6 @@ MODULE-DEFINITION-END
 #define DEFAULT_cancel_msg       NULL
 #define DEFAULT_no_cookie_msg    NULL
 #define DEFAULT_logout_msg       NULL
-#define DEFAULT_log_level        APLOG_WARNING
 #define DEFAULT_always_decode    0
 
 /* module configuration structure */
@@ -121,7 +120,6 @@ typedef struct {
   char *cancel_msg;
   char *no_cookie_msg;
   char *logout_msg;
-  int   log_level;
   int   always_decode;
 } mod_ucam_webauth_cfg;
 
@@ -130,13 +128,9 @@ typedef struct {
 
 #ifdef APACHE1_3
 #define APACHE_LOG_ERROR(level, ...) \
-  if (level <= ((mod_ucam_webauth_cfg *) \
-    ap_get_module_config(r->per_dir_config,&ucam_webauth_module))->log_level)\
   ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, __VA_ARGS__)
 #else
 #define APACHE_LOG_ERROR(level, ...) \
-  if (level <= ((mod_ucam_webauth_cfg *) \
-    ap_get_module_config(r->per_dir_config,&ucam_webauth_module))->log_level)\
   ap_log_rerror(APLOG_MARK, level, 0, r, __VA_ARGS__)
 #endif
 
@@ -695,7 +689,7 @@ RSA_sig_verify(request_rec *r,
   key_file = (FILE *)fopen(key_full_path, "r");
 #endif
   if (key_file == NULL) {
-    APACHE_LOG_ERROR(APLOG_CRIT, "error opening file: %s", key_full_path);
+    APACHE_LOG_ERROR(APLOG_CRIT, "Error opening file: %s", key_full_path);
     return 2;
   }
 
@@ -725,7 +719,7 @@ RSA_sig_verify(request_rec *r,
   if (openssl_error) {
     APACHE_LOG_ERROR
       (APLOG_CRIT, 
-       "last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
+       "Last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
   }
 
   APACHE_LOG_ERROR
@@ -1232,7 +1226,6 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->cancel_msg = NULL;
   cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
-  cfg->log_level = -1;    /* mustn't be a valid APLOG_* value */
   cfg->always_decode = -1;
   return (void *)cfg;
 
@@ -1292,8 +1285,6 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->no_cookie_msg : base->no_cookie_msg;
   merged->logout_msg = new->logout_msg != NULL ? 
     new->logout_msg : base->logout_msg;
-  merged->log_level = new->log_level != -1 ? 
-    new->log_level : base->log_level;
   merged->always_decode = new->always_decode != -1 ? 
     new->always_decode : base->always_decode;
 
@@ -1351,8 +1342,6 @@ apply_config_defaults(request_rec *r,
       DEFAULT_no_cookie_msg;
   n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
       DEFAULT_logout_msg;
-  n->log_level = c->log_level != -1 ? c->log_level :
-      DEFAULT_log_level;
   n->always_decode = c->always_decode != -1 ? c->always_decode :
       DEFAULT_always_decode;
 
@@ -1444,45 +1433,12 @@ dump_config(request_rec *r,
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
      (c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
   
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg     = %s",
      (c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
   
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
      (c->logout_msg == NULL ? "NULL" : c->logout_msg));
   
-  switch(c->log_level) {
-  case APLOG_EMERG:
-    msg = "emerg";
-    break;
-  case APLOG_ALERT:
-    msg = "alert";
-    break;
-  case APLOG_CRIT:
-    msg = "crit";
-    break;
-  case APLOG_ERR:
-    msg = "error";
-    break;
-  case APLOG_WARNING:
-    msg = "warn";
-    break;
-  case APLOG_NOTICE:
-    msg = "notice";
-    break;
-  case APLOG_INFO:
-    msg = "info";
-    break;
-  case APLOG_DEBUG:
-    msg = "debug";
-    break;
-  case -1:
-    msg = "UNSET";
-    break;
-  default:
-    msg = "unknown";
-  }
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogLevel        = %s", msg);
-
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
      c->always_decode);
   
@@ -1610,46 +1566,16 @@ set_log_level(cmd_parms *cmd,
      
 {
   
-  char *str;
-
-  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
-  
-  if ((str = ap_getword_conf(cmd->pool, &arg))) {
-    if (!strcasecmp(str, "emerg")) {
-      cfg->log_level = APLOG_EMERG;
-    }
-    else if (!strcasecmp(str, "alert")) {
-      cfg->log_level = APLOG_ALERT;
-    }
-    else if (!strcasecmp(str, "crit")) {
-      cfg->log_level = APLOG_CRIT;
-    }
-    else if (!strcasecmp(str, "error")) {
-      cfg->log_level = APLOG_ERR;
-    }
-    else if (!strcasecmp(str, "warn")) {
-      cfg->log_level = APLOG_WARNING;
-    }
-    else if (!strcasecmp(str, "notice")) {
-      cfg->log_level = APLOG_NOTICE;
-    }
-    else if (!strcasecmp(str, "info")) {
-      cfg->log_level = APLOG_INFO;
-    }
-    else if (!strcasecmp(str, "debug")) {
-      cfg->log_level = APLOG_DEBUG;
-    }
-    else {
-      return "AALogLevel requires level keyword: one of "
-	"emerg/alert/crit/error/warn/notice/info/debug";
-    }
-  }
-  else {
-    return "AALogLevel requires level keyword";
-  }
+#ifdef APACHE1_3
+  ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO, cmd->server,
+	       "The AALogLevel directive is deprecated and currently ignored");
+#else
+  ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
+	       "The AALogLevel directive is deprecated and currently ignored");
+#endif  
   
   return NULL;
-
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1672,11 +1598,11 @@ decode_cookie(request_rec *r,
   cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
 
   if (cookie_str == NULL || strcmp(cookie_str, TESTSTRING) == 0) {
-    APACHE_LOG_ERROR(APLOG_INFO, "no existing authentication cookie");
+    APACHE_LOG_ERROR(APLOG_INFO, "No existing authentication cookie");
     return DECLINED;
   }
   
-  APACHE_LOG_ERROR(APLOG_INFO, "found existing authentication cookie");
+  APACHE_LOG_ERROR(APLOG_INFO, "Found existing authentication cookie");
   APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", cookie_str);
   
   cookie = make_cookie_table(r,  cookie_str);
@@ -1704,7 +1630,7 @@ decode_cookie(request_rec *r,
      authentication */
 
   if (strcmp((char *)apr_table_get(cookie, "status"), "410") == 0) {
-    APACHE_LOG_ERROR(APLOG_NOTICE, 
+    APACHE_LOG_ERROR(APLOG_INFO, 
 		     "Authentication status = 410, user cancelled");
     if (c->cancel_msg != NULL) {
       ap_custom_response(r, HTTP_FORBIDDEN, c->cancel_msg);
@@ -1775,13 +1701,13 @@ decode_cookie(request_rec *r,
     set_cookie(r, NULL, c);
     return HTTP_BAD_REQUEST;
   } else if (now >= issue + apr_time_from_sec(life)) {
-    APACHE_LOG_ERROR(APLOG_NOTICE, 
+    APACHE_LOG_ERROR(APLOG_INFO, 
 		     "Session cookie has expired");
     apr_table_set(r->notes,"AATimeout","expiry");
     return DECLINED;
   } else if (c->inactive_timeout && 
 	     now >= last + apr_time_from_sec(c->inactive_timeout + 60)) {
-    APACHE_LOG_ERROR(APLOG_NOTICE, 
+    APACHE_LOG_ERROR(APLOG_INFO, 
 		     "Session cookie has expired due to inactivity");
     apr_table_set(r->notes,"AATimeout","inactivity");
     return DECLINED;
@@ -1840,7 +1766,7 @@ decode_cookie(request_rec *r,
     ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
   
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, "successfully decoded cookie for %s accessing %s", 
+    (APLOG_INFO, "Successfully decoded cookie for %s accessing %s", 
      (char *)apr_table_get(cookie, "principal"),r->uri);
   
   /* Even though we may have been successfull, we return DECLINED so
@@ -1871,14 +1797,14 @@ decode_response(request_rec *r,
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
   if (token_str != NULL) {
-    APACHE_LOG_ERROR(APLOG_INFO, "found WLS token");
+    APACHE_LOG_ERROR(APLOG_INFO, "Found WLS token");
     APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
 
     /* Check that cookie exists because it should have been created
        previously and if it's not there we'll probably end up in a
        redirect loop */
 
-    APACHE_LOG_ERROR(APLOG_INFO, "searching for cookie %s", c->cookie_name);
+    APACHE_LOG_ERROR(APLOG_INFO, "Searching for cookie %s", c->cookie_name);
 
     cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
     if (cookie_str == NULL) {
@@ -1994,10 +1920,10 @@ decode_response(request_rec *r,
 		     (char *)apr_table_get(response_ticket, "kid"));
 
     if (sig_verify_result == 2) {
-      APACHE_LOG_ERROR(APLOG_ALERT, "Error opening public key file");
+      APACHE_LOG_ERROR(APLOG_CRIT, "Error opening public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
     } else if (sig_verify_result == 3) {
-      APACHE_LOG_ERROR(APLOG_ALERT, "Error reading public key file");
+      APACHE_LOG_ERROR(APLOG_CRIT, "Error reading public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -2076,7 +2002,7 @@ decode_response(request_rec *r,
     
     /* redirect */
     
-    APACHE_LOG_ERROR(APLOG_NOTICE, "issuing redirect to original URL");
+    APACHE_LOG_ERROR(APLOG_INFO, "Issuing redirect to original URL");
     
     apr_table_set(r->headers_out, 
 		  "Location", 
@@ -2149,7 +2075,7 @@ construct_request(request_rec *r,
   apr_table_set(r->headers_out, "Location", request);
   set_cookie(r, TESTSTRING, c);
   
-  APACHE_LOG_ERROR(APLOG_NOTICE, "redirecting to login server");
+  APACHE_LOG_ERROR(APLOG_INFO, "Redirecting to login server");
   
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
@@ -2221,11 +2147,9 @@ webauth_header_parser(request_rec *r)
   APACHE_LOG_ERROR (APLOG_DEBUG,"###########################################");
   
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, "mod_ucam_webauth (%s) header parser started for %s", 
+    (APLOG_INFO, "mod_ucam_webauth (%s) header parser started for %s", 
      VERSION, r->uri);
-
-  if (c->log_level >= APLOG_DEBUG)
-    dump_config(r,c);
+  dump_config(r,c);
 
   /* Check for config errors */
 
@@ -2274,7 +2198,7 @@ webauth_authn(request_rec *r)
   }
   
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, "mod_ucam_webauth (%s) authn handler started for %s", 
+    (APLOG_INFO, "mod_ucam_webauth (%s) authn handler started for %s", 
      VERSION, r->uri);
 
   c = (mod_ucam_webauth_cfg *) 
@@ -2291,7 +2215,7 @@ webauth_authn(request_rec *r)
   /* FIRST: see if we successfully decoded a session cookie in the
      header parser */
 
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 1...");
+  APACHE_LOG_ERROR(APLOG_INFO, "Stage 1...");
 
   /* if r->main != NULL then this is a sub-request, and if it's a
      sub-request the the header parser hasn't been run ('cos they
@@ -2307,7 +2231,7 @@ webauth_authn(request_rec *r)
   
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
     APACHE_LOG_ERROR
-      (APLOG_NOTICE, "successfully authenticated %s accessing %s", 
+      (APLOG_INFO, "Successfully authenticated %s accessing %s", 
        (char *)apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
     return OK;
   }
@@ -2319,7 +2243,7 @@ webauth_authn(request_rec *r)
      to the original URL to clear the browser's location bar of the
      WLS response */
   
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
+  APACHE_LOG_ERROR(APLOG_INFO, "Stage 2...");
 
   rc = decode_response(r, c);
   if (rc != DECLINED)
@@ -2328,7 +2252,7 @@ webauth_authn(request_rec *r)
   /* THIRD: send a request to the WLS. Also set a test value cookie so
      we can test that it's still available when we get back. */
   
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 3..."); 
+  APACHE_LOG_ERROR(APLOG_INFO, "Stage 3..."); 
   
   return construct_request(r,c);
   
@@ -2359,7 +2283,7 @@ webauth_handler_logout(request_rec *r)
     (APLOG_DEBUG,"######################################################");
   
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, 
+    (APLOG_INFO, 
      "mod_ucam_webauth (%s) logout handler started for %s", 
      VERSION, r->uri);
 
@@ -2537,7 +2461,7 @@ static const command_rec webauth_commands[] = {
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,cancel_msg),
 		RSRC_CONF | OR_AUTHCFG,
-		   "Custom error for authentication cancelled"),
+		"Custom error for authentication cancelled"),
   
   AP_INIT_TAKE1("AANoCookieMsg", 
 		ap_set_string_slot, 
@@ -2558,7 +2482,7 @@ static const command_rec webauth_commands[] = {
 		set_log_level, 
 		NULL, 
 		RSRC_CONF | OR_AUTHCFG,
-		"Level of verbosity in error logging"),
+		"Deprecated and ignored"),
   
   AP_INIT_FLAG("AAAlwaysDecode", 
 	       ap_set_flag_slot, 

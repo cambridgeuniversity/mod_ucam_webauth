@@ -1,3 +1,22 @@
+0.99-1.0.0rc7 - 2004-08-11 jw
+
+ Bugs fixed
+
+ . A failure to set a default value for AALogLevel meant that no
+   logging was ever produced unless AALogLevel was explicitly
+   set. Since it turns out to be hard to get this right and that
+   experience has shown that AALogLevel is of limited use the
+   deirective is now ignored. For the time being, use of the directive
+   produces a warning messahe - in due course the directive will be
+   removed completly and use of it will be an error. Logging is now
+   controled entirely by the main Apache Loglevel directive.
+
+ . Altered some log messges from level 'notice' to level 'info'. It
+   seems that Apache always logs 'notice' level messages to the error
+   log irrespective of the LogLevel setting (Ugh?)  With Loglevel set
+   to 'notice' or higher, only messages about unexpected events will
+   now be logged.
+
 0.99-1.0.0rc6 - 2004-07-12 jw
 
  Enhancements:
