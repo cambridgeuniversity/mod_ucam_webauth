@@ -1,0 +1,41 @@
+0.41 (19/3/04)
+
+Makes Apache 1.3/2 build decision based on APACHE_RELEASE
+Revised error and state logging
+
+Fixed:
+
+. Mergering of server and per-directory configuration directives
+. Assignment type mismatch
+
+0.4 (11/3/04)
+
+Fixed:
+
+. Configuration directives can now be specified anywhere
+. Proper reporting and response to file access errors
+. Builds quietly
+. Type mismatches corrected
+
+0.31 (9/3/04)
+
+Fixed:
+
+. Correct Apache 2 NOMATCH constant for apr_fnmatch function
+
+0.3 (8/3/04)
+
+Versions for Apache 1.3 and 2 can now be built from a single source file
+
+0.2 (3/3/04)
+
+Fixed:
+
+. Timeout message handling
+. Proper deletion of cookies via setting expiry in past
+. Secure cookie handling
+. Rename module to mod_ucam_webauth
+
+0.1 (25/2/04)
+
+First working version

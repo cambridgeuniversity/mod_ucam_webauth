@@ -1,0 +1,321 @@
+
+University of Cambridge Web Authentication Agent Manual
+
+1. Installation
+
+The University of Cambridge Authentication (Ucam-WebAuth) agent can be
+linked to Apache in two ways, either statically or
+dynamically. Dynamically linking the agent has the advantage of not
+requiring the Apache server to be rebuilt, although it does require
+that support for dynamic shared objects (DSO) be already incorporated
+in the server. Dynamic linking also engenders a decrease in Apache's
+performance relative to static linking. See the bottom of
+http://httpd.apache.org/docs/dso.html for a summary of the advantages
+and disadvantages of dynamic linking. If you are unsure about
+rebuilding Apache then dynamic linking is recommended.
+
+In the following documentation PREFIX is the directory where Apache
+resides, e.g.  /usr/local/apache
+
+The Ucam-WebAuth agent supports versions 1.3 and 2 of Apache. If you
+have an existing Apache installation and are unsure of the version you
+can use
+
+	PREFIX/bin/httpd -v
+
+to determine your version of Apache.
+
+1.1. Requirements
+
+Building the agent either statically or dynamically currently requires
+the OpenSSL library. Note that the module only provides
+authentication, so an authorization module must also be loaded.
+
+1.2. RSA Public Keys
+
+The agent uses RSA public keys to verify that any messages from the
+Raven server really were sent by Raven and are not some attempt by a
+third-party to gain access to protected resources. The public keys
+require are available from https://raven.cam.ac.uk/project/keys/ and
+should be placed in the PREFIX/conf/webauth-keys directory, which you
+will have to create. If for some reason this is not an appropriate
+location for the keys on your system a different directory can be
+defined. See the Configuration section below for more details.
+
+1.2. Installing using Dynamic Linking
+
+The apxs tool can be used to build and install the Ucam-WebAuth agent
+without rebuilding the Apache server. However the server must have
+been built with shared object support. This can be checked by using
+the following command
+
+	PREFIX/bin/httpd -l
+
+to list the modules linked to the Apache server. The module required
+for shared object support will be listed as mod_so.c. If this module
+is not present then a rebuild of your Apache server is required,
+either to enable shared object support or to statically link the agent
+to your server.
+
+The simplest command for building the module dynamically is:
+
+	PREFIX/bin/apxs -c -lcrypto mod_ucam_webauth.c
+
+This compiles the agent module as a shared object, but does not make
+Apache aware of its presence. To do this the compiled module file
+mod_ucam_webauth.so must first be copied to the directory where Apache
+stores shared modules. This may be PREFIX/modules, depending on the
+Apache's directory layout.  The httpd.conf configuration file must
+then be updated with the configuration directives required to load and
+activate the module.
+
+For Apache 1.3 two directives must be added, first LoadModule, then
+AddModule.  The order in which modules are loaded and add added using
+these directives in httpd.conf is significant since it determines
+which modules may override others' behaviour. Modules that are added
+later have priority over those loaded before them. Generally the
+Ucam-WebAuth module can be loaded and added after the other
+modules. The modules must be loaded and added in the same order. The
+LoadModule and AddModule directives for the module are
+
+	LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+	AddModule mod_ucam_webauth.c
+
+Loading the module for Apache 2 is much simpler than for Apache 1.3,
+since the modules themselves specify their ordering. Only the
+LoadModule configuration directive needs to be added to httpd.conf:
+
+	LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+
+The apxs tool can be instructed to move the compiled module to the
+correct directory and alter httpd.conf automatically.
+
+	PREFIX/bin/apxs -c -i -a -lcrypto mod_ucam_webauth.c
+
+This builds the module and modifies the httpd.conf file so that the
+module is loaded when the Apache server is started. If you just want
+to build a the module and move it to the correct directory without
+altering httpd.conf then the command is the same, except without the
+-a option. E.g.
+
+	PREFIX/bin/apxs -c -i -lcrypto mod_ucam_webauth.c
+
+1.3. Installing using Static Linking
+
+Remove or backup the previous Apache build. Change into the Apache
+build directory and copy the appropriate source file to
+src/modules/extra Apache 1.3 or modules/aaa for Apache 2. Run the
+configure script with the activate-module and enable-module options as
+specified below in addition to any other options you wish to set,
+e.g. for an Apache 1.3 installation:
+
+	./configure --prefix=PREFIX \
+	--activate-module=src/modules/extra/mod_ucam_webauth.c \
+	--enable-module=ucam_webauth
+
+For an Apache 2 installation the options you supply are slightly different:
+
+	./configure --prefix=PREFIX \
+	--enable-ucam_webauth
+
+Issue the commands to build and install Apache in the usual way:
+
+	make
+	make install
+
+Use the command
+
+	PREFIX/bin/httpd -l
+
+to check that the agent has been successfully incorporated into the
+Apache server. It should be listed as mod_ucam_webauth.c.
+
+2. Configuration
+
+The minimum configuration required to protect a resource from users
+without a Ucam-WebAuth login is
+
+	<Directory "protected_dir/">
+		AuthType WebAuth
+		Require valid-user
+		AACookieKey some random string
+	</Directory>
+
+The directory to be protected is specified with the Directory
+directive, although resources speficied by the Location or Files
+directives can also be protected. The type of user authentication must
+be set to WebAuth. A Require directive is also needed to ensure that
+only authenticated users are allowed access to the resource. The final
+directive required for this simple configuration is AACookieKey. This
+directive is specific to the agent module and is used to sign and
+verify session cookies, providing detection any cookie
+tampering. There is no default for the parameter of this directive,
+and it must be set to some random string.
+
+2.1. Custom Error Pages
+
+A number of error conditions will be reported by passing an error page
+to the user's browser. This module may need to report 'User declined
+to authenticate', 'Browser not accepting session cookie', and 'General
+server error'. In addition, the standard authorisation modules which
+can be used along with this module may raise 'Authorization Required'
+if the authenticated user is not actually allowed access.
+
+In all cases, how these errors are reported can be controlled by using
+Apache's 'Custom Error Pages' system. This allows a web designer to
+replace the default pages with versions that, for example, more
+closely match the look and feel of the site.
+
+Error pages for 'General server error' and 'Authorization Required'
+can be established if required using the standard ErrorDocument
+directive for status codes 500 and 401 status codes. A default 401
+page will be provided if a custom one is not defined since the Apache
+default is misleading. The default Apache 500 will be used (and may
+well be satisfactory) if a custom page is not defined.
+
+Custom error pages for 'User declined to authenticate' and 'Browser
+not accepting session cookie' can be established using the AACancelMsg
+and AANoCookieMsg configuration parameters. Default pages will be used
+if custom ones are not defined.
+
+Custom messages can be either a simple text string, a partial URL
+starting '/' (in which case it will be assumed to be on the current
+server), or a full URL in which case the user will be redirected
+there.
+
+If the error document is a local one then a number of environment
+variables with names starting 'REDIRECT_' will contain additional
+information about what went wrong that could be displayed if the
+document is something like an SSI page or a CGI script. In particular,
+REDIRECT_ERROR_NOTES may contain a useful description of any error -
+however note that there may be other causes of server errors that will
+also set REDIRECT_ERROR_NOTES and that doing so could give away
+information useful to an attacker (error messages are in any case
+logged to the server error log). Other variables that may be available
+prefixed by 'REDIRECT_' include those described above under
+Authentication Information.
+
+2.2. Configuration Directives
+
+Apart from AACookieKey the configuration directives specific to the
+agent module are optional.
+
+AAAuthService
+
+The full URL for the web login service to be used. Defaults to
+https://raven.cam.ac.uk/auth/authenticate.html
+
+AADescription
+
+A text description of the resource that is requesting
+authentication. This may be displayed to the user by the
+authentication service. It is restricted to printable ASCII characters
+(0x20 - 0x7e) though it may contain HTML entities representing other
+characters. The characters '<' and '>' will be converted into HTML
+entities before being sent to the browser and so this text can not
+usefully contain HTML markup.
+
+AAResponseTimeout
+
+Responses from the central authentication server are
+time-stamped. This parameter sets the period of time in seconds during
+which these responses are considered valid. The default is 30 seconds.
+
+AAClockSkew
+
+Interpretation of AAResponseTimeout is difficult if the clocks on the
+server running this handler and on the authentication server are out
+of step. Both servers should use NTP to synchronise their clocks, but
+if they don't then this parameter should be set to an estimate of the
+maximum expected difference between them (in seconds).
+
+AAKeyDir
+
+The name of a directory containing the public key(s) required to
+validate authentication responses sent by the server. If this name
+does not start with '/' then it is interpreted relative to
+DocumentRoot. Default conf/webauth-keys
+
+AAMaxSessionLife
+
+The maximum period of time (in seconds) for which an established
+session will be valid. This may be overridden if the authentication
+reply contains a shorter 'life' parameter. Note that this does NOT
+define an expiry time for the session cookie - session cookies are
+always set without an expiry time, causing them to expire when the
+browser session finishes. Default is 2 hours.
+
+AATimeoutMessage
+
+A re-authentication by the authentication service will be triggered
+when an established session expires. This option sets a text string,
+default 'your login to the site has expired', which is sent to the
+authentication server to explain to the user why they are being asked
+to authenticate again. HTML markup is suppressed as for AADescription
+above.
+
+AACookieKey
+
+A random key used to protect session cookies from tampering. Any
+reasonably unpredictable string (for example an md5sum of a rapidly
+changing logfile) will be satisfactory. This key must be the same for
+all uses of the Web Authentication system that will receive the same
+session cookies (see AACookieName, AACookiePath, AACookieDomain
+below). This parameter has no default and must be set.
+
+AACookieName
+
+The name used for the session cookie. When used for access to
+resources over https the string '-S' is appended to this name. The
+default is 'Ucam-WebAuth-Session'.
+
+AACookiePath
+
+The 'Path' attribute for the session_cookie. The default is '/' which
+should cause the cookie to be returned in response to all requests for
+this server. Be sure to set this path so that it includes all the URLs
+being protected. For example
+
+    <Location /protected>
+      PerlSetVar AACookieKey foobar
+      PerlSetVar AACookiePath /protected/
+    </location>
+
+will cause problems when a browser tries to access
+http://<whatever/protected> since authentication will be required but
+the relevant cookie will never be returned. Note that an .htaccess
+file and a Directrory block even with a training '/' appear to behave
+as for a Location block with a path omitting the trailing '/'. The
+module checks for URLs that are out of the scope of the relavent
+cookie and returns and logs an error if this occurs.
+
+AACookieDomain
+
+The 'Domain' attribute for the session cookie. The default is '',
+which will result in the cookie being returned only to the server
+running the script. Be aware that some people may treat with suspicion
+cookies with domain attributes that are wider than the host setting
+the cookie.
+
+AAFail
+
+If true, sets the fail parameter in any authentication request sent to
+the authentication server to 'yes'. This has the effect of requiring
+the authentication server itself to report any errors that it
+encounters, rather than returning an error indication. Note however
+that even with this parameter set errors may be detected by this
+module that will result in authentication failing here.
+
+AACancelMsg
+
+If set, this identifies the message that will be displayed on the
+users browser if the user cancelles the authentication (asuming that
+AAAFail is not set). If unset, a standard message will be
+displayed. See the Custom Error Pages section.
+
+AANoCookieMsg
+
+If set, this identifies the message that will be displayed on the
+users browser if the browser does not appear to be accepting the
+session cookie (without which this module won't work). See the Custom
+Error Pages section.
