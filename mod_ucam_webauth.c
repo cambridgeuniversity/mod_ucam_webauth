@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.20 2004-06-18 12:16:35 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.21 2004-06-18 13:20:04 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -148,10 +148,15 @@ typedef struct {
 #define APACHE_BASE64DECODE_LEN ap_base64decode_len
 #define APACHE_PARSE_HTTP_DATE ap_parseHTTPdate
 #define APACHE_PSTRDUP ap_pstrdup
-#define APACHE_LOG_ERROR(x, y, rqst, ...) \
-  ap_log_rerror(x, y, rqst, __VA_ARGS__)
 #define APACHE_OFFSETOF XtOffsetOf
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(s)
+
+/* errors */
+
+#define APACHE_LOG_ERROR(level, ...) \
+  if (level <= ((mod_ucam_webauth_cfg *) \
+    ap_get_module_config(r->per_dir_config,&ucam_webauth_module))->AALogLevel)\
+  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, __VA_ARGS__)
 
 /* definitions */
 
@@ -209,10 +214,15 @@ typedef struct {
 #define APACHE_BASE64DECODE_LEN apr_base64_decode_len
 #define APACHE_PARSE_HTTP_DATE(d) apr_date_parse_http(d)
 #define APACHE_PSTRDUP apr_pstrdup
-#define APACHE_LOG_ERROR(x, y, rqst, ...) \
-  ap_log_rerror(x, y, 0, rqst, __VA_ARGS__)
 #define APACHE_OFFSETOF APR_OFFSETOF
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(p,s)
+
+/* errors */
+
+#define APACHE_LOG_ERROR(level, ...) \
+  if (level <= ((mod_ucam_webauth_cfg *) \
+    ap_get_module_config(r->per_dir_config,&ucam_webauth_module))->AALogLevel)\
+  ap_log_rerror(APLOG_MARK, 0, level | APLOG_NOERRNO, r, __VA_ARGS__)
 
 /* definitions */
 
@@ -222,6 +232,10 @@ typedef struct {
 #endif
 
 /* ---------------------------------------------------------------------- */
+
+/* forward declaration */
+
+APACHE_MODULE ucam_webauth_module;
 
 /* Utility routines */
 
@@ -266,16 +280,14 @@ wls_decode(request_rec *r,
 
 {
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode...");
 
   int len, i;
   char * d;
 
   d = APACHE_PSTRDUP(r->pool, string);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode[1]");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[1]");
 
   for (i = 0; i < strlen(d); i++) {
     if (d[i] == '-') d[i] = '+';
@@ -283,23 +295,19 @@ wls_decode(request_rec *r,
     else if (d[i] == '_') d[i] = '=';
   }
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode[2]");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[2]");
 
   *data = (char*)APACHE_PALLOC(r->pool, 1+APACHE_BASE64DECODE_LEN(d));
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode[3]");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[3]");
 
   len = APACHE_BASE64DECODE(*data, d);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode[4]");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[4]");
 
   (*data)[len] = '\0'; /* for safety if nothing else */
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "wls_decode[5]");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[5]");
 
   return len;
 
@@ -314,8 +322,7 @@ iso2_time_encode(request_rec *r,
 
 {
   
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "ISO 2 time encoding...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "ISO 2 time encoding...");
   return ap_ht_time(r->pool, t, "%Y%m%dT%H%M%SZ", 1);
 
 }
@@ -331,7 +338,7 @@ iso2_time_decode(request_rec *r,
   
   char *t_http = (char*)APACHE_PALLOC(r->pool, 27);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
+  APACHE_LOG_ERROR(APLOG_DEBUG,
 		   "iso2_time_decode...");
 
   if (strlen(t_iso2) < 16) return -1;
@@ -431,8 +438,7 @@ iso2_time_decode(request_rec *r,
   t_http[25] = 'T';
   t_http[26] = '\0';
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "HTTP date = %s", t_http);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "HTTP date = %s", t_http);
   
   return APACHE_PARSE_HTTP_DATE(t_http);
 
@@ -450,8 +456,7 @@ get_cgi_param(request_rec *r,
   const char *data = r->args;
   const char *pair;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "get_cgi_param, r->args = %s", data);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "get_cgi_param, r->args = %s", data);
   
   if (data != NULL) {
     while (*data && (pair = ap_getword(r->pool, &data, '&'))) {
@@ -533,8 +538,7 @@ set_cookie(request_rec *r,
     cookie = APACHE_PSTRCAT(r->pool, cookie, "; secure", NULL);
   }
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "set_cookie str = %s", cookie);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "set_cookie str = %s", cookie);
 
   APACHE_TABLE_ADD(r->err_headers_out, "Set-Cookie", cookie);
 }
@@ -554,15 +558,13 @@ SHA1_sign(request_rec *r,
     (unsigned char *)APACHE_PCALLOC(r->pool, EVP_MAX_MD_SIZE + 1);
   unsigned int sig_len;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "making sig with data = %s", data);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "making sig with data = %s", data);
 
   HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
   new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "new sig = %s", new_sig);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "new sig = %s", new_sig);
 
  return (char *)new_sig;
 
@@ -583,17 +585,14 @@ SHA1_sig_verify(request_rec *r,
     (unsigned char *)APACHE_PCALLOC(r->pool, EVP_MAX_MD_SIZE + 1);
   unsigned int sig_len;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "verifying sig: %s", sig);
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "on data: %s", data);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "verifying sig: %s", sig);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "on data: %s", data);
 
   HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
   new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "new sig = %s", new_sig);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "new sig = %s", new_sig);
 
   if (strcmp(sig, (const char *)new_sig) == 0) return 1;
   return 0;
@@ -632,15 +631,13 @@ RSA_sig_verify(request_rec *r,
   RSA *public_key;
   int openssl_error;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "RSA_sig_verify...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "RSA_sig_verify...");
 
   SHA1((const unsigned char *)data, strlen(data), (unsigned char *)digest);
   
   key_file = (FILE *)APACHE_FOPEN(r->pool, key_full_path, "r");
   if (key_file == NULL) {
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r,
-		     "error opening file: %s", key_full_path);
+    APACHE_LOG_ERROR(APLOG_ALERT, "error opening file: %s", key_full_path);
     return 2;
   }
 
@@ -651,10 +648,8 @@ RSA_sig_verify(request_rec *r,
 
   sig_length = wls_decode(r, sig, &decoded_sig);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "digest length = %d", strlen(digest));
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "sig length = %d", sig_length);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "digest length = %d", strlen(digest));
+  APACHE_LOG_ERROR(APLOG_DEBUG, "sig length = %d", sig_length);
 
   result = RSA_verify(NID_sha1, 
 		      (unsigned char *)digest, 
@@ -666,13 +661,12 @@ RSA_sig_verify(request_rec *r,
   openssl_error = ERR_get_error();
   if (openssl_error) {
     APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r,
+      (APLOG_ALERT, 
        "last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
   }
 
   APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-     "RSA verify result = %d", result);
+    (APLOG_DEBUG, "RSA verify result = %d", result);
 
   RSA_free(public_key);
   
@@ -781,27 +775,22 @@ get_cookie_str(request_rec *r,
 
   const char *pair;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "get_cookie_str...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "get_cookie_str...");
 
   if (!data) return NULL;
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "cookie data = %s", data);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "cookie data = %s", data);
 
   while (*data && (pair = ap_getword(r->pool, &data, ';'))) {
     const char *name;
     if (*data == ' ') ++data;
     name = ap_getword(r->pool, &pair, '=');
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		     "current cookie name = %s", name);
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		     "current cookie data = %s", pair);
+    APACHE_LOG_ERROR(APLOG_DEBUG, "current cookie name = %s", name);
+    APACHE_LOG_ERROR(APLOG_DEBUG, "current cookie data = %s", pair);
 
     if (strcmp(name, cookie_name) == 0) {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		       "found cookie match!");
+      APACHE_LOG_ERROR(APLOG_DEBUG, "found cookie match!");
       return (char *)pair;
     }
   }
@@ -1105,10 +1094,6 @@ merge_dir_config(APACHE_POOL *p,
   mod_ucam_webauth_cfg *base = (mod_ucam_webauth_cfg *)bconf;
   mod_ucam_webauth_cfg *new  = (mod_ucam_webauth_cfg *)nconf;
 
-  fprintf(stderr,
-     "Merging, MaxSessionLife: base %d, new %d", 
-     base->AAMaxSessionLife, new->AAMaxSessionLife);
-
   merged->AAAuthService = new->AAAuthService != NULL ? 
     new->AAAuthService : base->AAAuthService;
   merged->AADescription = new->AADescription != NULL ? 
@@ -1200,39 +1185,30 @@ dump_config(request_rec *r,
 
   char *msg;
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "Config dump:");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "Config dump:");
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAAuthService     = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAuthService     = %s",
      (c->AAAuthService == NULL ? "NULL" : c->AAAuthService));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AADescription     = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AADescription     = %s",
      (c->AADescription == NULL ? "NULL" : c->AADescription));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAResponseTimeout = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAResponseTimeout = %d",
      c->AAResponseTimeout);
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAClockSkew       = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAClockSkew       = %d",
      c->AAClockSkew);
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAKeyDir          = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAKeyDir          = %s",
      (c->AAKeyDir == NULL ? "NULL" : c->AAKeyDir));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAMaxSessionLife  = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAMaxSessionLife  = %d",
      c->AAMaxSessionLife);
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAInactiveTimeout = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAInactiveTimeout = %d",
      c->AAInactiveTimeout);
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AATimeoutMsg      = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AATimeoutMsg      = %s",
      (c->AATimeoutMsg == NULL ? "NULL" : c->AATimeoutMsg));
  
   switch(c->AACacheControl) {
@@ -1251,55 +1227,41 @@ dump_config(request_rec *r,
   default:
     msg = "unknown";
   }
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
-     "  AACacheControl    = %s", msg);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACacheControl    = %s", msg);
 
   if (c->AACookieKey == NULL) {
-    APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
-       "  AACookieKey       = NULL");
+    APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieKey       = NULL");
   } else {
-    APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
+    APACHE_LOG_ERROR(APLOG_DEBUG, 
        "  AACookieKey       = %4.4s... (truncated, %d characters total)", 
        c->AACookieKey, strlen(c->AACookieKey));
   }
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieName      = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieName      = %s",
      (c->AACookieName == NULL ? "NULL" : c->AACookieName));
   
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookiePath      = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookiePath      = %s",
      (c->AACookiePath == NULL ? "NULL" : c->AACookiePath));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACookieDomain    = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACookieDomain    = %s",
      (c->AACookieDomain == NULL ? "NULL" : c->AACookieDomain));
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAAuthType        = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAAuthType        = %s",
      (c->AAAuthType == NULL ? "NULL" : c->AAAuthType));
    
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAForceInteract   = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAForceInteract   = %d",
      c->AAForceInteract);
       
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAFail            = %d",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AAFail            = %d",
      c->AAFail);
 
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AACancelMsg       = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
      (c->AACancelMsg == NULL ? "NULL" : c->AACancelMsg));
   
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AANoCookieMsg     = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg     = %s",
      (c->AANoCookieMsg == NULL ? "NULL" : c->AANoCookieMsg));
   
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AALogoutMsg       = %s",
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
      (c->AALogoutMsg == NULL ? "NULL" : c->AALogoutMsg));
   
   switch(c->AALogLevel) {
@@ -1333,16 +1295,11 @@ dump_config(request_rec *r,
   default:
     msg = "unknown";
   }
-  APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
-     "  AALogLevel        = %s", msg);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogLevel        = %s", msg);
   
 }
 
 /* --- */
-/* forward declaration of module for ap_get_module_config */
-
-APACHE_MODULE ucam_webauth_module;
 
 /* Note that most string and flag parameters are processed by the generic
    ap_set_string_slot and ap_set flag_slot routines */
@@ -1573,13 +1530,12 @@ ucam_webauth_handler(request_rec *r)
   if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) return DECLINED;
   
   APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
+    (APLOG_NOTICE, 
      "Apache Raven AA handler version " VERSION " started for %s", r->uri);
   
   if (r->method_number == M_POST)
     APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, r,
-       "ApacheAA hander invoked for POST request, "
+      (APLOG_WARNING, "ApacheAA hander invoked for POST request, "
        "which it doesn't really support");
 
   c = (mod_ucam_webauth_cfg *) 
@@ -1590,7 +1546,7 @@ ucam_webauth_handler(request_rec *r)
 
   if (c->AACookieKey == NULL) {
     APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+      (APLOG_ERR,
        "Access to %s failed: AACookieKey not defined", r->uri);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -1599,8 +1555,7 @@ ucam_webauth_handler(request_rec *r)
 		     r->parsed_uri.path,
 		     0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
     APACHE_LOG_ERROR
-      (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-       "AACookiePath %s is not a prefix of %s", 
+      (APLOG_ERR, "AACookiePath %s is not a prefix of %s", 
        c->AACookiePath, r->parsed_uri.path);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -1614,23 +1569,19 @@ ucam_webauth_handler(request_rec *r)
      and repeat the authentication */
        
   APACHE_LOG_ERROR
-    (APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-     "entering FIRST stage...");
+    (APLOG_NOTICE, "entering FIRST stage...");
 
   old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->AACookieName));
 
   if (old_cookie_str == NULL) 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		     "no existing authentication cookie found");
+    APACHE_LOG_ERROR(APLOG_INFO, "no existing authentication cookie found");
 
   if (old_cookie_str != NULL && strcmp(old_cookie_str, TESTSTRING) != 0) {
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		     "found existing authentication cookie");
+    APACHE_LOG_ERROR(APLOG_INFO, "found existing authentication cookie");
 
     ap_unescape_url(old_cookie_str);
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		     "cookie str = %s", old_cookie_str);
+    APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", old_cookie_str);
     
     old_cookie = make_cookie_table(r, old_cookie_str);
     
@@ -1639,8 +1590,7 @@ ucam_webauth_handler(request_rec *r)
     if (SHA1_sig_verify(r, c, cookie_check_sig_string(r, old_cookie), 
 			(char *)APACHE_TABLE_GET(old_cookie, "sig"))) {
 
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		       "Session cookie signature valid");
+      APACHE_LOG_ERROR(APLOG_INFO, "Session cookie signature valid");
       
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "410") == 0) {
 	if (c->AACancelMsg != NULL) {
@@ -1651,15 +1601,14 @@ ucam_webauth_handler(request_rec *r)
 	}
 	set_cookie(r, NULL, c);
 	
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, r,
+	APACHE_LOG_ERROR(APLOG_WARNING, 
 			 "Authentication status = 410, access forbidden");
 	
 	return HTTP_FORBIDDEN;
       }
 
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "200") != 0) {
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-			 "Authentication error, status = %s, %s",
+	APACHE_LOG_ERROR(APLOG_ERR, "Authentication error, status = %s, %s",
 			 APACHE_TABLE_GET(old_cookie, "status"),
 			 APACHE_TABLE_GET(old_cookie, "msg"));
 	set_cookie(r, NULL, c);
@@ -1674,12 +1623,12 @@ ucam_webauth_handler(request_rec *r)
 	(r,(char *)APACHE_TABLE_GET(old_cookie, "expire"));
 
       if (issue == -1) {
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+	APACHE_LOG_ERROR(APLOG_ERR,
 			 "Session cookie issue date incorrect length");
 	return HTTP_BAD_REQUEST;
       }
       if (expire == -1) {
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+	APACHE_LOG_ERROR(APLOG_ERR,
 			 "Session cookie expire date incorrect length");
 	return HTTP_BAD_REQUEST;
       }
@@ -1687,31 +1636,27 @@ ucam_webauth_handler(request_rec *r)
       now = APACHE_TIME_NOW;
       
       APACHE_LOG_ERROR
-	(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-	 "issue = %s, expire = %s", 
+	(APLOG_DEBUG, "issue = %s, expire = %s", 
 	 (char *)APACHE_TABLE_GET(old_cookie, "issue"), 
 	 (char *)APACHE_TABLE_GET(old_cookie, "expire"));
       
       APACHE_LOG_ERROR
-	(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-	 "now = %s, issue = %s, expire = %s", 
+	(APLOG_DEBUG, "now = %s, issue = %s, expire = %s", 
 	 iso2_time_encode(r, now), 
 	 iso2_time_encode(r, issue), iso2_time_encode(r, expire));
 
       if (issue > now) {
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+	APACHE_LOG_ERROR(APLOG_ERR,
 			 "Session cookie has issue date in the future");
 	return HTTP_BAD_REQUEST;
       } else if (now >= expire) {
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-			 "Session cookie has timed out");
+	APACHE_LOG_ERROR(APLOG_NOTICE, "Session cookie has timed out");
 	timeout_msg = c->AATimeoutMsg;
       } else {
 	APACHE_REQUEST_USER = 
 	  (char *)APACHE_TABLE_GET(old_cookie, "principal");
 	APACHE_LOG_ERROR
-	  (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-	   "user = %s", APACHE_REQUEST_USER);
+	  (APLOG_DEBUG, "user = %s", APACHE_REQUEST_USER);
 	APACHE_TABLE_ADD(r->subprocess_env, 
 			 "AAISSUE", 
 			 APACHE_TABLE_GET(old_cookie, "issue"));
@@ -1734,15 +1679,15 @@ ucam_webauth_handler(request_rec *r)
 	ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
 
 	APACHE_LOG_ERROR
-	  (APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-	   "successful authentication for %s", APACHE_REQUEST_USER);
+	  (APLOG_NOTICE, "successful authentication for %s", 
+	   APACHE_REQUEST_USER);
 
 	return OK;
       }
 
     } else {
 
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+      APACHE_LOG_ERROR(APLOG_ERR,
 		       "Session cookie invalid or session key has changed");
       set_cookie(r, NULL, c);
       return HTTP_BAD_REQUEST;
@@ -1758,29 +1703,24 @@ ucam_webauth_handler(request_rec *r)
      the original URL to clear the browser's location bar of the WLS
      response */
   
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-		   "entering SECOND stage...");
+  APACHE_LOG_ERROR(APLOG_NOTICE, "entering SECOND stage...");
   
   token_str = get_cgi_param(r, "WLS-Response");
   
   if (token_str != NULL) {
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		     "found WLS token");
+    APACHE_LOG_ERROR(APLOG_INFO, "found WLS token");
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		     "token data = %s", token_str);
+    APACHE_LOG_ERROR(APLOG_DEBUG, "token data = %s", token_str);
 
     /* Check that cookie actually exists because it should have
       been created previously and if it's not there we'll probably
       end up in a redirect loop */
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-		      "searching for cookie %s", c->AACookieName);
+    APACHE_LOG_ERROR(APLOG_INFO, "searching for cookie %s", c->AACookieName);
 
     old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->AACookieName));
     if (old_cookie_str == NULL) {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-		       "Browser not accepting session cookie");
+      APACHE_LOG_ERROR(APLOG_ERR, "Browser not accepting session cookie");
 
       if (c->AANoCookieMsg != NULL) {
 	ap_custom_response(r, HTTP_BAD_REQUEST, c->AANoCookieMsg);
@@ -1804,8 +1744,7 @@ ucam_webauth_handler(request_rec *r)
 
     if (strcmp(response_url, this_url) != 0) {
       APACHE_LOG_ERROR
-	(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-	 "URL in response_token doesn't match this URL - %s != %s",
+	(APLOG_ERR, "URL in response_token doesn't match this URL - %s != %s",
 	 response_url, this_url);
 
       return HTTP_BAD_REQUEST;
@@ -1836,7 +1775,7 @@ ucam_webauth_handler(request_rec *r)
 
       msg = "missing or invalid signature in authentication service reply";
       status = "600";
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r, msg);
+      APACHE_LOG_ERROR(APLOG_ERR, msg);
 
     } else if (sig_verify_result == 1) {
 
@@ -1846,7 +1785,7 @@ ucam_webauth_handler(request_rec *r)
 		 PROTOCOL_VERSION) != 0) {
 	msg = "wrong protocol version in authentication service reply";
 	status = "600";
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r, msg);
+	APACHE_LOG_ERROR(APLOG_ERR, msg);
 
       } else if (strcmp(APACHE_TABLE_GET(response_ticket, "status"), 
 			"200") != 0) {
@@ -1856,7 +1795,7 @@ ucam_webauth_handler(request_rec *r)
 			       APACHE_TABLE_GET(response_ticket, "msg"), NULL);
 	}
 	status = (char*)APACHE_TABLE_GET(response_ticket, "status");
-	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r, msg);
+	APACHE_LOG_ERROR(APLOG_ERR, msg);
 
       } else {
 	APACHE_TIME now = APACHE_TIME_NOW;
@@ -1866,50 +1805,46 @@ ucam_webauth_handler(request_rec *r)
 	if (issue < 0) {
 	  msg = "unable to read issue time in authentication service reply";
 	  status = "600";
-	  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r, msg);
+	  APACHE_LOG_ERROR(APLOG_ERR, msg);
 	} else {
 	  if (issue > now + APACHE_TIME_FROM_SEC(c->AAClockSkew)) {
 	    msg = "authentication service reply issued in the future";
 	    status = "600";
 	    APACHE_LOG_ERROR
-	      (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r, msg);
+	      (APLOG_ERR, msg);
 	  } else if (now - APACHE_TIME_FROM_SEC(c->AAClockSkew) > 
 		     issue + APACHE_TIME_FROM_SEC(c->AAResponseTimeout)) {
 	    msg = "stale authentication service reply issued at";
 	    status = "600";
 	    APACHE_LOG_ERROR
-	      (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-	       "stale authentication reply issued at %s", 
+	      (APLOG_ERR, "stale authentication reply issued at %s", 
 	       APACHE_TABLE_GET(response_ticket, "issue"));
 	  } else {
 	    APACHE_LOG_ERROR
-	      (APLOG_MARK, APLOG_NOERRNO | APLOG_INFO, r,
-	       "validated WLS token ID %s", 
+	      (APLOG_INFO, "validated WLS token ID %s", 
 	       APACHE_TABLE_GET(response_ticket, "id"));
 	  }
 	}
       }
 
     } else if (sig_verify_result == 2) {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		       "Error opening public key file");
+      APACHE_LOG_ERROR(APLOG_ALERT, "Error opening public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
 
     } else if (sig_verify_result == 3) {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		       "Error reading public key file");
+      APACHE_LOG_ERROR(APLOG_ALERT, "Error reading public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
 
     } else {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		 "Signature verification error on authentication reply");
+      APACHE_LOG_ERROR(APLOG_ALERT, 
+		       "Signature verification error on authentication reply");
       return HTTP_BAD_REQUEST;
 
     }
     
     if (c->AAForceInteract == 1 && 
 	APACHE_TABLE_GET(response_ticket, "auth") == "") {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
+      APACHE_LOG_ERROR(APLOG_ALERT, 
 		       "Non first-hand authentication under ForceInteract");
       return HTTP_BAD_REQUEST;
     }
@@ -1922,11 +1857,10 @@ ucam_webauth_handler(request_rec *r)
 	response_ticket_life < expiry)
       expiry = response_ticket_life;
 
-    APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		     "expiry = %d", expiry);
+    APACHE_LOG_ERROR(APLOG_DEBUG, "expiry = %d", expiry);
 
     if (expiry <= 0) {
-      APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
+      APACHE_LOG_ERROR(APLOG_ERR,
 		     "Requested session expiry time less that one second");
       return HTTP_BAD_REQUEST;
     }
@@ -1955,15 +1889,13 @@ ucam_webauth_handler(request_rec *r)
  
    session_ticket = ap_escape_uri(r->pool, session_ticket);
 
-   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "session ticket = %s", session_ticket);
+   APACHE_LOG_ERROR(APLOG_DEBUG, "session ticket = %s", session_ticket);
    
    set_cookie(r, session_ticket, c);
 
    /* redirect */
 
-   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-		    "issuing redirect to original URL");
+   APACHE_LOG_ERROR(APLOG_NOTICE, "issuing redirect to original URL");
    
    APACHE_TABLE_SET(r->headers_out, 
 		    "Location", 
@@ -1976,8 +1908,7 @@ ucam_webauth_handler(request_rec *r)
   /* THIRD: send a request to the WLS. Also set a test value cookie so
    * we can test that it's still available when we get back */
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-		   "entering THIRD stage..."); 
+  APACHE_LOG_ERROR(APLOG_NOTICE, "entering THIRD stage..."); 
   
   request = APACHE_PSTRCAT(r->pool,
 			   "ver=", PROTOCOL_VERSION,
@@ -2016,14 +1947,12 @@ ucam_webauth_handler(request_rec *r)
 			   ap_escape_uri(r->pool, request), 
 			   NULL);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "request = %s", request);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "request = %s", request);
   
   APACHE_TABLE_SET(r->headers_out, "Location", request);
   set_cookie(r, TESTSTRING, c);
 
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-		   "redirecting to Raven login server");
+  APACHE_LOG_ERROR(APLOG_NOTICE, "redirecting to Raven login server");
 
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
