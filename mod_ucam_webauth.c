@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.56 2004-11-09 09:54:57 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.57 2004-12-07 17:04:08 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.6c"
+#define VERSION "1.0.6e"
 
 /*
 MODULE-DEFINITION-START
@@ -71,7 +71,6 @@ MODULE-DEFINITION-END
 #define PROTOCOL_VERSION "1"
 #define AUTH_TYPE1 "webauth"
 #define AUTH_TYPE2 "ucam-webauth"
-#define AUTH_TYPE_NULL "ucam-webauth-noprompt"
 #define TESTSTRING "Not-authenticated"
 
 #define CC_OFF      0
@@ -560,10 +559,19 @@ full_cookie_name(request_rec *r,
 
 {
 
-  if (using_https(r)) {
-    return apr_pstrcat(r->pool, cookie_name, "-S", NULL);
+  char *name = (char *)apr_pstrdup(r->pool, cookie_name);
+  int https = using_https(r);
+  int port = r->server->port;
+  
+  if ((https && port != 443) || (!https && port != 80)) {
+    name = apr_psprintf(r->pool,"%s-%d",name,port);
   }
-  return (char *)apr_pstrdup(r->pool, cookie_name);
+
+  if (using_https(r)) {
+    name = apr_pstrcat(r->pool, cookie_name, "-S", NULL);
+  }
+
+  return name;
 
 }
 
@@ -1196,7 +1204,10 @@ auth_required(request_rec *r)
   char *user = ap_escape_html(r->pool, r->user);
 #endif
 
-  if (admin != NULL) {
+  /* Apache core seems to default ServerAdmin to the unhelpful "[no
+     address given]" */ 
+
+  if (admin != NULL && strcmp(admin,"[no address given]") != 0) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
   } else {
     admin = "";
@@ -1212,10 +1223,11 @@ auth_required(request_rec *r)
      "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
      "<html><head><title>Error - authorization required</title></head>"
      "<body><h1>Error - authorization required</h1>"
-     "<p>Access to the web resource you are trying to obtain is "
-     "restricted. The identity that you have established ", user,
-     " does not appear to be allowed access. Please contact the "
-     "administrator of this server ", admin, " for further details.",
+     "<p>Access to the web page or other resource you are trying to "
+     "obtain is restricted. The identity that you have established ", user,
+     " is not currently allowed access. Please contact the "
+     "administrator of the web server that provides the page ", 
+      admin, " for further information.",
      sig,
      "\n\n"
      "<!-- This is padding to convince STUPID INTERNET EXPLORER that"
@@ -1648,6 +1660,22 @@ decode_cookie(request_rec *r,
   int life, cookie_verify;
   apr_table_t *cookie;
   apr_time_t issue, last, now;
+
+  /* Check for config errors */
+  
+  if (c->cookie_key == NULL) {
+    APACHE_LOG1(APLOG_CRIT,
+		"Access to %s failed: AACookieKey not defined", r->uri);
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+  
+  if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
+		  r->parsed_uri.path,
+		  0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
+    APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
+		c->cookie_path, r->parsed_uri.path);
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
 
   cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
 
@@ -2196,61 +2224,6 @@ webauth_post_read_request(request_rec *r)
 
 /* ---------------------------------------------------------------------- */
 
-/* Header Parser */
-
-static int  
-webauth_header_parser(request_rec *r)
-     
-{
-  
-  mod_ucam_webauth_cfg *c;
-
-  /* extract configuration */
-
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
-  c = apply_config_defaults(r,c);
-
-  /* do anything? */
-  
-  if (!(c->always_decode || 
-	(ap_auth_type(r) != NULL && 
-	 (strcasecmp(ap_auth_type(r), AUTH_TYPE1) == 0 || 
-	  strcasecmp(ap_auth_type(r), AUTH_TYPE2) == 0)))) {
-    APACHE_LOG3
-      (APLOG_DEBUG,"mod_ucam_webauth header parser declining for %s "
-       "(AuthType = %s; AAAlwaysDecode = %d)",r->uri,
-       ap_auth_type(r) == NULL ? "(null)" : ap_auth_type(r), c->always_decode);
-    return DECLINED;
-  }
-  
-  APACHE_LOG2
-    (APLOG_INFO, "** mod_ucam_webauth (%s) header parser started for %s", 
-     VERSION, r->uri);
-  dump_config(r,c);
-
-  /* Check for config errors */
-  
-  if (c->cookie_key == NULL) {
-    APACHE_LOG1(APLOG_CRIT,
-		"Access to %s failed: AACookieKey not defined", r->uri);
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-  
-  if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
-		  r->parsed_uri.path,
-		  0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
-    APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
-		c->cookie_path, r->parsed_uri.path);
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-  
-  return decode_cookie(r,c);
-	
-}
-
-/* ---------------------------------------------------------------------- */
-
 /* Main auth handler */
 
 /* --- */
@@ -2268,9 +2241,8 @@ webauth_authn(request_rec *r)
   /* Do anything? */
 
   if (ap_auth_type(r) == NULL || 
-      (strcasecmp(ap_auth_type(r), AUTH_TYPE1)     != 0 &&
-       strcasecmp(ap_auth_type(r), AUTH_TYPE2)     != 0 &&
-       strcasecmp(ap_auth_type(r), AUTH_TYPE_NULL) != 0)) {
+      (strcasecmp(ap_auth_type(r), AUTH_TYPE1) != 0 &&
+       strcasecmp(ap_auth_type(r), AUTH_TYPE2) != 0)) {
     APACHE_LOG2
       (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s "
        "(AuthType = %s)",
@@ -2313,8 +2285,6 @@ webauth_authn(request_rec *r)
   
   cache_control(r,c->cache_control);
 
-  /* try to decode the cookie */
-
   rc = decode_cookie(r,c);
   if (rc != DECLINED)
     return rc;
@@ -2347,26 +2317,14 @@ webauth_authn(request_rec *r)
   }
   
   /* having got this far we can return if we got an identity from the
-     cookie. And if we didn't and we don't need to authenticate then
-     we can also just return, though nwe need to set a dummy userid */
+     cookie */
 
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
     APACHE_LOG2(APLOG_INFO, "Successfully authenticated %s accessing %s", 
        (char *)apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
     return OK;
   }
-  else if (strcasecmp(ap_auth_type(r), AUTH_TYPE_NULL) == 0) {
-    APACHE_LOG1(APLOG_INFO, 
-		"Returning dummy id for unauthenticated user accessing %s", 
-                r->uri);
-#ifdef APACHE1_3
-    r->connection->user = "";
-#else
-    r->user = "";
-#endif
-    return OK;
-  }
-    
+
   /* and if none of that worked then send a request to the WLS. While
      we are at it then set a test value cookie so we can test that
      it's still available when we get back. */
@@ -2378,6 +2336,44 @@ webauth_authn(request_rec *r)
        "POSTed data will be lost");
   
   return construct_request(r,c);
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* Fixup */
+
+static int  
+webauth_fixup(request_rec *r)
+     
+{
+  
+  /* Decode any session cookie that happens to be lying around if
+     AAAlwaysDecode is in effect or we already did so in the auth
+     handler */
+
+  mod_ucam_webauth_cfg *c;
+
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
+  c = apply_config_defaults(r,c);
+
+  if (!c->always_decode  ||
+      apr_table_get(r->subprocess_env, "AAPrincipal") != NULL) {
+    APACHE_LOG3
+      (APLOG_DEBUG,"mod_ucam_webauth fixup handler declining for %s "
+       "(AAAlwaysDecode = %d, AAPrincipal = %s)", r->uri, c->always_decode,
+       apr_table_get(r->subprocess_env, "AAPrincipal"));
+    return DECLINED;
+  }
+
+  APACHE_LOG2
+    (APLOG_INFO, "** mod_ucam_webauth (%s) fixup handler started for %s", 
+     VERSION, r->uri);
+
+  dump_config(r,c);
+  
+  return decode_cookie(r,c);
 
 }
 
@@ -2642,7 +2638,7 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   NULL,                         /* check auth */
   NULL,                         /* check access */
   NULL,                         /* type_checker */
-  NULL,                         /* fixups */
+  webauth_fixup,                /* fixups */
   NULL,                         /* logger */
   NULL,                         /* header parser */
   NULL,                         /* child_init */
@@ -2661,6 +2657,8 @@ static void webauth_register_hooks(apr_pool_t *p) {
     (webauth_authn, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_handler
     (webauth_handler_logout, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_fixups
+    (webauth_fixup, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
