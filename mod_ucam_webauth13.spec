@@ -9,8 +9,10 @@
   %define dist_tag %(rpm -q --queryformat='fc%{VERSION}' fedora-release | sed -e's/\\.//g')}
 %endif
 %{!?dist_tag: %{error: ERROR: *** Unsupported distribution ***}}
+%{echo: Building for %{dist_tag}}
 
 %define _rpmfilename %%{arch}/%%{name}-%%{version}-%%{release}.%%{arch}.%{dist_tag}.rpm  
+%define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
 
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
 Name: mod_ucam_webauth13
@@ -37,14 +39,14 @@ make
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
-make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
+make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/apache/mod_ucam_webauth.so
+%{apache_libexecdir}/mod_ucam_webauth.so
 %doc CHANGES
 %doc README
 %doc NOTICE
@@ -53,6 +55,7 @@ make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
 %changelog
 * Mon Jul 12 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc6
 - Updated for 0.99_1.0.0rc6
+- Added echo of build target
 
 * Fri Jul 09 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc5
 - Updated for 0.99_1.0.0rc5
