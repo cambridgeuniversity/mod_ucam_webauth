@@ -9,6 +9,10 @@
     configuration directives, as used in some error messages, have
     been improved.
 
+  . Some problematic programming constructs have been replaced with
+    more portable ones. The code should now compile on most ANSI C89
+    compilers.
+
  Bugs fixed
 
   . Fixed an error that caused the module to emit bogus warning
@@ -118,7 +122,7 @@
       AAAlwaysDecode On
       <Location /login/>
         AuthType WebAuth
-        Require vaid-user
+        Require valid-user
       </Location>
 
     would allow everyone to see anything outside /login/. Visiting

@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.48 2004-09-10 14:14:39 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.49 2004-09-10 14:45:49 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.1"
+#define VERSION "1.0.2"
 
 /*
 MODULE-DEFINITION-START
