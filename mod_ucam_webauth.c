@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.24 2004-06-22 06:52:07 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.25 2004-06-22 07:03:59 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -156,6 +156,7 @@ typedef struct {
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(s)
 #define APACHE_PARSE_URI_COMPONENTS ap_parse_uri_components
 #define APACHE_UNPARSE_URI_COMPONENTS ap_unparse_uri_components
+#define APACHE_SEND_HTTP_HEADER ap_send_http_header
 
 /* errors */
 
@@ -227,6 +228,7 @@ typedef struct {
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(p,s)
 #define APACHE_PARSE_URI_COMPONENTS apr_uri_parse
 #define APACHE_UNPARSE_URI_COMPONENTS apr_uri_unparse
+#define APACHE_SEND_HTTP_HEADER //
 
 /* errors */
 
@@ -2113,7 +2115,7 @@ webauth_handler_logout(request_rec *r)
   mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
 
-  if (strcmp(r->handler, 'AALogout')) {
+  if (strcmp(r->handler, "AALogout")) {
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: declining");
     return DECLINED;
   }
@@ -2128,7 +2130,7 @@ webauth_handler_logout(request_rec *r)
   set_cookie(r, NULL, c);
   response = c->AALogoutMsg;
 
-  if (ap_is_url(string)) {
+  if (ap_is_url(response)) {
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: redirecting to %s",
 		     response);
     APACHE_TABLE_SET(r->headers_out, "Location", response);
@@ -2137,13 +2139,13 @@ webauth_handler_logout(request_rec *r)
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: internal redirect to %s",
 		     response);
     ap_internal_redirect(response,r);
-    return OK
+    return OK;
   }
 
   if (*response == '"') ++response;
 
   r->content_type = "text/html";
-  ap_send_http_header(r);
+  APACHE_SEND_HTTP_HEADER(r);
 
   if (response != NULL) {
     ap_rputs(response,r);
@@ -2312,7 +2314,7 @@ static const command_rec webauth_commands[] = {
 
 /* make Apache aware of Raven authentication handler */
 
-#if APACHE2
+#ifdef APACHE2
 
 static void webauth_register_hooks(apr_pool_t *p) {
   ap_hook_post_config(webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
@@ -2326,7 +2328,7 @@ module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
   webauth_merge_dir_config,     /* merge per-directory config structures  */
   NULL,                         /* create per-server config structures    */
   NULL,                         /* merge per-server config structures     */
-  webauth_config_commands,      /* command handlers */
+  webauth_commands,             /* command handlers */
   webauth_register_hooks        /* register hooks */
 };
 
