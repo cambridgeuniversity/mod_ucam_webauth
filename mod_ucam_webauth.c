@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.10 2004-06-16 15:47:53 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.11 2004-06-16 16:03:59 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1002,7 +1002,7 @@ ucam_webauth_handler(request_rec *r)
 			 APACHE_TABLE_GET(old_cookie, "status"),
 			 APACHE_TABLE_GET(old_cookie, "msg"));
 	set_cookie(r, NULL, c);
-	return HTTP_INTERNAL_SERVER_ERROR;
+	return HTTP_BAD_REQUEST;
       }
       
       // session cookie timeout check
@@ -1015,12 +1015,12 @@ ucam_webauth_handler(request_rec *r)
       if (issue == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie issue date incorrect length");
-	return HTTP_INTERNAL_SERVER_ERROR;
+	return HTTP_BAD_REQUEST;
       }
       if (expire == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie expire date incorrect length");
-	return HTTP_INTERNAL_SERVER_ERROR;
+	return HTTP_BAD_REQUEST;
       }
 
       now = APACHE_TIME_NOW;
@@ -1040,7 +1040,7 @@ ucam_webauth_handler(request_rec *r)
       if (issue > now) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie has issue date in the future");
-	return HTTP_INTERNAL_SERVER_ERROR;
+	return HTTP_BAD_REQUEST;
       } else if (now >= expire) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 			 "session cookie has timed out");
@@ -1084,7 +1084,7 @@ ucam_webauth_handler(request_rec *r)
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 		       "session cookie signature invalid");
       set_cookie(r, NULL, c);
-      return HTTP_INTERNAL_SERVER_ERROR;
+      return HTTP_BAD_REQUEST;
 
     }
 
@@ -1122,11 +1122,11 @@ ucam_webauth_handler(request_rec *r)
 		       "browser not accepting session cookie");
 
       if (c->AANoCookieMsg != NULL) {
-	ap_custom_response(r, HTTP_INTERNAL_SERVER_ERROR, c->AANoCookieMsg);
+	ap_custom_response(r, HTTP_BAD_REQUEST, c->AANoCookieMsg);
       } else {
-	ap_custom_response(r, HTTP_INTERNAL_SERVER_ERROR, no_cookie(r, c));
+	ap_custom_response(r, HTTP_BAD_REQUEST, no_cookie(r, c));
       }
-      return HTTP_INTERNAL_SERVER_ERROR;
+      return HTTP_BAD_REQUEST;
     }
 
     /* unwrap WLS token */
@@ -1147,7 +1147,7 @@ ucam_webauth_handler(request_rec *r)
 	 "URL in response_token doesn't match this URL - %s != %s",
 	 response_url, this_url);
 
-      return HTTP_INTERNAL_SERVER_ERROR;
+      return HTTP_BAD_REQUEST;
     }
 
     /* from now on we can (probably) safely redirect to the URL in the 
@@ -1242,7 +1242,7 @@ ucam_webauth_handler(request_rec *r)
     } else {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
 		 "signature verification error");
-      return HTTP_INTERNAL_SERVER_ERROR;
+      return HTTP_BAD_REQUEST;
 
     }
 
@@ -1260,7 +1260,7 @@ ucam_webauth_handler(request_rec *r)
     if (expiry <= 0) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 		     "session expiry time less that one second");
-      return HTTP_INTERNAL_SERVER_ERROR;
+      return HTTP_BAD_REQUEST;
     }
      
     /* set new session ticket (cookie) */
