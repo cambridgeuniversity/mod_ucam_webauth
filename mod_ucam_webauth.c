@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.30 2004-06-23 07:08:07 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.31 2004-06-23 10:06:07 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0_pre2"
+#define VERSION "0.99_1.0.0rc1"
 
 /*
 MODULE-DEFINITION-START
@@ -143,8 +143,6 @@ typedef struct {
 /* Almost all of the code is written as for Apache 2. The folowing
    macros adapt it for Apache 1.3 if necessary */
 
-#define APACHE_USER r->user
-
 #ifdef APACHE1_3
 
 /* types */
@@ -153,11 +151,6 @@ typedef struct {
 #define apr_time_t time_t
 #define apr_pool_t pool
 #define apr_uri_t uri_components
-
-/* variables */
-
-#undef APACHE_USER
-#define APACHE_USER r->connection->user
 
 /* functions */
 
@@ -183,7 +176,7 @@ typedef struct {
 #define apr_uri_unparse ap_unparse_uri_components
 #define apr_time_now() time(NULL)
 
-/* definitions */
+/* other definitions */
 
 #define AP_MODULE_DECLARE_DATA MODULE_VAR_EXPORT
 #define APR_OFFSETOF XtOffsetOf
@@ -1045,7 +1038,12 @@ auth_required(request_rec *r)
   char *host = ap_escape_html(r->pool, ap_get_server_name(r));
   char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
-  char *user = ap_escape_html(r->pool, APACHE_USER);
+#ifdef APACHE1_3
+  char *user = ap_escape_html(r->pool, r->connection->user);
+#else
+  char *user = ap_escape_html(r->pool, r->user);
+#endif
+
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
   } else {
@@ -1748,8 +1746,11 @@ webauth_authn(request_rec *r)
 
 	/* extract useful info for future use */
 
-	APACHE_USER = 
-	  (char *)apr_table_get(old_cookie, "principal");
+#ifdef APACHE1_3
+	r->connection->user = (char *)apr_table_get(old_cookie, "principal");
+#else
+	r->user = (char *)apr_table_get(old_cookie, "principal");
+#endif
 
 	apr_table_set(r->subprocess_env, 
 		      "AAISSUE", 
@@ -1785,8 +1786,8 @@ webauth_authn(request_rec *r)
 	
 	APACHE_LOG_ERROR
 	  (APLOG_NOTICE, "successful authentication for %s", 
-	   APACHE_USER);
-	
+	   (char *)apr_table_get(old_cookie, "principal"));
+	   
 	return OK;
 	
       }
