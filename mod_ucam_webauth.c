@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.23 2004-06-21 17:17:19 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.24 2004-06-22 06:52:07 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1117,7 +1117,7 @@ auth_required(request_rec *r)
 /* create per-directory config */
  
 static void *
-create_dir_config(APACHE_POOL *p, 
+webauth_create_dir_config(APACHE_POOL *p, 
 		  char *path) 
 
 {
@@ -1152,9 +1152,9 @@ create_dir_config(APACHE_POOL *p,
 /* merge per-directory config */
 
 static void *
-merge_dir_config(APACHE_POOL *p, 
-		 void *bconf,
-		 void *nconf)
+webauth_merge_dir_config(APACHE_POOL *p, 
+			 void *bconf,
+			 void *nconf)
 
 {
 
@@ -1543,10 +1543,10 @@ set_AALogLevel(cmd_parms *cmd,
 
 #ifdef APACHE2
 static int 
-ucam_webauth_init(APACHE_POOL *p, 
-		  APACHE_POOL *l, 
-		  APACHE_POOL *t, 
-		  server_rec *s)
+webauth_init(APACHE_POOL *p, 
+	     APACHE_POOL *l, 
+	     APACHE_POOL *t, 
+	     server_rec *s)
 #else     
 static void
 ucam_webauth_init(server_rec *s, APACHE_POOL *p) 
@@ -1570,7 +1570,7 @@ ucam_webauth_init(server_rec *s, APACHE_POOL *p)
 /* --- */
 
 static int  
-ucam_webauth_handler(request_rec *r) 
+webauth_authn(request_rec *r) 
      
 {
   
@@ -2101,84 +2101,70 @@ ucam_webauth_handler(request_rec *r)
 
 /* --- */
 
-//static int  
-//ucam_webauth_logout_handler(request_rec *r) 
-//     
-//{
-//
-//  mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
-//    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
-//
-//  if (strcmp(r->handler, 'AALogout')) return DECLINED;
-//  if (c->AALogoutMsg == NULL) return DECLINED;
-//
-//  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: hello");
-//
-//   * Two types of custom redirects --- plain text, and URLs. Plain text has
-//     * a leading '"', so the URL code, here, is triggered on its absence
-//     */                                                                      
-//
-//if (custom_response && custom_response[0] != '"') {
-//
-//        if (ap_is_url(custom_response)) {
-//           /*
-//             * The URL isn't local, so lets drop through the rest of this
-//             * apache code, and continue with the usual REDIRECT handler.
-//             * But note that the client will ultimately see the wrong
-//             * status...
-//             */
-//            r->status = REDIRECT;
-//            ap_table_setn(r->headers_out, "Location", custom_response);
-//        }
-//        else if (custom_response[0] == '/') {
-//            const char *error_notes;
-//            r->no_local_copy = 1;       /* Do NOT send USE_LOCAL_COPY for
-//                                         * error documents! */
-//            /*
-//             * This redirect needs to be a GET no matter what the original
-//             * method was.
-//             */
-//            ap_table_setn(r->subprocess_env, "REQUEST_METHOD", r->method);
-//
-//            /*
-//             * Provide a special method for modules to communicate
-//             * more informative (than the plain canned) messages to us.
-//             * Propagate them to ErrorDocuments via the ERROR_NOTES variable:
-//             */
-//            if ((error_notes = ap_table_get(r->notes, "error-notes")) != NULL) {                ap_table_setn(r->subprocess_env, "ERROR_NOTES", error_notes);
-//            }
-//            /*
-//             * If it is already a GET or a HEAD, don't change it
-//             * (method_number for GET and HEAD is the same)
-//             */
-//            if(r->method_number!=M_GET) {
-//                r->method = ap_pstrdup(r->pool, "GET");
-//                r->method_number = M_GET;
-//            }
-//            ap_internal_redirect(custom_response, r);
-//            return;
-//        }
-//        else {
-//            /*
-//             * Dumb user has given us a bad url to redirect to --- fake up
-//             * dying with a recursive server error...
-//             */
-//            recursive_error = SERVER_ERROR;
-//            ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
-//                        "Invalid error redirection directive: %s",
-//                        custom_response);
-//       }
-//    }
-//  ap_send_error_response(r, recursive_error);
-//
-//
-//}
+static int  
+webauth_handler_logout(request_rec *r) 
+     
+{
+
+  char *response;
+  char *host = ap_escape_html(r->pool, ap_get_server_name(r));
+  char *port = APACHE_PSPRINTF(r->pool, "%d", ap_get_server_port(r));
+
+  mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+
+  if (strcmp(r->handler, 'AALogout')) {
+    APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: declining");
+    return DECLINED;
+  }
+
+  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: hello");
+
+  apply_config_defaults(r,c);
+  dump_config(r,c);  
+  
+  set_cache_control(r,c->AACacheControl);
+
+  set_cookie(r, NULL, c);
+  response = c->AALogoutMsg;
+
+  if (ap_is_url(string)) {
+    APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: redirecting to %s",
+		     response);
+    APACHE_TABLE_SET(r->headers_out, "Location", response);
+    return HTTP_MOVED_TEMPORARILY;
+  } else if (*response == '/') {
+    APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: internal redirect to %s",
+		     response);
+    ap_internal_redirect(response,r);
+    return OK
+  }
+
+  if (*response == '"') ++response;
+
+  r->content_type = "text/html";
+  ap_send_http_header(r);
+
+  if (response != NULL) {
+    ap_rputs(response,r);
+  } else {
+    ap_rprintf
+      (r,
+       "<html><head><title>Logout</title></head>"
+       "<body><h1>Logout</h1>"
+       "<p>You have been logged out.</p>"
+       "<hr><i>mod_ucam_webauth running on %s Port %s</i>"
+       "</body></hmtl>", host, port);
+  }
+  return OK;
+
+}
 
 /* ---------------------------------------------------------------------- */
 
 /* configuration directives table */
 
-static const command_rec config_commands[] = {
+static const command_rec webauth_commands[] = {
 
   APACHE_CMD_REC_TAKE1("AAAuthService", 
 		       ap_set_string_slot, 
@@ -2326,20 +2312,43 @@ static const command_rec config_commands[] = {
 
 /* make Apache aware of Raven authentication handler */
 
-#if defined APACHE_RELEASE && APACHE_RELEASE < 20000000
+#if APACHE2
+
+static void webauth_register_hooks(apr_pool_t *p) {
+  ap_hook_post_config(webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
+  ap_hook_check_user_id(webauth_authn, NULL, NULL, APR_HOOK_FIRST);
+  ap_hook_handler(webauth_handler_logout, NULL, NULL, APR_HOOK_MIDDLE);
+}
+
+module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
+  STANDARD20_MODULE_STUFF,
+  webauth_create_dir_config,    /* create per-directory config structures */
+  webauth_merge_dir_config,     /* merge per-directory config structures  */
+  NULL,                         /* create per-server config structures    */
+  NULL,                         /* merge per-server config structures     */
+  webauth_config_commands,      /* command handlers */
+  webauth_register_hooks        /* register hooks */
+};
+
+#else
+
+handler_rec webauth_handlers[] = {
+  { "AALogout", webauth_handler_logout }
+  { NULL }
+};
 
 module MODULE_VAR_EXPORT ucam_webauth_module = {
   STANDARD_MODULE_STUFF,
-  ucam_webauth_init,
-  create_dir_config,
-  merge_dir_config,
+  webauth_init,
+  webauth_create_dir_config,
+  webauth_merge_dir_config,
   NULL,
   NULL,
-  config_commands,
+  webauth_commands,
+  webauth_handlers,
   NULL,
+  webauth_authn,
   NULL,
-  ucam_webauth_handler,
-  /*ucam_webauth_authz,*/ NULL,
   NULL,
   NULL,
   NULL,
@@ -2348,23 +2357,6 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
   NULL,
   NULL,
   NULL
-};
-
-#else
-
-static void register_hooks(apr_pool_t *p) {
-  ap_hook_post_config(ucam_webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
-  ap_hook_check_user_id(ucam_webauth_handler, NULL, NULL, APR_HOOK_FIRST);
-}
-
-module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
-  STANDARD20_MODULE_STUFF,
-  create_dir_config,    /* create per-directory config structures */
-  merge_dir_config,     /* merge per-directory config structures  */
-  NULL,                 /* create per-server config structures    */
-  NULL,                 /* merge per-server config structures     */
-  config_commands,      /* command handlers */
-  register_hooks        /* register hooks */
 };
 
 #endif
