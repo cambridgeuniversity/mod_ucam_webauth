@@ -4,26 +4,30 @@
 ##
 
 #   the used tools
-APXS=/usr/sbin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
 
-#   additional user defines, includes and libraries
+APXS=/usr/sbin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
+SUFFIX='so'            # Use 'make .... SUFFIX=la for Apache 2
+
+#   additional user defines, includes, libraries and options
 #DEF=-Dmy_define=my_value
 #INC=-Imy/include/dir
 #LIB=-Lmy/lib/dir -lmylib
+#OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
 
 #   the default target
 
-all: mod_ucam_webauth.so
+all: mod_ucam_webauth.$(SUFFIX)
 
 #   compile the DSO file
 
-mod_ucam_webauth.so: mod_ucam_webauth.c
-	$(APXS) -c -lcrypto -Wc,-Wall $(DEF) $(INC) $(LIB) mod_ucam_webauth.c
+mod_ucam_webauth.$(SUFFIX): mod_ucam_webauth.c
+	$(APXS) -c -lcrypto -Wc,-Wall $(DEF) $(INC) $(LIB) $(OPT) \
+	mod_ucam_webauth.c
 
 #   install the DSO file into the Apache installation
 
 install: all
-	$(APXS) -i mod_ucam_webauth.so
+	$(APXS) -i $(OPT) mod_ucam_webauth.$(SUFFIX)
 
 # Build a distribution
 
@@ -36,5 +40,25 @@ dist:
 	 tar zcf mod_ucam_webauth-$$ver.tar.gz mod_ucam_webauth-$$ver;\
          rm -rf mod_ucam_webauth-$$ver )
 
+rpm13: dist
+	mkdir -p ~/rpmdevel/BUILD  ~/rpmdevel/RPMS ~/rpmdevel/SOURCES
+	mkdir -p ~/rpmdevel/SPECS ~/rpmdevel/SRPMS
+	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
+	 sed -e s/\"//g | cut -d' ' -f3`; \
+	 cp mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
+	cp mod_ucam_webauth13.spec ~/rpmdevel/SPECS
+	rpmbuild -ba ~/rpmdevel/SPECS/mod_ucam_webauth13.spec
+
+rpm2: dist
+	mkdir -p ~/rpmdevel/BUILD  ~/rpmdevel/RPMS ~/rpmdevel/SOURCES
+	mkdir -p ~/rpmdevel/SPECS ~/rpmdevel/SRPMS
+	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
+	 sed -e s/\"//g | cut -d' ' -f3`; \
+	 cp mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
+	cp mod_ucam_webauth2.spec ~/rpmdevel/SPECS
+	rpmbuild -ba ~/rpmdevel/SPECS/mod_ucam_webauth2.spec
+
 clean:
-	rm -f *~ *.o *.so *.tar.gz
+	rm -f *~ *.o *.so *.la *.lo *.slo *.tar.gz
+
+

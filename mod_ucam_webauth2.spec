@@ -1,65 +1,60 @@
 # Detect distribution
 %if %(rpm --quiet -q suse-release && echo 1 || echo 0) == 1
   %define dist_tag %(rpm -q --queryformat='suse%{VERSION}' suse-release | sed -e's/\\.//g')
-  %define apache2_package apache2
-  %define apxs %{_sbindir}/apxs2
 %endif
 %if %(rpm --quiet -q redhat-release && echo 1 || echo 0) == 1
   %define dist_tag %(rpm -q --queryformat='rh%{VERSION}' redhat-release| sed -e's/\\.//g')
-  %define apache2_package httpd
-  %define apxs %{_sbindir}/apxs
 %endif
 %if %(rpm --quiet -q fedora-release && echo 1 || echo 0) == 1
-  %define dist_tag %(rpm -q --queryformat='fc%{VERSION}' fedora-release | sed -e's/\\.//g')
-  %define apache2_package httpd
-  %define apxs %{_sbindir}/apxs
+  %define dist_tag %(rpm -q --queryformat='fc%{VERSION}' fedora-release | sed -e's/\\.//g')}
 %endif
 %{!?dist_tag: %{error: ERROR: *** Unsupported distribution ***}}
-%{echo: Building for %{dist_tag}}
 
 %define _rpmfilename %%{arch}/%%{name}-%%{version}-%%{release}.%%{arch}.%{dist_tag}.rpm  
-%define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
 
-%define base mod_ucam_webauth
-
-Summary: University of Cambridge Web Authentication system agent for Apache 2
-Name: %{base}2
-Version: 0.99_1.0.0rc3
+Summary: University of Cambridge Web Authentication system agent for Apache 1.3
+Name: mod_ucam_webauth2
+Version: 0.99_1.0.0rc5
 Release: 1
 Group: System Environment/Daemons
 URL: http://raven.cam.ac.uk/
-Source: %{base}-%{version}.tar.gz
+Source: mod_ucam_webauth-%{version}.tar.gz
 License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
-BuildPrereq: %{apache2_package}-devel, openssl-devel
-Requires: %{apache2_package}, openssl
+BuildPrereq: httpd-devel, openssl-devel
+Requires: httpd, openssl
 
 %description
 mod_ucam_webauth2 provides an interface to the University of
-Cambridge Web Authentication system for Apache v2 servers.
+Cambridge Web Authentication system for Apache v1.3 servers.
 
 %prep
-%setup -n %{base}-%{version}
+%setup -n mod_ucam_webauth-%{version}
 
 %build
-%{apxs} -c -lcrypto %{base}.c
+make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT%{apache_libexecdir}
-%{apxs} -i -Wc,-DAPACHE_2 -lcrypto -S LIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir} %{base}.la
+mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
+make install SUFFIX=la OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{apache_libexecdir}/%{base}.so
+%{_libdir}/apache/mod_ucam_webauth.so
 %doc CHANGES
-%doc NOTICE
 %doc README
+%doc NOTICE
+%doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Fri Jul 09 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc5
+- Updated for 0.99_1.0.0rc5
+- Updated to use Makefile
+
 * Fri Jun 25 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc3
 - Updated for 0.99_1.0.0rc3
 
@@ -73,18 +68,17 @@ mkdir -p $RPM_BUILD_ROOT%{apache_libexecdir}
 - Update to 0.44
 - Changes source to .tar.gz file
 
-* Tue Mar 30 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.42
+* Thu Mar 30 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.42
 - Updated for 0.42 - fix GMT/Localtime bug
 
-* Tue Mar 23 2004 Jon Warbrick <jw35@cam.ac.uk>
-- Updated for ver 0.41
+* Mon Mar 22 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.41
+- Updated for 0.41
 
-* Fri Mar 12 2004 Jon Warbrick <jw35@cam.ac.uk>
+* Fri Mar 12 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.4-3
 - Updated for ver 0.4, added INSTALL, CHANGES
 
-* Wed Mar 10 2004 Jon Warbrick <jw35@cam.ac.uk>
-- Adapeted to work on SuSE
+* Mon Mar 08 2004 Jon Warbrick <jw35@cam.ac.uk>
+- Updated to ver 0.3 - single codebase for Apache 1.3 and 2
 
 * Mon Mar 08 2004 Jon Warbrick <jw35@cam.ac.uk>
 - Created
-

@@ -4,3 +4,5 @@ NOTICE
 CHANGES
 mod_ucam_webauth13.spec
 mod_ucam_webauth2.spec
+mod_ucam_webauth.conf.skel
+Makefile

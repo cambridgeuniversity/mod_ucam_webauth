@@ -12,15 +12,13 @@
 
 %define _rpmfilename %%{arch}/%%{name}-%%{version}-%%{release}.%%{arch}.%{dist_tag}.rpm  
 
-%define base mod_ucam_webauth
-
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
-Name: %{base}13
-Version: 0.99_1.0.0rc3
+Name: mod_ucam_webauth13
+Version: 0.99_1.0.0rc5
 Release: 1
 Group: System Environment/Daemons
 URL: http://raven.cam.ac.uk/
-Source: %{base}-%{version}.tar.gz
+Source: mod_ucam_webauth-%{version}.tar.gz
 License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
 BuildPrereq: apache-devel, openssl-devel
@@ -31,28 +29,32 @@ mod_ucam_webauth13 provides an interface to the University of
 Cambridge Web Authentication system for Apache v1.3 servers.
 
 %prep
-%setup -n %{base}-%{version}
+%setup -n mod_ucam_webauth-%{version}
 
 %build
-%{_sbindir}/apxs -c -lcrypto %{base}.c
-%{__strip} -g %{base}.so
+make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
-%{_sbindir}/apxs -i -Wc,-DAPACHE_1_3 -lcrypto -SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/ %{base}.so
+make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{_libdir}/apache/%{base}.so
+%{_libdir}/apache/mod_ucam_webauth.so
 %doc CHANGES
 %doc README
 %doc NOTICE
+%doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Fri Jul 09 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc5
+- Updated for 0.99_1.0.0rc5
+- Updated to use Makefile
+
 * Fri Jun 25 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc3
 - Updated for 0.99_1.0.0rc3
 
