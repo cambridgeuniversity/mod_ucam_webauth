@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.0.2
-$Id: README,v 1.15 2004-09-10 16:19:57 jw35 Exp $
+Current with version 1.0.4
+$Id: README,v 1.16 2004-10-14 11:11:41 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -171,10 +171,10 @@ The minimum configuration required to restrict access to resources in
 a particular directory to users with a Ucam-WebAuth login is, e.g.
 
   AACookieKey "some random string"
-  <Location "/protected_dir/">
+  <Directory "path to protected directory">
     AuthType Ucam-WebAuth
     Require valid-user
-  </Location>
+  </Directory>
 
 This assumes that the standard Apache module mod_auth is also
 available since that implements checking of 'Require valid-user' -
@@ -203,16 +203,16 @@ to the resources to users with a Ucam-WebAuth login or to client
 computers with hostnames ending cam.ac.uk but not otherwise:
 
   AACookieKey "some random string"
-  <Location "/protected_dir/">
+  <Directory "path to proteted directory">
     Order allow,deny
     Allow from .cam.ac.uk
     AuthType Ucam-WebAuth
     Require valid-user
     Satisfy any
-  </Location>
+  </Directory>
 
 In these examples the resources to be protected are selected by a
-<Location> directive; resources specified by <Directory> or <Files>
+<Directory> directive; resources specified by <Location> or <Files>
 directives can also be protected. 'AuthType' must be set to
 'Ucam-WebAuth'. A 'Require' directive must also before authentication
 will take place.

@@ -2,25 +2,26 @@
 
  Bugs fixed
 
- . Changed the code used to read RSA public keys to use fopen/fclose
-   under both Apache 1 and Apache 2 - previously ap_pfopen/ap_pfclose
-   were used under Apache 1 but this seems to cause problems when the
-   module is compiled for Win32
+ . The code used to read RSA public keys now uses fopen/fclose under
+   both Apache 1 and Apache 2 - previously ap_pfopen/ap_pfclose were
+   used under Apache 1 but this causes problems when the module is
+   compiled for Win32
 
  . 'strings.h' now not included under WIN32, where it doesn't exist
-   and the Apache libraries provide it (todo#41) 
+   and the Apache libraries provide the necessary definitions
+   (todo#41)
 
  . Added README.WIN32
 
- . Added a redirect for all authenticated resources if the hostname
-   the user specified (as indicated by the 'Host' header) doesn't
-   match the official configured name. Without this there is all sorts
-   of scope for confusion, with cookies being set under one domain and
-   then tested for in another (e.g user requests http://www/, but by
-   the time he's been bounced via the WLS he'll be accessing
-   http://www.example.com/. While we assume that these are identical
-   as far as the user is concerned, the test cookie will have been set
-   with domain www) (todo#29)
+ . Added a redirect if the hostname the user specified (as indicated
+   by the 'Host' header) doesn't match the server's configured
+   name. Without this there is all sorts of scope for confusion with
+   cookies being set under one domain and then tested for in another
+   (e.g user requests http://www/, by the time he's been bounced via
+   the WLS he'll be accessing http://www.example.com/. While these
+   URLs may be identical as far as the user's browsere is concerned,
+   the test cookie will have been set with domain www and therefore
+   won't be found) (todo#29)
 
 1.0.3 - 2004-09-13 jw
 
