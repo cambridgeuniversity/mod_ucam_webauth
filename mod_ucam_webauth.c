@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.8 2004-06-16 10:03:55 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.9 2004-06-16 11:39:51 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1278,7 +1278,7 @@ ucam_webauth_handler(request_rec *r)
 		     "session expiry time less that one second");
       return APACHE_SERVER_ERROR;
     }
-    
+     
     /* set new session ticket (cookie) */
     
     session_ticket = APACHE_PSTRCAT
@@ -1991,9 +1991,9 @@ get_url(request_rec *r)
 
 {
 
-  /* NO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+  /* NO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (using_https(r)) {
+  if (using_https(r)) { 
     return APACHE_PSTRCAT
       (r->pool,
        "https://", APACHE_TABLE_GET(r->headers_in, "Host"), r->parsed_uri.path,
@@ -2004,6 +2004,17 @@ get_url(request_rec *r)
        "http://", APACHE_TABLE_GET(r->headers_in, "Host"), r->parsed_uri.path,
        NULL);
   }
+
+  */
+
+  /* This is rumored not to work, perhaps in Apache 2, perhaps
+     depending on the presence (or otherwise) of ServerName and/or
+     Port and/or Listen directive. Needs testing. Also needs testing
+     to ensure it *NEVER* uses hostname from a Host: header or from a
+     full URL on the request line , and that it gets port numbers
+     right. Otherwise it should be fine :-) */ 
+
+  return ap_construct_url(r->pool, r->uri, r);
 
 }
 
