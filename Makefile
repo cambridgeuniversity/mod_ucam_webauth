@@ -6,7 +6,7 @@
 #   the used tools
 
 APXS=/usr/sbin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
-SUFFIX='so'            # Use 'make .... SUFFIX=la for Apache 2
+SUFFIX=so              # Use 'make .... SUFFIX=la for Apache 2
 
 #   additional user defines, includes, libraries and options
 #DEF=-Dmy_define=my_value
