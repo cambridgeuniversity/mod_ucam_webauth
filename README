@@ -5,7 +5,7 @@ Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
 Current with version 0.99_1.0.0rc2
-$Id: README,v 1.7 2004-06-23 13:42:04 jw35 Exp $
+$Id: README,v 1.8 2004-07-09 15:33:00 jw35 Exp $
 
 1. Installation
 ===============
@@ -266,7 +266,7 @@ the expense of increased network traffic and delays. If set to 0 (the
 default) this feature is disabled. Disabling the feature when not
 needed provides a minor efficiency gain.
 
-AATimeoutMessage
+AATimeoutMsg
 
 A re-authentication by the authentication service will be triggered
 when an established session expires. This option sets a text string,

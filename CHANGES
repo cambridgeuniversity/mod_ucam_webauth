@@ -1,3 +1,35 @@
+0.99-1.0.0rc5 - 2004-07-09 jw
+
+ Bugs fixed:
+  
+  . Second and subsequent CGI arguments in the original URL end up
+    being interpreted as extra (bogus) request parameters by the WLS
+    and get removed from the URL itself. Caused by a lack of URL
+    escaping within the module. This, and other missing escaping and
+    unescaping, has been resolved (todo#24)
+
+  . If a request that doesn't trigger authentication results in
+    sub-requests that does (such as when Apache goes looking for
+    index.html in response to a request for '..../foo/' where
+
+      <Directory ...foo> 
+        AuthType webauth
+        ...
+
+    is in efect) we may end up with the browser actually requesting
+    the target of the sub-request which is quite likely to fail. This
+    problem should now be resolved, though it's possible that the
+    resolution will have introduced different problems in other
+    configurations. 
+
+0.99-1.0.0rc4 - 2004-07-05 jw
+
+ Bugs fixed:
+
+  . AAKeyDir could become corrupt on second and subsequent calls to
+    the module - reorganised the way default configuration directives
+    are managed to avoid this (todo#23). 
+
 0.99-1.0.0rc3 - 2004-06-23 jw
 
  Bugs fixed:

@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.36 2004-07-07 15:05:48 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.37 2004-07-09 15:33:00 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -1937,8 +1937,11 @@ webauth_authn(request_rec *r)
      response */
   
   APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
+
+  /* If we are a sub-request (r->main != NULL) then look for the token
+     in the corresponsing main request */
   
-  token_str = get_cgi_param(r, "WLS-Response");
+  token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
   if (token_str != NULL) {
     APACHE_LOG_ERROR(APLOG_INFO, "found WLS token");
@@ -1968,10 +1971,11 @@ webauth_authn(request_rec *r)
     ap_unescape_url(token_str);
     response_ticket = unwrap_wls_token(r, token_str);
     
-    /* check that the URL in the token is plausible 
-       (strip URL from cookie str, get this from request?) */
+    /* check that the URL in the token is plausible - note that if we
+       are in a sub-request it's the URL from the coresponding main
+       request that we need */  
 
-    this_url = get_url(r);
+    this_url = get_url(r->main ? r->main : r);
     this_url = ap_getword(r->pool, &this_url, '?');
     response_url = apr_table_get(response_ticket, "url");
     response_url = ap_getword(r->pool, &response_url, '?');
@@ -2168,28 +2172,39 @@ webauth_authn(request_rec *r)
   }
   
   /* THIRD: send a request to the WLS. Also set a test value cookie so
-   * we can test that it's still available when we get back */
+     we can test that it's still available when we get back. */
   
   APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 3..."); 
   
-  request = apr_pstrcat(r->pool,
-			"ver=", PROTOCOL_VERSION,
-			"&url=", escape_url(r->pool,get_url(r)),
-			"&date=", 
-			iso2_time_encode(r, apr_time_now()),
-			NULL);
+  /* We might be here as the result of a sub-request if it triggered
+     authentication but the main request didn't. We can't send out
+     current URL to the WLS becasue if we do we'll eventually be
+     redirected back there and there is a fair chance that actually
+     requesting it will fail. So we actually send the WLS the URL from
+     the main request and trap that specially when the sub-request is
+     eventually re-run */
+  
+  request = apr_pstrcat
+    (r->pool,
+     "ver=", PROTOCOL_VERSION,
+     "&url=", escape_url(r->pool,get_url(r->main ? r->main : r)),
+     "&date=", 
+     iso2_time_encode(r, apr_time_now()),
+     NULL);
   
   if (c->description != NULL)
-    request = apr_pstrcat(r->pool, 
-			  request, 
-			  "&desc=", escape_url(r->pool,c->description), 
-			  NULL);
+    request = apr_pstrcat
+      (r->pool, 
+       request, 
+       "&desc=", escape_url(r->pool,c->description), 
+       NULL);
   
   if (timeout_msg != NULL)
-    request = apr_pstrcat(r->pool, 
-			  request, 
-			  "&msg=", escape_url(r->pool,c->timeout_msg), 
-			  NULL);
+    request = apr_pstrcat
+      (r->pool, 
+       request, 
+       "&msg=", escape_url(r->pool,c->timeout_msg), 
+       NULL);
   
   if (c->fail == 1)
     request = apr_pstrcat(r->pool, request, "&fail=yes", NULL);
@@ -2197,11 +2212,12 @@ webauth_authn(request_rec *r)
   if (c->force_interact == 1) 
     request = apr_pstrcat(r->pool, request, "&iact=yes", NULL);
 
-  request = apr_pstrcat(r->pool,
-			c->auth_service, 
-			"?",
-			request,
-			NULL);
+  request = apr_pstrcat
+    (r->pool,
+     c->auth_service, 
+     "?",
+     request,
+     NULL);
   
   APACHE_LOG_ERROR(APLOG_DEBUG, "request = %s", request);
   
