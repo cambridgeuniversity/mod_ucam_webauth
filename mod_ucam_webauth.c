@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.32 2004-06-23 10:24:56 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.33 2004-06-25 09:45:16 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc2"
+#define VERSION "0.99_1.0.0rc3"
 
 /*
 MODULE-DEFINITION-START
@@ -251,9 +251,8 @@ wls_decode(request_rec *r,
     else if (d[i] == '_') d[i] = '=';
   }
 
-  *data = (char*)apr_palloc(r->pool, 1+apr_base64_decode_len(d));
-
-  len = apr_base64_decode(*data, d);
+  *data = (unsigned char*)apr_palloc(r->pool, 1+apr_base64_decode_len(d));
+  len = apr_base64_decode((const char*)data, d);
 
   (*data)[len] = '\0'; /* for safety if nothing else */
 
