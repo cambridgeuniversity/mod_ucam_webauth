@@ -1,5 +1,5 @@
 // University of Cambridge Web Authentication Agent for Apache 1.3 and 2
-// v0.42
+// v0.43
 
 /*
 MODULE-DEFINITION-START
@@ -30,7 +30,7 @@ MODULE-DEFINITION-END
 #include <string.h>
 #include <time.h>
 
-#define VERSION "0.42"
+#define VERSION "0.43"
 
 // APACHE 1.3
 
@@ -211,6 +211,7 @@ static char *iso2_time_encode(request_rec *r, APACHE_TIME t);
 static APACHE_TIME iso2_time_decode(request_rec *r, char *t_iso2);
 static int using_https(request_rec *r);
 static char *full_cookie_name(request_rec *r, char *cookie_name);
+static char *get_url(request_rec *r);
 static char *error_message(int err);
 static char *no_cookie(request_rec *r, mod_ucam_webauth_cfg *c);
 static char *auth_cancelled(request_rec *r);
@@ -730,11 +731,9 @@ static int ucam_webauth_handler(request_rec *r) {
     
     // check that the URL in the token is plausable (strip URL from cookie str, get this from request?)
 
-    const char *raw_response_url = APACHE_TABLE_GET(response_ticket, "url");
-    const char *raw_this_url = ap_construct_url(r->pool, r->unparsed_uri, r);
-
-    char *response_url = ap_getword(r->pool, &raw_response_url, '?');
-    char *this_url = ap_getword(r->pool, &raw_this_url, '?');
+    char *this_url = get_url(r);
+    const char *response_url = APACHE_TABLE_GET(response_ticket, "url");
+    response_url = ap_getword(r->pool, &response_url, '?');
 
     if (strcmp(response_url, this_url) != 0) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
@@ -869,12 +868,13 @@ static int ucam_webauth_handler(request_rec *r) {
    */
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-		   "entering THIRD stage...");
+		   "entering THIRD stage..."); 
 
   char *request = APACHE_PSTRCAT(r->pool,
 				 "ver=", PROTOCOL_VERSION,
-				 "&url=", ap_construct_url(r->pool, r->unparsed_uri, r), NULL);
-  
+				 "&url=", get_url(r),
+				 NULL);
+
   if (c->AADescription != NULL) {
     request = APACHE_PSTRCAT(r->pool, request, "&desc=", c->AADescription, NULL);
   }
@@ -1332,6 +1332,18 @@ static char *full_cookie_name(request_rec *r, char *cookie_name) {
     return APACHE_PSTRCAT(r->pool, cookie_name, "-S", NULL);
   }
   return (char *)APACHE_PSTRDUP(r->pool, cookie_name);
+}
+
+static char *get_url(request_rec *r) {
+  if (using_https(r)) {
+    return APACHE_PSTRCAT(r->pool,
+			  "https://", APACHE_TABLE_GET(r->headers_in, "Host"), r->parsed_uri.path,
+			  NULL);
+  } else {
+    return APACHE_PSTRCAT(r->pool,
+			  "http://", APACHE_TABLE_GET(r->headers_in, "Host"), r->parsed_uri.path,
+			  NULL);
+  }
 }
 
 static char *error_message(int err) {

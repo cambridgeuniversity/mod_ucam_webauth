@@ -277,8 +277,8 @@ this server. Be sure to set this path so that it includes all the URLs
 being protected. For example
 
     <Location /protected>
-      PerlSetVar AACookieKey foobar
-      PerlSetVar AACookiePath /protected/
+      AACookieKey foobar
+      AACookiePath /protected/
     </location>
 
 will cause problems when a browser tries to access
