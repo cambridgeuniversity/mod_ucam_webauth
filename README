@@ -1,15 +1,19 @@
-University of Cambridge Web Authentication Agent Manual
-=======================================================
+University of Cambridge Web Authentication System
+=================================================
 
-$Id: README,v 1.6 2004-06-23 11:37:33 jw35 Exp $
+Apache Authentication Agent (mod_ucam_webauth) Documentation
+============================================================
 
-Current as for 0.99_1.0.0rc2
+Current with version 0.99_1.0.0rc2
+$Id: README,v 1.7 2004-06-23 13:42:04 jw35 Exp $
 
 1. Installation
+===============
 
-The University of Cambridge Authentication (Ucam-WebAuth) agent can be
-linked to Apache in two ways, either statically or
-dynamically. Dynamically linking the agent has the advantage of not
+The University of Cambridge Web Authentication System Apache
+Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
+follows) can be linked to Apache in two ways, either statically or
+dynamically. Dynamically linking the module has the advantage of not
 requiring the Apache server to be rebuilt, although it does require
 that support for dynamic shared objects (DSO) be already incorporated
 in the server. Dynamic linking also engenders a decrease in Apache's
@@ -21,58 +25,62 @@ rebuilding Apache then dynamic linking is recommended.
 In the following documentation PREFIX is the directory where Apache
 resides, e.g.  /usr/local/apache
 
-The Ucam-WebAuth agent supports versions 1.3 and 2 of Apache. If you
-have an existing Apache installation and are unsure of the version you
-can use
+The module supports versions 1.3 and 2 of Apache. If you have an
+existing Apache installation and are unsure of the version you can use
 
 	PREFIX/bin/httpd -v
 
 to determine your version of Apache.
 
 1.1. Requirements
+-----------------
 
-Building the agent either statically or dynamically currently requires
-the OpenSSL library. Note that the module only provides
-authentication, so an authorization module must also be loaded.
+Building the module either statically or dynamically requires the
+OpenSSL library. Note that the module only provides authentication, so
+an authorization module (such as the standard mod_auth module) must
+also be loaded.
 
 1.2. RSA Public Keys
+--------------------
 
-The agent uses RSA public keys to verify that any messages from the
-Raven server really were sent by Raven and are not some attempt by a
-third-party to gain access to protected resources. The public keys
-require are available from https://raven.cam.ac.uk/project/keys/ and
-should be placed in the PREFIX/conf/webauth_keys directory, which you
-will have to create. If for some reason this is not an appropriate
+The module uses RSA public keys to verify that any messages from the
+authentication server really were sent by it and are not some attempt
+by a third-party to gain access to protected resources. The public
+keys require are available from https://raven.cam.ac.uk/project/keys/
+and should be placed in the PREFIX/conf/webauth_keys directory, which
+you will have to create. If for some reason this is not an appropriate
 location for the keys on your system a different directory can be
-defined. See the Configuration section below for more details. Beware
-that the key files currently have no filename suffix but that some
-browsers may add .txt or similar when downloading them.
+defined. See the 'Configuration' section below for more details. The
+names of the key files should not be changed - beware that they have
+no filename suffix but that some browsers may add .txt or similar when
+downloading them.
 
 1.2. Installing using Dynamic Linking
+-------------------------------------
 
-The apxs tool can be used to build and install the Ucam-WebAuth agent
-without rebuilding the Apache server. However the server must have
-been built with shared object support. This can be checked by using
-the following command
+The apxs tool can be used to build and install the module without
+rebuilding the Apache server. However the server must have been built
+with shared object support. This can be checked by using the following
+command
 
 	PREFIX/bin/httpd -l
 
-to list the modules linked to the Apache server. The module required
-for shared object support will be listed as mod_so.c. If this module
-is not present then a rebuild of your Apache server is required,
-either to enable shared object support or to statically link the agent
-to your server.
+to list the modules linked to the Apache server - if mod_so.c is shown
+as loaded then shared object support is available. If mod_so.c is not
+present then a rebuild of your Apache server is required, either to
+enable shared object support or to statically link mod_ucam_webauth to
+your server.
 
 The simplest command for building the module dynamically is:
 
 	PREFIX/bin/apxs -c -lcrypto mod_ucam_webauth.c
 
-This compiles the agent module as a shared object, but does not make
-Apache aware of its presence. To do this the compiled module file
+This compiles the module as a shared object, but does not make Apache
+aware of its presence. To do this the compiled module file
 mod_ucam_webauth.so must first be copied to the directory where Apache
 stores shared modules. This may be PREFIX/modules, depending on the
-Apache's directory layout.  The httpd.conf configuration file must
-then be updated with the configuration directives required to load and
+Apache's directory layout.  Then httpd.conf configuration file must be
+updated with the configuration directives required to load and
 activate the module.
 
 For Apache 1.3 two directives must be added, first LoadModule, then
@@ -94,19 +102,17 @@ LoadModule configuration directive needs to be added to httpd.conf:
 	LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
 
 The apxs tool can be instructed to move the compiled module to the
-correct directory and alter httpd.conf automatically.
+correct directory in addition to compiling it:
+
+        PREFIX/bin/apxs -c -i -lcrypto mod_ucam_webauth.c
+
+or even to compile it, move it into place and attempt to alter
+httpd.conf automatically:
 
 	PREFIX/bin/apxs -c -i -a -lcrypto mod_ucam_webauth.c
 
-This builds the module and modifies the httpd.conf file so that the
-module is loaded when the Apache server is started. If you just want
-to build a the module and move it to the correct directory without
-altering httpd.conf then the command is the same, except without the
--a option. E.g.
-
-	PREFIX/bin/apxs -c -i -lcrypto mod_ucam_webauth.c
-
 1.3. Installing using Static Linking
+------------------------------------
 
 Remove or backup the previous Apache build. Change into the Apache
 build directory and copy the appropriate source file to
@@ -133,124 +139,59 @@ Use the command
 
 	PREFIX/bin/httpd -l
 
-to check that the agent has been successfully incorporated into the
+to check that the module has been successfully incorporated into the
 Apache server. It should be listed as mod_ucam_webauth.c.
 
 2. Configuration
+================
 
-The minimum configuration required to restrict access to a resource to
-users with a Ucam-WebAuth login is
+The minimum configuration required to restrict access to resources to
+users with a Ucam-WebAuth login is, e.g.
 
-	<Directory "protected_dir/">
+	<Location "/protected_dir/">
 		AuthType WebAuth
 		Require valid-user
 		AACookieKey some random string
-	</Directory>
+	</Location>
 
 This assumes that the Apache standard mod_auth module is also
 available since it provides checking of 'Require
-valid-user'. mod_ucam_webauth always requires some other module
-(often mod_auth) to provide 'Authorization' checking.
+valid-user'. mod_ucam_webauth always requires some other module (often
+mod_auth) to provide 'Authorization' checking.
 
-As an alternative, this example will allow access to a resource to
+As an alternative, this example will allow access to resources to
 users with a Ucam-WebAuth login or to client computers with names in
 the cam.ac.uk zone but not otherwise:
 
-        <Directory "protected_dir/">
+        <Location "/protected_dir/">
                 Order allow,deny
                 Allow from .cam.ac.uk
 		AuthType WebAuth
 		Require valid-user
 		Satisfy any
-		AACookieKey some random string
-	</Directory>
+		AACookieKey "some random string"
+	</Location>
 
-Here the resources to be protected are identified by the Directory
-directive; resources specified by the Location or Files directives can
-also be protected. AuthType must be set to WebAuth. A Require
-directive is also needed to ensure that only authenticated users are
-allowed access to the resource. 
+Here the resources to be protected are identified by the <Location>
+directive; resources specified by the <Directory> or <Files>
+directives can also be protected. 'AuthType' must be set to
+'WebAuth'. A 'Require' directive is also needed to ensure that only
+authenticated users are allowed access to the resource.
 
 The final directive required for this simple configuration is
-AACookieKey. This directive is specific to the agent module and is
-used to sign and verify session cookies, providing detection any
-cookie tampering. There is no default for the parameter of this
-directive, and it must be set to some random string. It should not be
-disclosed since with knowledge of the key an attacker could forge
-authentication. For preference, AACookieKey should be placed in a file
-that is only readable by the user used to start Apache, commonly root.
+'AACookieKey'. This directive is specific to this module and provides
+data used to sign and verify session cookies, providing detection of
+any cookie tampering. There is no default for this directive, and it
+must be set to some random string. The value must be protected since
+with knowledge of the key an attacker can forge authentication. For
+preference, AACookieKey should be placed in a file that is only
+readable by the user used to start Apache, commonly root.
 
-2.1. Logout page
-
-The recommended way to logout from resources protected by Ucam-WebAuth
-is to quit the browser in use. However it is possible for the module
-to provide a 'virtual' logout page by associating a URL the the
-special handler 'AALogout'. This URL need not relate to anything that
-exists in the file system. For example
-
-        <Directory "protected_dir/logout/">
-                SetHandler AALogout
-	</Directory>
-
-Will cause anything in protected_dir/logout/, for example 
-
-  http://www.example.com/protected_dir/logout/logout.html
-
-to act as a logout page. Default page content is provided - this can
-be overridden as described below in 'Custom Error Pages' using the
-AALogoutMsg directive..
-
-2.2. Custom Error Pages
-
-A number of error conditions will be reported by passing an error page
-to the user's browser. This module may need to report 'User declined
-to authenticate', 'Browser not accepting session cookie', 'Bad
-Request', and 'General server error'. In addition, the standard
-authorisation modules used along with this module may raise
-'Authorization Required' if the authenticated user is not actually
-allowed access.
-
-In all cases, how these errors are reported can be controlled by using
-Apache's 'Custom Error Pages' system. This allows a web designer to
-replace the default pages with versions that, for example, more
-closely match the look and feel of the site.
-
-Error pages for 'Bad Request', 'General server error' and
-'Authorization Required' can be established if required using the
-standard ErrorDocument directive for status codes 400, 500 and 401
-status codes. A default 401 page will be provided if a custom one is
-not defined since the Apache default is misleading. The default Apache
-400 and 500 pages will be used (and may well be satisfactory) if a
-custom page is not defined.
-
-Custom error pages for 'User declined to authenticate' and 'Browser
-not accepting session cookie' can be established using the AACancelMsg
-and AANoCookieMsg configuration parameters. Default pages will be used
-if custom ones are not defined.
-
-Custom messages can be either a simple text string, a partial URL
-starting '/' (in which case it will be assumed to be on the current
-server), or a full URL in which case the user will be redirected there
-(except for Authorization Required where a full URL will be ignored if
-provided). Values for the various '...Msg' directives must be quoted
-if they contain spaces.
-
-If the error document is a local one then a number of environment
-variables with names starting 'REDIRECT_' will contain additional
-information about what went wrong that could be displayed if the
-document is something like an SSI page or a CGI script. In particular,
-REDIRECT_ERROR_NOTES may contain a useful description of any error -
-however note that there may be other causes of server errors that will
-also set REDIRECT_ERROR_NOTES and that doing so could give away
-information useful to an attacker (error messages are in any case
-logged to the server error log). Other variables that may be available
-prefixed by 'REDIRECT_' include those described above under
-Authentication Information.
-
-2.2. Configuration Directives
+2.1. Configuration Directives
+-----------------------------
 
 Apart from AACookieKey the configuration directives specific to the
-agent module are optional. However if the server's clock is not NTP
+module module are optional. However if the server's clock is not NTP
 synchronised then AAClockSkew will also need to be set. All directive
 values need to be quoted if they contain spaces. All values can be set
 in .htaccess files if 'AllowOverride AuthConfig' is in effect. Values
@@ -439,7 +380,7 @@ AAlogoutMsg
 
 If set, this identifies the message that will be displayed on the
 users browser when they access a logout page. If unset, a standard
-message will be displayed. See the Logout page section above.
+message will be displayed. See the Logout page section.
 
 AALogLevel
 
@@ -455,3 +396,131 @@ messages. Logging at 'info' or below is _very_ verbose. The default is
 'warn'. Display of error messages is also dependent on the standard
 'LogLevel' directive - for example to see 'debug' messages from this
 module it is necessary to set both AALogLevel and LogLevel to 'debug'.
+
+2.2. Authentication Information
+-------------------------------
+
+Following a successful authentication, Apache's internal view of cur-
+rent user is set to the user involved. As a result this value can be
+logged using the '%u' log format token (which is by default the third
+entry in 'Common Log Format'), and will appear as the value of the
+environment variable REMOTE_USER in the environment of CGI programs.
+ 
+In addition, the module provides the following additional environment
+variables to CGI programs. The variables can be logged using the
+'%{...}e' log format token.
+       
+AAISSUE
+
+The time/date at which the current authentication session started.
+This date/time is in the format similar to that specified by RFC 3339
+except that time-offset is always 'Z' and punctuation is omitted
+e.g. "19850412T232050Z" would be 23:20:50 on 12th April 1985.
+
+AALAST
+
+The time/date of the last recorded activity by the user. Note that his
+will be the same as AAISSUE unless inactivity timeouts are in use.
+This date/time is in the same format as AAISSUE.
+
+AALIFE
+
+The maximum lifetime of the current authentication, in seconds.
+
+AATIMEOUT
+
+The inactivity timeout currently in force, in seconds. 0 implies that
+inactivity timeouts are not in use.
+
+AAID
+
+The identifier of the authentication assertion on which the users
+authentication is based.
+
+AAPRINCIPAL
+
+Same as REMOTE_USER
+
+AAAUTH
+
+This indicates which authentication type was used if authentication
+was established by interaction with the user. This value consists of a
+single text token. The only value currently in use is 'pwd'.
+
+AASSO
+
+This indicates which authentication types were previously used if
+authentication was established based on previous successful
+authentication interactions with the user. This value consists of a a
+sequence of text tokens separated by ','. The only value currently in
+use is 'pwd'.
+
+2.3. Logout page
+----------------
+
+The recommended way to logout from resources protected by Ucam-WebAuth
+is to completely quit the browser. However it is possible for the
+module to provide a 'virtual' logout page by associating a URL with
+the special handler 'AALogout'. This URL need not relate to anything
+that exists in the file system. For example:
+
+        <Location "/protected_dir/logout/"> 
+                SetHandler AALogout
+        </Location>
+
+will cause anything in /protected_dir/logout/, for example 
+
+  http://www.example.com/protected_dir/logout/logout.html
+
+to act as a logout page. Default page content is provided - this can
+be overridden as described below in 'Custom Error Pages' using the
+AALogoutMsg directive.
+
+2.4. Custom Error Pages
+-----------------------
+
+A number of error conditions will be reported by returning an error
+page to the user's browser. The module may need to report 'User
+declined to authenticate', 'Browser not accepting session cookie',
+'Bad Request', and 'General server error'. In addition, the standard
+authorisation modules used along with this module may raise
+'Authorization Required' if the authenticated user is not actually
+allowed access.
+
+In all cases, how these errors are reported can be controlled by using
+Apache's 'Custom Error Pages' system. This allows a web designer to
+replace the default pages with versions that, for example, more
+closely match the look and feel of the site.
+
+Error pages for 'Bad Request', 'General server error' and
+'Authorization Required' can be established using the standard
+ErrorDocument directive for status codes 400, 500 and 401. A modified
+401 page will be provided if a custom one is not defined since the
+Apache default is misleading. The default Apache 400 and 500 pages
+will be used (and may well be satisfactory) if a custom page is not
+defined for these codes.
+
+Custom error pages for 'User declined to authenticate' and 'Browser
+not accepting session cookie' can be established using the AACancelMsg
+and AANoCookieMsg configuration parameters (see above). Default pages
+will be used if custom ones are not defined.
+
+Custom messages can be either a simple text string, a partial URL
+starting '/' (in which case it will be assumed to be on the current
+server), or a full URL in which case the user will be redirected there
+(except for Authorization Required where a full URL will be ignored if
+provided). Values for the various '...Msg' directives must be quoted
+if they contain spaces.
+
+If the error document is a local one then a number of environment
+variables with names starting 'REDIRECT_' will contain additional
+information about what went wrong that could be displayed if the
+document is something like an SSI page or a CGI script. In particular,
+REDIRECT_ERROR_NOTES may contain an error message - however note that
+there may be other causes of server errors that will also set
+REDIRECT_ERROR_NOTES and displaying these could give away information
+useful to an attacker (error messages are in any case logged to the
+server error log). Other variables that may be available prefixed by
+'REDIRECT_' include those described above under Authentication
+Information.
+
