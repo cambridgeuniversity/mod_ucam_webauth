@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.18 2004-06-17 17:26:34 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.19 2004-06-18 10:28:18 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -49,6 +49,10 @@ MODULE-DEFINITION-END
 #define AUTH_TYPE "webauth"
 #define TESTSTRING "Test"
 
+#define CC_OFF      0
+#define CC_ON       1
+#define CC_PARANOID 2
+
 /* default parameters */
 
 #define DEFAULT_AAAuthService     \
@@ -58,7 +62,9 @@ MODULE-DEFINITION-END
 #define DEFAULT_AAClockSkew       30
 #define DEFAULT_AAKeyDir          "conf/webauth_keys"
 #define DEFAULT_AAMaxSessionLife  7200
-#define DEFAULT_AATimeoutMsg      "your existing logon to the site has expired"
+#define DEFAULT_AAInactiveTimeout 0
+#define DEFAULT_AATimeoutMsg      "your session on the site site has expired"
+#define DEFAULT_AACacheControl    CC_ON
 #define DEFAULT_AACookieKey       NULL
 #define DEFAULT_AACookieName      "Ucam-WebAuth-Session"
 #define DEFAULT_AACookiePath      "/"
@@ -68,6 +74,8 @@ MODULE-DEFINITION-END
 #define DEFAULT_AAFail            0
 #define DEFAULT_AACancelMsg       NULL
 #define DEFAULT_AANoCookieMsg     NULL
+#define DEFAULT_AALogoutMsg       NULL
+#define DEFAULT_AALogLevel        APLOG_WARNING
 
 /* module configuration structure */
 
@@ -78,7 +86,9 @@ typedef struct {
   int   AAClockSkew;
   char *AAKeyDir;
   int   AAMaxSessionLife;
+  int   AAInactiveTimeout;
   char *AATimeoutMsg;
+  int   AACacheControl;
   char *AACookieKey;
   char *AACookieName;
   char *AACookiePath;
@@ -88,6 +98,8 @@ typedef struct {
   int   AAFail;
   char *AACancelMsg;
   char *AANoCookieMsg;
+  char *AALogoutMsg;
+  int   AALogLevel;
 } mod_ucam_webauth_cfg;
 
 /* ---------------------------------------------------------------------- */
@@ -151,6 +163,8 @@ typedef struct {
 #else
 
 /* APACHE 2 */
+
+#define APACHE2
 
 /* include */
 
@@ -1035,7 +1049,9 @@ create_dir_config(APACHE_POOL *p,
   cfg->AAClockSkew = -1;
   cfg->AAKeyDir = NULL;
   cfg->AAMaxSessionLife = -1;
+  cfg->AAInactiveTimeout = -1;
   cfg->AATimeoutMsg = NULL;
+  cfg->AACacheControl = -1;
   cfg->AACookieKey = NULL;
   cfg->AACookieName = NULL;
   cfg->AACookiePath = NULL;
@@ -1045,6 +1061,8 @@ create_dir_config(APACHE_POOL *p,
   cfg->AAFail = -1;
   cfg->AACancelMsg = NULL;
   cfg->AANoCookieMsg = NULL;
+  cfg->AALogoutMsg = NULL;
+  cfg->AALogLevel = -1;    /* must'nt be a valid APLOG_* value */
   return (void *)cfg;
 
 }
@@ -1075,6 +1093,8 @@ merge_dir_config(APACHE_POOL *p,
     new->AADescription : base->AADescription;
   merged->AAResponseTimeout = new->AAResponseTimeout != -1 ? 
     new->AAResponseTimeout : base->AAResponseTimeout;
+  merged->AAInactiveTimeout = new->AAInactiveTimeout != -1 ? 
+    new->AAInactiveTimeout : base->AAInactiveTimeout;
   merged->AAClockSkew = new->AAClockSkew != -1 ? 
     new->AAClockSkew : base->AAClockSkew;
   merged->AAKeyDir = new->AAKeyDir != NULL ? 
@@ -1083,6 +1103,8 @@ merge_dir_config(APACHE_POOL *p,
     new->AAMaxSessionLife : base->AAMaxSessionLife;
   merged->AATimeoutMsg = new->AATimeoutMsg != NULL ? 
     new->AATimeoutMsg : base->AATimeoutMsg;
+  merged->AACacheControl = new->AACacheControl != -1 ? 
+    new->AACacheControl : base->AACacheControl;
   merged->AACookieKey = new->AACookieKey != NULL ? 
     new->AACookieKey : base->AACookieKey;
   merged->AACookieName = new->AACookieName != NULL ? 
@@ -1101,6 +1123,10 @@ merge_dir_config(APACHE_POOL *p,
     new->AACancelMsg : base->AACancelMsg;
   merged->AANoCookieMsg = new->AANoCookieMsg != NULL ? 
     new->AANoCookieMsg : base->AANoCookieMsg;
+  merged->AALogoutMsg = new->AALogoutMsg != NULL ? 
+    new->AALogoutMsg : base->AALogoutMsg;
+  merged->AALogLevel = new->AALogLevel != -1 ? 
+    new->AALogLevel : base->AALogLevel;
 
   return (void *)merged;
 
@@ -1123,7 +1149,10 @@ apply_config_defaults(request_rec *r, mod_ucam_webauth_cfg *c)
 			    ap_server_root_relative(r->pool,DEFAULT_AAKeyDir); 
   if (c->AAMaxSessionLife == -1) c->AAMaxSessionLife = 
 				   DEFAULT_AAMaxSessionLife;
+  if (c->AAInactiveTimeout == -1) c->AAInactiveTimeout = 
+				   DEFAULT_AAInactiveTimeout;
   if (c->AATimeoutMsg == NULL) c->AATimeoutMsg = DEFAULT_AATimeoutMsg;
+  if (c->AACacheControl == -1) c->AACacheControl = DEFAULT_AACacheControl;
   if (c->AACookieKey == NULL) c->AACookieKey = DEFAULT_AACookieKey; 
   if (c->AACookieName == NULL) c->AACookieName = DEFAULT_AACookieName;
   if (c->AACookiePath == NULL) c->AACookiePath = DEFAULT_AACookiePath;
@@ -1133,6 +1162,8 @@ apply_config_defaults(request_rec *r, mod_ucam_webauth_cfg *c)
   if (c->AAFail == -1) c->AAFail = DEFAULT_AAFail; 
   if (c->AACancelMsg == NULL) c->AACancelMsg = DEFAULT_AACancelMsg; 
   if (c->AANoCookieMsg == NULL) c->AANoCookieMsg = DEFAULT_AANoCookieMsg;
+  if (c->AALogoutMsg == NULL) c->AALogoutMsg = DEFAULT_AALogoutMsg;
+  if (c->AALogLevel == -1) c->AALogLevel = DEFAULT_AALogLevel;
 
 }
 
@@ -1144,6 +1175,8 @@ dump_config(request_rec *r,
            mod_ucam_webauth_cfg *c)
 
 {
+
+  char *msg;
 
   APACHE_LOG_ERROR
     (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "Config dump:");
@@ -1173,8 +1206,32 @@ dump_config(request_rec *r,
      c->AAMaxSessionLife);
 
   APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AAInactiveTimeout = %d",
+     c->AAInactiveTimeout);
+
+  APACHE_LOG_ERROR
     (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AATimeoutMsg      = %s",
      (c->AATimeoutMsg == NULL ? "NULL" : c->AATimeoutMsg));
+ 
+  switch(c->AACacheControl) {
+  case CC_OFF:
+    msg = "off";
+    break;
+  case CC_ON:
+    msg = "on";
+    break;
+  case CC_PARANOID:
+    msg = "paranoid";
+    break;
+  case -1:
+    msg = "UNSET";
+    break;
+  default:
+    msg = "unknown";
+  }
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
+     "  AACacheControl    = %s", msg);
 
   if (c->AACookieKey == NULL) {
     APACHE_LOG_ERROR
@@ -1183,8 +1240,8 @@ dump_config(request_rec *r,
   } else {
     APACHE_LOG_ERROR
       (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
-       "  AACookieKey       = %4.4s... (truncated)", 
-       (c->AACookieKey == NULL ? "NULL" : c->AACookieKey));
+       "  AACookieKey       = %4.4s... (truncated, %d characters total)", 
+       c->AACookieKey, strlen(c->AACookieKey));
   }
 
   APACHE_LOG_ERROR
@@ -1218,6 +1275,45 @@ dump_config(request_rec *r,
   APACHE_LOG_ERROR
     (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AANoCookieMsg     = %s",
      (c->AANoCookieMsg == NULL ? "NULL" : c->AANoCookieMsg));
+  
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, "  AALogoutMsg       = %s",
+     (c->AALogoutMsg == NULL ? "NULL" : c->AALogoutMsg));
+  
+  switch(c->AALogLevel) {
+  case APLOG_EMERG:
+    msg = "emerg";
+    break;
+  case APLOG_ALERT:
+    msg = "alert";
+    break;
+  case APLOG_CRIT:
+    msg = "crit";
+    break;
+  case APLOG_ERR:
+    msg = "error";
+    break;
+  case APLOG_WARNING:
+    msg = "warn";
+    break;
+  case APLOG_NOTICE:
+    msg = "notice";
+    break;
+  case APLOG_INFO:
+    msg = "info";
+    break;
+  case APLOG_DEBUG:
+    msg = "debug";
+    break;
+  case -1:
+    msg = "UNSET";
+    break;
+  default:
+    msg = "unknown";
+  }
+  APACHE_LOG_ERROR
+    (APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r, 
+     "  AALogLevel        = %s", msg);
   
 }
 
@@ -1285,6 +1381,110 @@ set_AAMaxSessionLife(cmd_parms *cmd,
 
 }
 
+/* --- */
+
+static const char *
+set_AAInactiveTimeout(cmd_parms *cmd, 
+		     void *mconfig, 
+		     const char *arg) 
+
+{
+
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+
+  cfg->AAInactiveTimeout = atoi(arg);
+  if (cfg->AAInactiveTimeout < 300) 
+    return "AAInactiveTimeout must be at least 300 sec (5 min)";
+  return NULL;
+
+}
+
+/* --- */
+
+static const char *
+set_AACacheControl(cmd_parms *cmd, 
+		   void *mconfig, 
+		   const char *arg) 
+     
+{
+  
+  char *str;
+
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+  
+  if ((str = ap_getword_conf(cmd->pool, &arg))) {
+    if (!strcasecmp(str, "off")) {
+      cfg->AACacheControl = CC_OFF;
+    }
+    else if (!strcasecmp(str, "on")) {
+      cfg->AACacheControl = CC_ON;
+    }
+    else if (!strcasecmp(str, "paranoid")) {
+      cfg->AACacheControl = CC_PARANOID;
+    }
+    else {
+      return "AACacheControl requires level keyword: one of "
+	"off/on/paranoid";
+    }
+  }
+  else {
+    return "AAcacheControl requires level keyword";
+  }
+  
+  return NULL;
+
+}
+
+/* --- */
+
+static const char *
+set_AALogLevel(cmd_parms *cmd, 
+	       void *mconfig, 
+	       const char *arg) 
+
+{
+  
+  char *str;
+
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+  
+  if ((str = ap_getword_conf(cmd->pool, &arg))) {
+    if (!strcasecmp(str, "emerg")) {
+      cfg->AALogLevel = APLOG_EMERG;
+    }
+    else if (!strcasecmp(str, "alert")) {
+      cfg->AALogLevel = APLOG_ALERT;
+    }
+    else if (!strcasecmp(str, "crit")) {
+      cfg->AALogLevel = APLOG_CRIT;
+    }
+    else if (!strcasecmp(str, "error")) {
+      cfg->AALogLevel = APLOG_ERR;
+    }
+    else if (!strcasecmp(str, "warn")) {
+      cfg->AALogLevel = APLOG_WARNING;
+    }
+    else if (!strcasecmp(str, "notice")) {
+      cfg->AALogLevel = APLOG_NOTICE;
+    }
+    else if (!strcasecmp(str, "info")) {
+      cfg->AALogLevel = APLOG_INFO;
+    }
+    else if (!strcasecmp(str, "debug")) {
+      cfg->AALogLevel = APLOG_DEBUG;
+    }
+    else {
+      return "AALogLevel requires level keyword: one of "
+	"emerg/alert/crit/error/warn/notice/info/debug";
+    }
+  }
+  else {
+    return "AALogLevel requires level keyword";
+  }
+  
+  return NULL;
+
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -1292,13 +1492,25 @@ set_AAMaxSessionLife(cmd_parms *cmd,
 
 /* --- */
 
+#ifdef APACHE2
+static int 
+ucam_webauth_init(APACHE_POOL *p, 
+		  APACHE_POOL *l, 
+		  APACHE_POOL *t, 
+		  server_rec *s)
+#else     
 static void
 ucam_webauth_init(server_rec *s, APACHE_POOL *p) 
-
+#endif
+     
 {
-
+  
   APACHE_ADD_VERSION_COMPONENT(p, "mod_ucam_webauth/" VERSION);
-
+  
+#ifdef APACHE2
+  return OK;
+#endif
+  
 } 
 
 
@@ -1803,13 +2015,15 @@ static const command_rec config_commands[] = {
 
   APACHE_CMD_REC_TAKE1("AAAuthService", 
 		       ap_set_string_slot, 
-                       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAAuthService), 
+                       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AAAuthService), 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "Authentication server logon servive URL"),
+		       "Authentication server logon service URL"),
 
   APACHE_CMD_REC_TAKE1("AADescription", 
 		       ap_set_string_slot,
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AADescription), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AADescription), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Description of the protected resource"),
 
@@ -1818,7 +2032,7 @@ static const command_rec config_commands[] = {
 		       NULL, 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Expected maximum delay in forwarding response message "
-                       "from the authentication server"),
+                       "from the authentication server, in seconds"),
 
   APACHE_CMD_REC_TAKE1("AAClockSkew", 
 		       set_AAClockSkew, 
@@ -1826,7 +2040,7 @@ static const command_rec config_commands[] = {
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Maximum expected clock difference between this "
                        "servers clock and the clock on the authentication "
-                       "server"),
+                       "server, in seconds"),
 
   APACHE_CMD_REC_TAKE1("AAKeyDir", 
                        ap_set_file_slot,
@@ -1839,48 +2053,67 @@ static const command_rec config_commands[] = {
 		       set_AAMaxSessionLife, 
 		       NULL, 
 		       RSRC_CONF | OR_AUTHCFG,
-		       "MAximum hard session lifetime"),
+		       "Maximum hard session lifetime, in seconds"),
+
+  APACHE_CMD_REC_TAKE1("AAInactiveTimeout", 
+		       set_AAInactiveTimeout, 
+		       NULL, 
+		       RSRC_CONF | OR_AUTHCFG,
+		       "Session inactivity timeout, in seconds"),
 
   APACHE_CMD_REC_TAKE1("AATimeoutMessage", 
 		       ap_set_string_slot, 
-		     (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AATimeoutMsg),
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AATimeoutMsg),
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Message for display by the authentication service "
                        "during an authentication caused by session expiry"),
 
+  APACHE_CMD_REC_TAKE1("AACacheControl", 
+		       set_AACacheControl, 
+		       NULL, 
+		       RSRC_CONF | OR_AUTHCFG,
+		       "Automatic addition of cache control headers"),
+
   APACHE_CMD_REC_TAKE1("AACookieKey", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieKey), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACookieKey), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Secret key for session cookie - required"),
 
   APACHE_CMD_REC_TAKE1("AACookieName", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieName), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACookieName), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Name for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AACookiePath", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookiePath), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACookiePath), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Path prefix for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AACookieDomain", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACookieDomain),
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACookieDomain),
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Domain setting for session cookie"),
 
   APACHE_CMD_REC_TAKE1("AAAuthType", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAAuthType), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AAAuthType), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Type(s) of authentication required"),
 
   APACHE_CMD_REC_FLAG("AAForceInteract", 
 		       ap_set_flag_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AAForceInteract),
+		       (void *)APACHE_OFFSETOF
+		      (mod_ucam_webauth_cfg,AAForceInteract),
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Force user interaction with authentication server"),
 
@@ -1892,16 +2125,31 @@ static const command_rec config_commands[] = {
 
   APACHE_CMD_REC_TAKE1("AACancelMsg", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACancelMsg),
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACancelMsg),
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Custom error for authentication cancelled"),
 
   APACHE_CMD_REC_TAKE1("AANoCookieMsg", 
 		       ap_set_string_slot, 
-		       (void *)APACHE_OFFSETOF(mod_ucam_webauth_cfg,AACancelMsg), 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AACancelMsg), 
 		       RSRC_CONF | OR_AUTHCFG,
 		       "Custom error if cookies don't seem to be being "
                        "accepted"),
+
+  APACHE_CMD_REC_TAKE1("AALogoutMsg", 
+		       ap_set_string_slot, 
+		       (void *)APACHE_OFFSETOF
+		       (mod_ucam_webauth_cfg,AALogoutMsg), 
+		       RSRC_CONF | OR_AUTHCFG,
+		       "Message or page to display on visiting logout URL"),
+
+  APACHE_CMD_REC_TAKE1("AALogLevel", 
+		       set_AALogLevel, 
+		       NULL, 
+		       RSRC_CONF | OR_AUTHCFG,
+		       "Level of verbosity in error logging"),
 
   {NULL}
 
