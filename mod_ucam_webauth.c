@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.33 2004-06-25 09:45:16 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.34 2004-06-25 10:24:15 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -234,12 +234,12 @@ wls_encode(request_rec *r,
 static int
 wls_decode(request_rec *r, 
 	   char *string,
-	   unsigned char **data)
+	   unsigned char **result)
      
 {
 
-  int len, i;
-  char * d;
+  int len, i;  
+  char *d, *res;
 
   APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode...");
 
@@ -251,11 +251,12 @@ wls_decode(request_rec *r,
     else if (d[i] == '_') d[i] = '=';
   }
 
-  *data = (unsigned char*)apr_palloc(r->pool, 1+apr_base64_decode_len(d));
-  len = apr_base64_decode((const char*)data, d);
+  res = (char*)apr_palloc(r->pool, 1+apr_base64_decode_len(d));
+  len = apr_base64_decode(res, d);
 
-  (*data)[len] = '\0'; /* for safety if nothing else */
+  res[len] = '\0'; /* for safety if nothing else */
 
+  *result = (unsigned char *)res;
   return len;
 
 }
