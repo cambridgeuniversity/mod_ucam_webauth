@@ -1,0 +1,51 @@
+
+# The Apache mod_ucam_webauth module implements authentication using
+# the University of Cambridge Web Authentication System
+# (Ucam-WebAuth). This is the software implementing the Raven
+# authentication system. 
+
+# In a DSO environment the module must first be loaded using the
+# 'LoadModule' directive. Under Apache v1 some configuration files use
+# 'ClearModuleList' followed by 'AddModule' directives to ensure that
+# modules are used in the right order - if mod_ucam_webauth is loaded
+# loaded before 'ClearModuleList' then 'AddModule mod_ucam_webauth.c'
+# will also be required. 
+
+LoadModule ucam_webauth_module @@LIBEXECDIR@@/mod_ucam_webauth.so
+
+# AACookieKey MUST be assigned a value, here or elsewhere, before this
+# authentication module is used. 
+
+# AACookieKey
+
+# The following configuration directives are available once
+# mod_ucam_webauth is loaded. They are shown below commented-out with
+# their default settings - see documentation for usage and other
+# possible values.
+
+# AADescription
+
+# AAResponseTimeout   30
+# AAClockSkew          0
+# AAMaxSessionLife  7200
+# AAInactiveTimeout    0
+
+# AATimeoutMsg  'your session on the site has expired'
+# AACancelMsg
+# AANoCookieMsg 
+# AAlogoutMsg
+
+# AAKeyDir        conf/webauth_keys
+# AAAuthService   https://raven.cam.ac.uk/auth/authenticate.html
+# AALogoutService https://raven.cam.ac.uk/auth/logout.html
+
+# AACookieName    Ucam-WebAuth-Session
+# AACookiePath    /
+# AACookieDomain
+
+# AACacheControl  On
+# AAForceInteract Off
+# AAFail          Off
+# AAAlwaysDecode  Off
+
+# AALogLevel warn
