@@ -61,6 +61,34 @@ rpm2: dist rpmdirs
 	cp mod_ucam_webauth2.spec /home/jw35/rpmdevel/SPECS
 	rpmbuild -ba /home/jw35/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
+zip13: 
+	mkdir -p zip_build
+	cp Windows/mod_ucam_webauth`cat Windows/VERSION13`.so \
+	        zip_build/mod_ucam_webauth.so
+	cp Windows/msvcr70.dll zip_build/msvcr70.dll
+	cp README              zip_build/README.txt 
+	cp README.WIN32        zip_build/README_WIN32.txt
+	rm -f mod_ucam_webauth`cat Windows/VERSION13`.zip
+	zip -j  mod_ucam_webauth`cat Windows/VERSION13`.zip \
+	       zip_build/*.so zip_build/*.dll
+	zip -jl mod_ucam_webauth`cat Windows/VERSION13`.zip \
+	        zip_build/*.txt
+	rm -r zip_build/
+
+zip2: 
+	mkdir -p zip_build
+	cp Windows/mod_ucam_webauth`cat Windows/VERSION2`.so \
+	        zip_build/mod_ucam_webauth.so
+	cp Windows/msvcr70.dll zip_build/msvcr70.dll
+	cp README              zip_build/README.txt 
+	cp README.WIN32        zip_build/README_WIN32.txt
+	rm -f mod_ucam_webauth`cat Windows/VERSION2`.zip
+	zip -j  mod_ucam_webauth`cat Windows/VERSION2`.zip \
+	       zip_build/*.so zip_build/*.dll
+	zip -jl mod_ucam_webauth`cat Windows/VERSION2`.zip \
+	        zip_build/*.txt
+	rm -r zip_build/
+
 clean:
 	rm -f *~ *.o *.so *.la *.lo *.slo *.tar.gz
 

@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.50 2004-09-13 08:53:31 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.51 2004-09-27 16:18:51 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.3"
+#define VERSION "1.0.3test1"
 
 /*
 MODULE-DEFINITION-START
@@ -27,8 +27,10 @@ MODULE-DEFINITION-END
 */
 
 #include <string.h>
-#include <strings.h>
 #include <time.h>
+#ifndef WIN32
+#include <strings.h>
+#endif
 
 #define CORE_PRIVATE   /* Er, we want to prod some core data structures */
 
@@ -720,37 +722,57 @@ RSA_sig_verify(request_rec *r,
 
   SHA1((const unsigned char *)data, strlen(data), (unsigned char *)digest);
   
-#ifdef APACHE1_3
-  key_file = (FILE *)ap_pfopen(r->pool, key_full_path, "r");
-#else
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 1");
+
+  /* #ifdef APACHE1_3
+  /* key_file = (FILE *)ap_pfopen(r->pool, key_full_path, "r");
+  /* #else */
   key_file = (FILE *)fopen(key_full_path, "r");
-#endif
+  /* #endif */
+
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 2");
+
   if (key_file == NULL) {
     APACHE_LOG2(APLOG_CRIT, "Error opening public key file %s: %s", 
 		     key_full_path, strerror(errno));
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 3");
+
   public_key = (RSA *)PEM_read_RSAPublicKey(key_file, NULL, NULL, NULL);
 
-#ifdef APACHE1_3
-  ap_pfclose(r->pool, key_file);
-#else
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 4");
+
+  /* #ifdef APACHE1_3
+  /* ap_pfclose(r->pool, key_file);
+  /* #else */
   fclose(key_file);
-#endif
+  /* #endif */
+ 
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 5");
 
   if (public_key == NULL) {
+    APACHE_LOG0(APLOG_DEBUG, "FOO - 6");
     APACHE_LOG1
       (APLOG_CRIT, "Error reading public key from %s "
        "(additional information may follow)", key_full_path);
+    APACHE_LOG0(APLOG_DEBUG, "FOO - 7");
     log_openssl_errors(r,APLOG_CRIT);
+    APACHE_LOG0(APLOG_DEBUG, "FOO - 8");
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 9");
+
   sig_length = wls_decode(r, sig, &decoded_sig);
+
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 10");
 
   APACHE_LOG1(APLOG_DEBUG, "digest length = %d", strlen(digest));
   APACHE_LOG1(APLOG_DEBUG, "sig length = %d", sig_length);
+
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 11");
 
   result = RSA_verify(NID_sha1, 
 		      (unsigned char *)digest, 
@@ -758,6 +780,8 @@ RSA_sig_verify(request_rec *r,
 		      decoded_sig, 
 		      sig_length, 
 		      public_key);
+
+  APACHE_LOG0(APLOG_DEBUG, "FOO - 12"); 
 
   APACHE_LOG1(APLOG_DEBUG, "RSA verify result = %d", result);
 

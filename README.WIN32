@@ -1,0 +1,79 @@
+University of Cambridge Web Authentication System
+=================================================
+
+Using mod_ucam_webauth with Windows Apache
+==========================================
+
+Current with version 1.0.2
+$Id: README.WIN32,v 1.1 2004-09-27 16:18:51 jw35 Exp $
+
+Binary distributions of mod_ucam_webauth are available for use with
+Apache running on a windows platform. There are separate distributions
+for Apache 1 and for Apache 2. These distributions are compiled to
+work with the corresponding binary Apache distributions provide by the
+Apache project (see http://httpd.apache.org/download.cgi) - they may
+also work with other Apache builds but binary compatibility can not be
+guaranteed.
+
+The Windows distribution is provided as a ZIP file. Download it and
+un-zip it into a suitable directory. Copy mod_ucam_webauth.so into the
+'modules' directory of your Apache installation. For a default
+installation of the Apache project distribution this will be 
+
+  C:\Program Files\Apache Group\Apache\modules  [Apache 1]
+  C:\Program Files\Apache Group\Apache2\modules [Apache 2]
+
+The module has been compiled using Microsoft's Visual Studio .NET
+compiler and the compiled code requires an updated C runtime library
+DLL that isn't in a 'standard' Windows installation. Copy msvcr70.dll
+either to the Windows directory (normally C:\WINDOWS) or to the same
+directory as the Apache program (Apache.exe):
+
+  C:\Program Files\Apache Group\Apache          [Apache 1]	
+  C:\Program Files\Apache Group\Apache2\bin     [Apache 2]
+
+Note that without this DLL attempts to start a copy of Apache
+configured to use mod_ucam_webauth will result in messages similar to
+
+  Syntax error on line 193 of c:/program files/apache group/apache/conf/httpd.conf:
+  Cannot load c:/program files/apache group/apache/modules/mod_ucam_webauth.so int
+o server: (126) The specified module could not be found:
+
+even if mod_ucam_webauth.so is in fact correctly installed.
+
+Once these steps are completed, configure Apache to use
+mod_ucam_webauth as described in the README file, but note the
+following:
+
+  * The Apache executable is called Apache.exe under Windows, not
+    httpd
+
+  * The necessary OpenSSL components are included in the compiled
+    module
+
+  * The 'apxs' tool is not available. For a default installation of
+    the Apache project distribution the RSA public keys should by
+    default be stored in
+
+    C:\Program Files\Apache Group\Apache\conf\webauth_keys  [Apache 1]
+    C:\Program Files\Apache Group\Apache2\conf\webauth_keys [Apache 2]
+
+  * Beware that Internet Explorer _will_ add '.txt' onto the end of
+    the name of the key file, and that this may be hidden if Windows
+    is configured to hide known file name suffixes.
+
+  * Time synchronisation can be configured from Start -> Settings ->
+    Control Panel -> Date and Time -> Internet Time
+
+  * For a default installation of the Apache project distribution the
+    default configuration file will be found at
+
+    C:\Program Files\Apache Group\Apache\conf\httpd.conf  [Apache 1]
+    C:\Program Files\Apache Group\Apache2\conf\httpd.conf [Apache 2]
+
+  * For a default installation of the Apache project distribution the
+    error log file will be found at
+
+    C:\Program Files\Apache Group\Apache\conf\httpd.conf  [Apache 1]
+    C:\Program Files\Apache Group\Apache2\conf\httpd.conf [Apache 2]    
+   
