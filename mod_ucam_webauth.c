@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.46 2004-08-26 12:11:07 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.47 2004-08-26 14:21:17 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -609,10 +609,13 @@ log_openssl_errors(request_rec *r,
   int code;
   char msg[120];
 
+  ERR_load_crypto_strings();
+
   while ((code = ERR_get_error())) {
     (void)ERR_error_string_n(code, &msg[0], 120);
     APACHE_LOG_ERROR(level, "  OpenSSL %s", msg);
   }
+
 }
 
 /* --- */
