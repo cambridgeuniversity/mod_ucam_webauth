@@ -1,7 +1,9 @@
 University of Cambridge Web Authentication Agent Manual
 =======================================================
 
-$Id: README,v 1.5 2004-06-21 16:54:48 jw35 Exp $
+$Id: README,v 1.6 2004-06-23 11:37:33 jw35 Exp $
+
+Current as for 0.99_1.0.0rc2
 
 1. Installation
 
@@ -42,7 +44,9 @@ require are available from https://raven.cam.ac.uk/project/keys/ and
 should be placed in the PREFIX/conf/webauth_keys directory, which you
 will have to create. If for some reason this is not an appropriate
 location for the keys on your system a different directory can be
-defined. See the Configuration section below for more details.
+defined. See the Configuration section below for more details. Beware
+that the key files currently have no filename suffix but that some
+browsers may add .txt or similar when downloading them.
 
 1.2. Installing using Dynamic Linking
 
@@ -143,39 +147,68 @@ users with a Ucam-WebAuth login is
 		AACookieKey some random string
 	</Directory>
 
+This assumes that the Apache standard mod_auth module is also
+available since it provides checking of 'Require
+valid-user'. mod_ucam_webauth always requires some other module
+(often mod_auth) to provide 'Authorization' checking.
+
 As an alternative, this example will allow access to a resource to
-client computers with names in the cam.ac.uk zone or to users with a
-Ucam-WebAuth login but not otherwise:
+users with a Ucam-WebAuth login or to client computers with names in
+the cam.ac.uk zone but not otherwise:
 
         <Directory "protected_dir/">
                 Order allow,deny
                 Allow from .cam.ac.uk
 		AuthType WebAuth
 		Require valid-user
-		AACookieKey some random string
 		Satisfy any
+		AACookieKey some random string
 	</Directory>
 
-The directory to be protected is specified with the Directory
-directive, although resources speficied by the Location or Files
-directives can also be protected. The type of user authentication must
-be set to WebAuth. A Require directive is also needed to ensure that
-only authenticated users are allowed access to the resource. The final
-directive required for this simple configuration is AACookieKey. This
-directive is specific to the agent module and is used to sign and
-verify session cookies, providing detection any cookie
-tampering. There is no default for the parameter of this directive,
-and it must be set to some random string.
+Here the resources to be protected are identified by the Directory
+directive; resources specified by the Location or Files directives can
+also be protected. AuthType must be set to WebAuth. A Require
+directive is also needed to ensure that only authenticated users are
+allowed access to the resource. 
 
-2.1. Custom Error Pages
+The final directive required for this simple configuration is
+AACookieKey. This directive is specific to the agent module and is
+used to sign and verify session cookies, providing detection any
+cookie tampering. There is no default for the parameter of this
+directive, and it must be set to some random string. It should not be
+disclosed since with knowledge of the key an attacker could forge
+authentication. For preference, AACookieKey should be placed in a file
+that is only readable by the user used to start Apache, commonly root.
+
+2.1. Logout page
+
+The recommended way to logout from resources protected by Ucam-WebAuth
+is to quit the browser in use. However it is possible for the module
+to provide a 'virtual' logout page by associating a URL the the
+special handler 'AALogout'. This URL need not relate to anything that
+exists in the file system. For example
+
+        <Directory "protected_dir/logout/">
+                SetHandler AALogout
+	</Directory>
+
+Will cause anything in protected_dir/logout/, for example 
+
+  http://www.example.com/protected_dir/logout/logout.html
+
+to act as a logout page. Default page content is provided - this can
+be overridden as described below in 'Custom Error Pages' using the
+AALogoutMsg directive..
+
+2.2. Custom Error Pages
 
 A number of error conditions will be reported by passing an error page
 to the user's browser. This module may need to report 'User declined
 to authenticate', 'Browser not accepting session cookie', 'Bad
 Request', and 'General server error'. In addition, the standard
-authorisation modules which can be used along with this module may
-raise 'Authorization Required' if the authenticated user is not
-actually allowed access.
+authorisation modules used along with this module may raise
+'Authorization Required' if the authenticated user is not actually
+allowed access.
 
 In all cases, how these errors are reported can be controlled by using
 Apache's 'Custom Error Pages' system. This allows a web designer to
@@ -198,8 +231,9 @@ if custom ones are not defined.
 Custom messages can be either a simple text string, a partial URL
 starting '/' (in which case it will be assumed to be on the current
 server), or a full URL in which case the user will be redirected there
-(except for Authorization Required where a full URL will be ingired if
-provided).
+(except for Authorization Required where a full URL will be ignored if
+provided). Values for the various '...Msg' directives must be quoted
+if they contain spaces.
 
 If the error document is a local one then a number of environment
 variables with names starting 'REDIRECT_' will contain additional
@@ -216,12 +250,22 @@ Authentication Information.
 2.2. Configuration Directives
 
 Apart from AACookieKey the configuration directives specific to the
-agent module are optional.
+agent module are optional. However if the server's clock is not NTP
+synchronised then AAClockSkew will also need to be set. All directive
+values need to be quoted if they contain spaces. All values can be set
+in .htaccess files if 'AllowOverride AuthConfig' is in effect. Values
+are inherited into <VirtualHost>, <Directory>, <Location> and <File>
+blocks, and in .htaccess files, if not specified there.
 
 AAAuthService
 
 The full URL for the web login service to be used. Defaults to
 https://raven.cam.ac.uk/auth/authenticate.html
+
+AALogoutService
+
+The full URL for the logout page on the web login service to be
+used. Defaults to https://raven.cam.ac.uk/auth/logout.html
 
 AADescription
 
@@ -231,23 +275,25 @@ authentication service. It is restricted to printable ASCII characters
 (0x20 - 0x7e) though it may contain HTML entities representing other
 characters. The characters '<' and '>' will be converted into HTML
 entities before being sent to the browser and so this text can not
-usefully contain HTML markup.
+usefully contain HTML markup. This value must be quoted if, as it
+likely, it contains spaces.
 
 AAResponseTimeout
 
 Responses from the central authentication server are
-time-stamped. This parameter sets the period of time in seconds during
-which these responses are considered valid. The default is 30 seconds.
+time-stamped. This parameter sets the period of time during which
+these responses are considered valid. The value is in seconds and the
+default is 30.
 
 AAClockSkew
 
 Interpretation of AAResponseTimeout is difficult if the clocks on the
 server running this handler and on the authentication server are out
-of step. Both servers should use NTP to synchronise their clocks, but
-if they don't then this parameter must be set to an estimate of the
+of step. Web servers should use NTP to synchronise their clocks, but
+if they don't then this parameter MUST be set to an estimate of the
 maximum expected difference between them (in seconds). Error messages
 containing the text 'local clock incorrect?'  are likely if this
-parameter is not used on a serve rthat needs it.  The default is 0
+parameter is not used on a server that needs it. The default is 0
 seconds.
 
 AAKeyDir
@@ -263,7 +309,7 @@ The maximum period of time (in seconds) for which an established
 session will be valid. This may be overridden if the authentication
 reply contains a shorter 'life' parameter. Once a session ceases to be
 valid users will be referred to the web login service to
-re-authentiocate. Note that this does NOT define an expiry time for
+re-authenticate. Note that this does NOT define an expiry time for
 the session cookie - session cookies are always set without an expiry
 time, causing them to expire when the browser session
 finishes. Default is 7200 seconds (2 hours).
@@ -271,12 +317,13 @@ finishes. Default is 7200 seconds (2 hours).
 AAInactiveTimeout
 
 The length of time (in seconds) after which an inactive session can be
-assumed to have expired. Inactivity tracking is rather aproximate
+assumed to have expired. Inactivity tracking is rather approximate
 thanks to various forms of caching. In particular, revisiting a page
 that hasn't change since you last visited it may not count as
 activity. Setting AACacheControl to 'paranoid' may help with this, at
 the expense of increased network traffic and delays. If set to 0 (the
-default) this feature is disabled.
+default) this feature is disabled. Disabling the feature when not
+needed provides a minor efficiency gain.
 
 AATimeoutMessage
 
@@ -290,14 +337,16 @@ above.
 AACacheControl
 
 Caches, both those in browsers and shared proxy caches, can cause
-problems for cookie-based authentication systems. This option alows
-you to control what the module does to work around this. It kas three
-possible options:
+problems for cookie-based authentication systems. This option controls
+what the module does to work around this. It has three possible
+settings:
 
-  On       : Headers are automatically sent that should disable most caching
-  Off      : No additional headers are sent
-  Paranoid : Almost everything possible is done to discourage re-use
-             of cached content
+  Off:      No additional headers are sent
+  On:       Headers are automatically sent that should disable most
+            shared caching
+  Paranoid: Almost everything possible is done to discourage re-use
+            of cached content. This will increase server load, network
+            traffic and delays experienced by users. 
 
 Default value is 'On'.
 
@@ -308,7 +357,16 @@ reasonably unpredictable string (for example an md5sum of a rapidly
 changing logfile) will be satisfactory. This key must be the same for
 all uses of the Web Authentication system that will receive the same
 session cookies (see AACookieName, AACookiePath, AACookieDomain
-below). This parameter has no default and must be set.
+below). This parameter has no default and must be set. 
+
+The key must not disclosed, since with knowledge of the key an
+attacker can forge authentication. For preference, AACookieKey should
+be placed in a file that is only readable by the user used to start
+Apache, commonly root. One way to achieve this, while leaving the main
+configuration file mainly readable, would be to put the AACookieKey
+directive in a file only readable by root (or whoever) that is
+incorporated into the main configuration using the 'Include'
+directive.
 
 AACookieName
 
@@ -331,10 +389,10 @@ being protected. For example
 will cause problems when a browser tries to access
 http://<whatever/protected> since authentication will be required but
 the relevant cookie will never be returned. Note that an .htaccess
-file and a Directrory block even with a training '/' appear to behave
-as for a Location block with a path omitting the trailing '/'. The
-module checks for URLs that are out of the scope of the relavent
-cookie and returns and logs an error if this occurs.
+file and a Directory block even with a training '/' at least
+sometimes behave as for a Location block with a path omitting the
+trailing '/'. The module checks for URLs that are out of the scope of
+the relevant cookie and returns and logs an error if this occurs.
 
 AACookieDomain
 
@@ -342,20 +400,17 @@ The 'Domain' attribute for the session cookie. The default is '',
 which will result in the cookie being returned only to the server
 running the script. Be aware that some people may treat with suspicion
 cookies with domain attributes that are wider than the host setting
-the cookie.
-
-AAAuthType
-
-[Reserved]
+the cookie, and that cookies with very short domains (less than 2 or 3
+components) may be silently ignored by browsers.
 
 AAForceInteract
 
-If set, users will have to enter their passwords every time they are
-refered to the authentication server and will not be able to take
-advantage of the 'single sign-on' features. Setting this may be
-apropriate for some applications that have higher than normal
-security requirements, but doing so may significantly reduce user
-convinience. Posible values are 'On' and 'Off'. Default is 'Off'.
+If set, users will be required to enter their passwords every time
+they are referred to the authentication server and will not be able to
+take advantage of the 'single sign-on' features. Setting this may be
+apropriate for some applications that have higher than normal security
+requirements, but doing so may significantly reduce user
+convenience. Possible values are 'On' and 'Off'. Default is 'Off'.
 
 AAFail
 
@@ -369,7 +424,7 @@ module that will result in authentication failing here.
 AACancelMsg
 
 If set, this identifies the message that will be displayed on the
-users browser if the user cancelles the authentication (asuming that
+users browser if the user cancelled the authentication (assuming that
 AAAFail is not set). If unset, a standard message will be
 displayed. See the Custom Error Pages section.
 
@@ -382,7 +437,9 @@ Error Pages section.
 
 AAlogoutMsg
 
-[Reverved]
+If set, this identifies the message that will be displayed on the
+users browser when they access a logout page. If unset, a standard
+message will be displayed. See the Logout page section above.
 
 AALogLevel
 
@@ -391,8 +448,10 @@ that are recorded in the error logs (see the Apache ErrorLog
 directive). When a particular level is specified, messages from all
 other levels of higher significance will be reported as well. E.g.,
 when AALogLevel info is specified, then messages with log levels of
-notice and warn will also be posted. Posible values (from highest to
+notice and warn will also be posted. Possible values (from highest to
 lowest) are: 'emerg', 'alert', 'crit', 'error', 'warn', 'notice',
 'info', 'debug'.  Logging at 'warn' should omit all 'routine'
 messages. Logging at 'info' or below is _very_ verbose. The default is
-'warn'.
+'warn'. Display of error messages is also dependent on the standard
+'LogLevel' directive - for example to see 'debug' messages from this
+module it is necessary to set both AALogLevel and LogLevel to 'debug'.
