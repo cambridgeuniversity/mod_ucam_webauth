@@ -2,23 +2,67 @@
 
  What the heck, lets call this 1.0.0!
 
+ Enhancements:
+
+ . Huge reworking of the documentation.
+
+ . The module now responds to 'AuthType Ucam-WebAuth', in addition to
+   'WebAuth'. The new name is the recommended and documented form, to
+   avoid confusion with other 'Webauth' systems. Support for the old
+   name will be removed sometime in the future.
+
  Bugs fixed
 
- . From a Raven server login prompt, the sequence 'Cancel' -> Back ->
-   'Cancel' resulted in a bogus 'No cookie' message because, when
-   reporting the first cancel 'error', the module deleted the
-   cookie. Now it resets it to the test value. Note that backing up to
-   the login box over a logout could still resulted in a bogus 'No
-   cookie' message, but the only to avoid that would be not to delete
-   the cookie at logout which feels wrong. [todo#34]
+ . From a Raven server login prompt, a sequence such as 'Cancel' ->
+   Back -> 'Cancel' could result in a bogus 'No cookie' message
+   because, when reporting the first cancel 'error', the module
+   deleted the cookie. Now it resets it to the test value to avoid
+   this problem. The logout page now also resets the cookie to the
+   test value, rather than deleting it, for the same reason. [todo#34]
 
  . In obscure circumstances (mod_rewrite with a proxy target that
-   includes a query string being one example) r->args has been
-   overwritten by a new value by the time webauth_authn gets to run so
-   it never sees the WLS response. Worked around this with a
-   post_read_request handler that stores a private copy of the
-   original args and by modifying get_cgi_param to use this rather
-   than r->args. [todo#35]
+   includes a query string being one example) r->args can be set to a
+   new value by the time webauth_authn gets to run so it never sees a
+   WLS response. Worked around this with a post_read_request handler
+   that stores a private copy of the original args and then modifying
+   get_cgi_param to use this rather than r->args. [todo#35]
+
+ . Removed the gcc-only '-Wall' argument from the Makefile. 'make
+   OPT=-Wc,Wall' will reproduce the original effect
+
+ . In obscure circumstances (initial login in two browser windows at
+   once being the easiest to demonstrate) it's possible for a URL
+   containing a WLS Reply to be presented at the same time as a valid
+   cookie. If this happens the browser is not redirected to the URL
+   from the response because the module trusts the cookie and doesn't
+   see the response. This is now handled by always trying to extract
+   the URL from any response and redirecting to it if one is
+   found. [todo#31]
+
+ . Adjusted the log level of various messages AGAIN; some verbose
+   debug messages are now only generated if Apache's LogLevel is such
+   that they will actually be logged. Re-worded some messages. Dropped
+   'double logging' of errors accessing public key files.
+
+ . 'Built-in' error messages now use Apache's standard signature routine
+   and so should honour the setting of ServerSignature. Added DOCTYPE
+   declarations to built-in error pages and adjusted them to use the
+   corresponding HTML dialect.
+
+ . Problems accessing Raven public keys are now reported via a
+   redirect to the original URL (like most other errors involving
+   responses) rather than by just aborting. This has the advantage
+   that the browser isn't left with a URL containing the WLS-Response
+   in its Location bar. Additional information (including any OpenSSL
+   error messages) is now be logged following problems validating the
+   RSA signature on WLS responses.
+
+ . If the user had selected 'Don't Login' on the Raven server, the
+   module incorrectly reported 'Requested session life < 1
+   second'. Now fixed.
+
+ . The warning about not supporting POST requests now only happens if
+   a POST request is actually redirected. 
 
 0.99-1.0.0rc7 - 2004-08-11 jw
 

@@ -22,9 +22,10 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
-Version: 0.99_1.0.0rc6
+Version: 1.0.0
 Release: 1
 Group: System Environment/Daemons
+Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
 Source: mod_ucam_webauth-%{version}.tar.gz
 License: GPL
@@ -60,6 +61,10 @@ make install APXS=%{apxs} SUFFIX=la \
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Wed Aug 25 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.0-1
+- Updated to 1.0.0
+- Added Vendor tag
+
 * Mon Jul 12 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc6
 - Updated for 0.99_1.0.0rc6
 - Fixed following mess caused by last update

@@ -4,467 +4,611 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 0.99_1.0.0rc7
-$Id: README,v 1.11 2004-08-11 14:37:31 jw35 Exp $
-
-1. Installation
-===============
+Current with version 1.0.0
+$Id: README,v 1.12 2004-08-26 13:22:48 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
-follows) can be linked to Apache in two ways, either statically or
-dynamically. Dynamically linking the module has the advantage of not
-requiring the Apache server to be rebuilt, although it does require
-that support for dynamic shared objects (DSO) be already incorporated
-in the server. Dynamic linking also engenders a decrease in Apache's
-performance relative to static linking. See the bottom of
-http://httpd.apache.org/docs/dso.html for a summary of the advantages
-and disadvantages of dynamic linking. If you are unsure about
-rebuilding Apache then dynamic linking is recommended.
+follows) allows Apache to use the Cambridge Web Authentication System
+(Ucam-Webauth) to identify users. Within the University, such a system
+is provided by Raven: http://raven.cam.ac.uk.
 
-In the following documentation PREFIX is the directory where Apache
-resides, e.g.  /usr/local/apache
+1. Introduction
+===============
+
+To use the module it must be installed and made available to Apache
+and then Apache must be configured to use it. Installation can either
+involve installing a ready-built binary package, or compiling the
+module from source and linking it to Apache. Instructions for building
+the module from source appear below under 'Building the module'. The
+latest versions of the module, both source and binary packages, can be
+found at:
+
+  https://raven.cam.ac.uk/project/apache/ 
 
 The module supports versions 1.3 and 2 of Apache. If you have an
-existing Apache installation and are unsure of the version you can use
+existing Apache installation and are unsure of the version you can use:
 
-	PREFIX/bin/httpd -v
+  httpd -v
 
-to determine your version of Apache.
+to determine your installed version. [If the directory containing
+httpd is not on you default path you will need to replace 'httpd' with
+the full path of the program]
 
-1.1. Requirements
------------------
+mod_ucam_webauth's operation is quite complex (see other documentation
+on Ucam-Webauth) but a normal sequence goes:
 
-Building the module either statically or dynamically requires the
-OpenSSL library. Note that the module only provides authentication, so
-an authorization module (such as the standard mod_auth module) must
-also be loaded.
+  1) An initial request for a protected document results in a redirect
+     to a central Web login server (WLS)
 
-1.2. RSA Public Keys
+  2) The WLS and the user interact to establish the user's
+     identity. This commonly involves the user providing a user-id and
+     password over a secure connection.
+
+  3) The central server redirects the user's browser to the URL the
+     user originally requested, including in the URL a signed 'WLS
+     response' containing the user's identity and other information.
+
+  4) mod_ucam_webauth intercepts this response and validates it. If
+     this validation succeeds, mod_ucam_webauth sets a local session
+     cookie containing the user's identity.
+
+  5) The user's browser is then redirected to the original URL yet
+     again, this time without the WLS response. This request, and all
+     subsequent ones for URLs that are similarly protected, are
+     processed based on the information from the session cookie.
+
+The use of a cookie may alarm some users. Sites that use
+mod_ucam_webauth should include a note about this cookie usage in
+their privacy policy or other suitable document. The cookie is set
+with no expiry date, which will prevent standards-compliant browsers
+from storing it on disk and will cause them to delete it at the end of
+the browser session. It is also set by default so that it will only be
+returned to the originating site. Sites can customise some of the
+behaviour of the session cookie - see 'Configuration Directives'
+below.
+
+Because of the way that mod_ucam_webauth is implemented, if a redirect
+to the WLS is triggered by an HTTP POST request then any parameters
+submitted along with the POST request will be lost. This is
+particularly annoying if you e.g. submit a carefully constructed
+message to a bulletin board only to discover that your session cookie
+has expired while you were composing the message. A warning mesage is
+logged to the error log if a redirect is required when responding to a
+POST request.
+
+2. Requirements
+===============
+
+2.1 Other software
+------------------
+
+Using the module obviously requires a copy of Apache. The module only
+provides an authentication service and so something to make
+authorization decisions (such as the authorization component of the
+standard mod_auth module) must also be available to Apache.
+
+Using the module also requires a copy of the OpenSSL library. Building
+the module will additionally require the relevant OpenSSL header
+files.
+
+2.2. RSA Public Keys
 --------------------
 
-The module uses RSA public keys to verify that any messages from the
-authentication server really were sent by it and are not some attempt
-by a third-party to gain access to protected resources. The public
-keys require are available from https://raven.cam.ac.uk/project/keys/
-and should be placed in the PREFIX/conf/webauth_keys directory, which
-you will have to create. If for some reason this is not an appropriate
-location for the keys on your system a different directory can be
-defined. See the 'Configuration' section below for more details. The
-names of the key files should not be changed - beware that they have
-no filename suffix but that some browsers may add .txt or similar when
-downloading them.
+The module uses RSA public key cryptography to verify that messages
+from the WLS really were sent by it and are not some attempt by a
+third-party to gain access to protected resources.
 
-1.2. Installing using Dynamic Linking
--------------------------------------
+For the Raven service the public keys required are available from
+https://raven.cam.ac.uk/project/keys/ By default the module expects to
+find keys in a directory called conf/webauth_keys/ within the server's
+'ServerRoot' directory. ServerRoot is the default location within
+which Apache looks for files it needs when running - for example the
+default configuration file location is 'conf/httpd.conf' within
+'ServerRoot'. If you have the 'apxs' tool installed then you can find
+the compiled-in value of ServerRoot for your copy of Apache by using
 
-The apxs tool can be used to build and install the module without
-rebuilding the Apache server. However the server must have been built
-with shared object support. This can be checked by using the following
-command
+    apxs -q PREFIX
 
-	PREFIX/bin/httpd -l
+[as with httpd above, if the directory containing apxs is not on you
+default path you will need to replace 'apxs' with the full path of the
+program; in some environments apxs is renamed, for example to apxs2]
 
-to list the modules linked to the Apache server - if mod_so.c is shown
-as loaded then shared object support is available. If mod_so.c is not
-present then a rebuild of your Apache server is required, either to
-enable shared object support or to statically link mod_ucam_webauth to
-your server.
+However, the compiled-in value can be overridden both on the command
+line used to start Apache and in the configuration file. If all else
+fails, trying to use the module with no keys installed will result in
+an error message in the server's error log which includes the expected
+path to the keys. The location of the keys can also be explicitly
+configured - see AAKeyPath under 'Configuration Directives' below.
 
-The simplest command for building the module dynamically is:
+The names of the key files should not be changed - beware that they
+have no filename suffix but that some browsers may add .txt or similar
+when downloading them.
 
-	PREFIX/bin/apxs -c -lcrypto mod_ucam_webauth.c
+2.3 Timekeeping
+---------------
 
-This compiles the module as a shared object, but does not make Apache
-aware of its presence. To do this the compiled module file
-mod_ucam_webauth.so must first be copied to the directory where Apache
-stores shared modules. This may be PREFIX/modules, depending on the
-Apache's directory layout.  Then httpd.conf configuration file must be
-updated with the configuration directives required to load and
-activate the module.
+The protocol used to communicate between the module and the central
+ucam-webauth servers requires that both have access to accurate time
+values. Central ucam-webauth servers use NTP (Network Time Protocol)
+to set their clocks. Providing the server using the module also has an
+NTP-synchronised clock (and in general they should for other reasons)
+then the default values for the time-related parameters in the module
+should be fine. 
 
-For Apache 1.3 two directives must be added, first LoadModule, then
-AddModule.  The order in which modules are loaded and add added using
-these directives in httpd.conf is significant since it determines
-which modules may override others' behaviour. Modules that are added
-later have priority over those loaded before them. Generally the
-Ucam-WebAuth module can be loaded and added after the other
-modules. The modules must be loaded and added in the same order. The
-LoadModule and AddModule directives for the module are
+If the server doesn't use NTP than the AAClockSkew configuration
+directive (see below) _must_ be used to provide an estimate of the
+maximum possible error in the server's clock. Error messages
+containing the text 'local clock incorrect?'  are likely if this
+parameter is not used on a server that needs it.
 
-	LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
-	AddModule mod_ucam_webauth.c
-
-Loading the module for Apache 2 is much simpler than for Apache 1.3,
-since the modules themselves specify their ordering. Only the
-LoadModule configuration directive needs to be added to httpd.conf:
-
-	LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
-
-The apxs tool can be instructed to move the compiled module to the
-correct directory in addition to compiling it:
-
-        PREFIX/bin/apxs -c -i -lcrypto mod_ucam_webauth.c
-
-or even to compile it, move it into place and attempt to alter
-httpd.conf automatically:
-
-	PREFIX/bin/apxs -c -i -a -lcrypto mod_ucam_webauth.c
-
-1.3. Installing using Static Linking
-------------------------------------
-
-Remove or backup the previous Apache build. Change into the Apache
-build directory and copy the appropriate source file to
-src/modules/extra Apache 1.3 or modules/aaa for Apache 2. Run the
-configure script with the activate-module and enable-module options as
-specified below in addition to any other options you wish to set,
-e.g. for an Apache 1.3 installation:
-
-	./configure --prefix=PREFIX \
-	--activate-module=src/modules/extra/mod_ucam_webauth.c \
-	--enable-module=ucam_webauth
-
-For an Apache 2 installation the options you supply are slightly different:
-
-	./configure --prefix=PREFIX \
-	--enable-ucam_webauth
-
-Issue the commands to build and install Apache in the usual way:
-
-	make
-	make install
-
-Use the command
-
-	PREFIX/bin/httpd -l
-
-to check that the module has been successfully incorporated into the
-Apache server. It should be listed as mod_ucam_webauth.c.
-
-2. Configuration
+3. Configuration 
 ================
 
-The minimum configuration required to restrict access to resources to
-users with a Ucam-WebAuth login is, e.g.
+Once the module has been installed it must be configured.
 
-	<Location "/protected_dir/">
-		AuthType WebAuth
-		Require valid-user
-		AACookieKey some random string
-	</Location>
+If the module has been built as a dynamic shared objects (DSO) then it
+must first be loaded using a 'LoadModule' directive such as:
 
-This assumes that the Apache standard mod_auth module is also
-available since it provides checking of 'Require
-valid-user'. mod_ucam_webauth always requires some other module (often
-mod_auth) to provide 'Authorization' checking.
+  LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
 
-As an alternative, this example will allow access to resources to
-users with a Ucam-WebAuth login or to client computers with names in
-the cam.ac.uk zone but not otherwise:
+in the Apache configuration file, replacing 'modules/' if necessary
+with the path to the directory containing the module, relative to
+ServerRoot if it doesn't start '/'. This is not necessary if the
+module has been statically linked into the httpd program.
 
-        <Location "/protected_dir/">
-                Order allow,deny
-                Allow from .cam.ac.uk
-		AuthType WebAuth
-		Require valid-user
-		Satisfy any
-		AACookieKey "some random string"
-	</Location>
+Under Apache v1 some configuration files use 'ClearModuleList'
+followed by 'AddModule' directives to ensure that modules are used in
+the right order - if mod_ucam_webauth is loaded before
+'ClearModuleList' then
 
-Here the resources to be protected are identified by the <Location>
-directive; resources specified by the <Directory> or <Files>
+  AddModule mod_ucam_webauth.c
+
+will also be required somewhere. mod_ucam_webauth does not depend on
+load order.
+
+The minimum configuration required to restrict access to resources in
+a particular directory to users with a Ucam-WebAuth login is, e.g.
+
+  AACookieKey "some random string"
+  <Location "/protected_dir/">
+    AuthType Ucam-WebAuth
+    Require valid-user
+  </Location>
+
+This assumes that the standard Apache module mod_auth is also
+available since that implements checking of 'Require valid-user' -
+mod_ucam_webauth always requires some other module (often mod_auth) to
+provide 'Authorization' checking. See the Apache documentation for the
+various ways that the 'require' directive can be used.
+
+[Prior to version 1.0.0, AuthType was specified as 'WebAuth'. This is
+still accepted as an alternative but is deprecated and may not be
+supported in the future]
+
+The AACookieKey directive is required. It provides data used to sign
+and verify the session cookie, providing detection of any
+tampering. There is no default for this directive, it must be set to
+some random string and the value must be protected since with
+knowledge of the key an attacker can forge authentication. Since
+Apache configuration files are often readable by any user of the
+system hosting the web server it can be a good idea to put the
+AACookieKey directive in a file of it's own, protect it so that it can
+only be read by the user used to start Apache (commonly root), and
+then use an Include directive to incorporate it in the main
+configuration file.
+
+The alternative simple configuration in this example will allow access
+to the resources to users with a Ucam-WebAuth login or to client
+computers with hostnames ending cam.ac.uk but not otherwise:
+
+  AACookieKey "some random string"
+  <Location "/protected_dir/">
+    Order allow,deny
+    Allow from .cam.ac.uk
+    AuthType Ucam-WebAuth
+    Require valid-user
+    Satisfy any
+  </Location>
+
+In these examples the resources to be protected are selected by a
+<Location> directive; resources specified by <Directory> or <Files>
 directives can also be protected. 'AuthType' must be set to
-'WebAuth'. A 'Require' directive is also needed to ensure that only
-authenticated users are allowed access to the resource.
+'Ucam-WebAuth'. A 'Require' directive must also before authentication
+will take place.
 
-The final directive required for this simple configuration is
-'AACookieKey'. This directive is specific to this module and provides
-data used to sign and verify session cookies, providing detection of
-any cookie tampering. There is no default for this directive, and it
-must be set to some random string. The value must be protected since
-with knowledge of the key an attacker can forge authentication. For
-preference, AACookieKey should be placed in a file that is only
-readable by the user used to start Apache, commonly root.
-
-2.1. Configuration Directives
+3.1. Configuration Directives
 -----------------------------
 
-Apart from AACookieKey the configuration directives specific to the
+Apart from AACookieKey, the configuration directives specific to the
 module module are optional. However if the server's clock is not NTP
 synchronised then AAClockSkew will also need to be set. All directive
-values need to be quoted if they contain spaces. All values can be set
-in .htaccess files if 'AllowOverride AuthConfig' is in effect. Values
-are inherited into <VirtualHost>, <Directory>, <Location> and <File>
-blocks, and in .htaccess files, if not specified there.
+values need to be quoted if they contain spaces. All directives can be
+used in .htaccess files if 'AllowOverride AuthConfig' is in effect
+(though AACookieKey in an .htaccess file is probably a bad
+idea). Values are inherited into <VirtualHost>, <Directory>,
+<Location> and <File> blocks, and into .htaccess files.
 
 AAAuthService
 
-The full URL for the web login service to be used. Defaults to
-https://raven.cam.ac.uk/auth/authenticate.html
+  Syntax:   AAAuthService <URL>
+  Default:  AAAuthService https://raven.cam.ac.uk/auth/authenticate.html
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The full URL for the WLS to be used.
 
 AALogoutService
 
-The full URL for the logout page on the web login service to be
-used. Defaults to https://raven.cam.ac.uk/auth/logout.html
+  Syntax:   AALogoutService <URL>
+  Default:  AALogoutService https://raven.cam.ac.uk/auth/logout.html
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The full URL for the logout page on the WLS in use..
 
 AADescription
 
-A text description of the resource that is requesting
-authentication. This may be displayed to the user by the
-authentication service. It is restricted to printable ASCII characters
-(0x20 - 0x7e) though it may contain HTML entities representing other
-characters. The characters '<' and '>' will be converted into HTML
-entities before being sent to the browser and so this text can not
-usefully contain HTML markup. This value must be quoted if, as it
-likely, it contains spaces.
+  Syntax:   AADescription <text>
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  A text description of the resource that is requesting
+  authentication. This may be displayed to the user by the WLS. It is
+  restricted to printable ASCII characters (0x20 - 0x7e) though it may
+  contain HTML entities to represent other characters. The characters
+  '<' and '>' will be converted into HTML entities before being sent
+  to the browser and so this text can not contain HTML markup.
 
 AAResponseTimeout
 
-Responses from the central authentication server are
-time-stamped. This parameter sets the period of time during which
-these responses are considered valid. The value is in seconds and the
-default is 30.
+  Syntax:   AAResponseTimeout <seconds>
+  Default:  AAResponseTimeout 20
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  Responses from the WLS are time-stamped. This parameter sets the
+  length of time for which these responses are considered valid.
 
 AAClockSkew
 
-Interpretation of AAResponseTimeout is difficult if the clocks on the
-server running this handler and on the authentication server are out
-of step. Web servers should use NTP to synchronise their clocks, but
-if they don't then this parameter MUST be set to an estimate of the
-maximum expected difference between them (in seconds). Error messages
-containing the text 'local clock incorrect?'  are likely if this
-parameter is not used on a server that needs it. The default is 0
-seconds.
+  Syntax:   AAClockSkew <seconds>
+  Default:  AAClockSkew 0
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  Interpretation of AAResponseTimeout is difficult if the clocks on
+  the server running this handler and on the WLS are out of step. Web
+  servers should use NTP to synchronise their clocks, but if this one
+  don't then this parameter MUST be set to the maximum possible
+  difference between them. Error messages including the text 'local
+  clock incorrect?' are likely if this parameter is not used on a
+  server that needs it.
 
 AAKeyDir
 
-The name of a directory containing the public key(s) required to
-validate authentication responses sent by the server. If this name
-does not start with '/' then it is interpreted relative to
-DocumentRoot. Default 'conf/webauth_keys'.
+  Syntax:   AAKeyDir <file-path>
+  Default:  AAKeyDir conf/webauth_keys
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The name of a directory containing the public key(s) required to
+  validate WLS responses. If this name does not start with '/' then it
+  is interpreted relative to ServerRoot.
 
 AAMaxSessionLife
 
-The maximum period of time (in seconds) for which an established
-session will be valid. This may be overridden if the authentication
-reply contains a shorter 'life' parameter. Once a session ceases to be
-valid users will be referred to the web login service to
-re-authenticate. Note that this does NOT define an expiry time for
-the session cookie - session cookies are always set without an expiry
-time, causing them to expire when the browser session
-finishes. Default is 7200 seconds (2 hours).
+  Syntax:   AAMaxSessionLife <seconds>
+  Default:  AAMaxSessionLife 7200
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The maximum period of time for which an established session will be
+  valid. This may be overridden if the WLS response includes a shorter
+  'life' parameter. Once a session ceases to be valid, users will be
+  referred to the WLS to re-authenticate. Note that this does NOT
+  define an expiry time for the session cookie - session cookies are
+  always set without an expiry time, causing them to expire when the
+  browser session finishes. 7200 seconds is 2 hours.
 
 AAInactiveTimeout
 
-The length of time (in seconds) after which an inactive session can be
-assumed to have expired. Inactivity tracking is rather approximate
-thanks to various forms of caching. In particular, revisiting a page
-that hasn't change since you last visited it may not count as
-activity. Setting AACacheControl to 'paranoid' may help with this, at
-the expense of increased network traffic and delays. If set to 0 (the
-default) this feature is disabled. Disabling the feature when not
-needed provides a minor efficiency gain.
+  Syntax:   AAInactiveTimeout <seconds>
+  Default:  AAInactiveTimeout 0
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The length of time after which an inactive session can be assumed to
+  have expired. Inactivity tracking is rather approximate thanks to
+  various forms of caching. In particular, revisiting a page that
+  hasn't change since you last visited it may not count as activity -
+  setting AACacheControl to 'paranoid' may help with this, at the
+  expense of increased network traffic and delays. If set to 0 this
+  feature is disabled. Disabling the feature when not required
+  provides a minor efficiency gain.
 
 AATimeoutMsg
 
-A re-authentication by the authentication service will be triggered
-when an established session expires. This option sets a text string,
-default 'your session on the site has expired', which is sent to the
-authentication server to explain to the user why they are being asked
-to authenticate again. HTML markup is suppressed as for AADescription
-above.
+  Syntax:   AATimeoutMsg <text>
+  Default:  AATimeoutMsg "your session on the site has expired"
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  A re-authentication by the WLS will be triggered when a session
+  expires. This option sets a text string which is sent to the WLS to
+  explain to the user why they are being asked to authenticate
+  again. HTML markup is suppressed as for AADescription above.
 
 AACacheControl
 
-Caches, both those in browsers and shared proxy caches, can cause
-problems for cookie-based authentication systems. This option controls
-what the module does to work around this. It has three possible
-settings:
+  Syntax:   AACacheControl Off|On|Paranoid
+  Default:  AACacheControl On
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
 
-  Off:      No additional headers are sent
-  On:       Headers are automatically sent that should disable most
-            shared caching
-  Paranoid: Almost everything possible is done to discourage re-use
-            of cached content. This will increase server load, network
-            traffic and delays experienced by users. 
+  Caches, both those in browsers and shared proxy caches, can cause
+  problems for cookie-based authentication systems. This option
+  controls what the module does to work around this. It has three
+  possible settings:
 
-Default value is 'On'.
+    Off:      No additional headers are sent
+    On:       Headers are automatically sent that should disable most
+              shared caching
+    Paranoid: Almost everything possible is done to discourage re-use
+              of cached content. This will increase server load, network
+              traffic and delays experienced by users.
 
 AACookieKey
 
-A random key used to protect session cookies from tampering. Any
-reasonably unpredictable string (for example an md5sum of a rapidly
-changing logfile) will be satisfactory. This key must be the same for
-all uses of the Web Authentication system that will receive the same
-session cookies (see AACookieName, AACookiePath, AACookieDomain
-below). This parameter has no default and must be set. 
+  Syntax:   AACookieKey "text"   
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
 
-The key must not disclosed, since with knowledge of the key an
-attacker can forge authentication. For preference, AACookieKey should
-be placed in a file that is only readable by the user used to start
-Apache, commonly root. One way to achieve this, while leaving the main
-configuration file mainly readable, would be to put the AACookieKey
-directive in a file only readable by root (or whoever) that is
-incorporated into the main configuration using the 'Include'
-directive.
+  A random key used to protect session cookies from tampering. Any
+  reasonably unpredictable string (for example an md5sum taken from a
+  rapidly changing logfile) will be satisfactory. This key must be the
+  same for all uses of the module that will receive the same session
+  cookies (see AACookieName, AACookiePath, AACookieDomain below). This
+  parameter has no default and must be set.
+
+  The key must not disclosed, since with knowledge of the key an
+  attacker can forge authentication. For preference, AACookieKey
+  should be placed in a file that is only readable by the user used to
+  start Apache, commonly root. One way to achieve this, while leaving
+  the main configuration file mainly readable, would be to put the
+  AACookieKey directive in a file only readable by root (or whoever)
+  that is incorporated into the main configuration using the 'Include'
+  directive.
 
 AACookieName
 
-The name used for the session cookie. When used for access to
-resources over https the string '-S' is appended to this name. The
-default is 'Ucam-WebAuth-Session'.
+  Syntax:   AACookieName <name>
+  Default:  AACookieName Ucam-WebAuth-Session
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The name used for the session cookie. When used for access to
+  resources over https the string '-S' is appended to this name.
 
 AACookiePath
 
-The 'Path' attribute for the session_cookie. The default is '/' which
-should cause the cookie to be returned in response to all requests for
-this server. Be sure to set this path so that it includes all the URLs
-being protected. For example
+  Syntax:   AACookiePath <URL-path>
+  Default:  AACookiePath /
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The 'Path' attribute for the session_cookie. The default should
+  cause the cookie to be returned in response to all requests for this
+  server. Be sure to set this path so that it actually includes all
+  the URLs being protected. For example
 
     <Location /protected>
       AACookieKey foobar
       AACookiePath /protected/
     </location>
 
-will cause problems when a browser tries to access
-http://<whatever/protected> since authentication will be required but
-the relevant cookie will never be returned. Note that an .htaccess
-file and a Directory block even with a training '/' at least
-sometimes behave as for a Location block with a path omitting the
-trailing '/'. The module checks for URLs that are out of the scope of
-the relevant cookie and returns and logs an error if this occurs.
+  will cause problems when a browser tries to access
+  http://<whatever>/protected since authentication will be required
+  but the relevant cookie will never be returned. Note that an
+  .htaccess file and a Directory block even with a trailing '/' seem
+  to behave as for a Location block with a path without the trailing
+  '/'. The module checks for requests with URLs that are out of the
+  scope of the corresponding cookie and returns and logs an error if
+  this occurs.
 
 AACookieDomain
 
-The 'Domain' attribute for the session cookie. The default is '',
-which will result in the cookie being returned only to the server
-running the script. Be aware that some people may treat with suspicion
-cookies with domain attributes that are wider than the host setting
-the cookie, and that cookies with very short domains (less than 2 or 3
-components) may be silently ignored by browsers.
+  Syntax:   AACookieDomain <hostname>
+  Default:  AACookieDomain ''
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  The 'Domain' attribute for the session cookie. The default will
+  result in the cookie being returned only to the server using the
+  module. Be aware that some people may treat with suspicion cookies
+  with domain attributes that are wider than the host setting the
+  cookie, and that cookies with very short domains (less than 2 or 3
+  components) may be silently ignored by browsers.
 
 AAForceInteract
 
-If set, users will be required to enter their passwords every time
-they are referred to the authentication server and will not be able to
-take advantage of the 'single sign-on' features. Setting this may be
-apropriate for some applications that have higher than normal security
-requirements, but doing so may significantly reduce user
-convenience. Possible values are 'On' and 'Off'. Default is 'Off'.
+  Syntax:   AAForceInteract Off|On
+  Default:  AAForceInteract Off
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  If set, users will be required to enter their passwords every time
+  they are referred to the WLS and will not be able to take advantage
+  of the 'single sign-on' features. Setting this may be appropriate
+  for some applications that have higher than normal security
+  requirements, but doing so will significantly reduce user
+  convenience.
 
 AAFail
 
-If true, sets the fail parameter in any authentication request sent to
-the authentication server to 'yes'. This has the effect of requiring
-the authentication server itself to report any errors that it
-encounters, rather than returning an error indication. Note however
-that even with this parameter set errors may be detected by this
-module that will result in authentication failing here.
+  Syntax:   AAFail Off|On
+  Default:  AAFail Off
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  If enabled, all requests sent to the WLS will indicate that the WLS
+  itself should report any errors that it encounters, rather than
+  returning an error indication to the module. Note however that even
+  with this parameter set errors may be detected by this module that
+  will cause it to return errors itself.
 
 AACancelMsg
 
-If set, this identifies the message that will be displayed on the
-users browser if the user cancelled the authentication (assuming that
-AAAFail is not set). If unset, a standard message will be
-displayed. See the Custom Error Pages section.
+  Syntax:   AACancelMsg <document>
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  If set, this identifies the message that will be displayed on the
+  user's browser if the user cancelled the authentication (assuming
+  that AAAFail is not set). If unset, a standard message will be
+  displayed. <document> can be a text message (enclosed in quotes), or
+  a partial or full URL. See the Custom Error Pages section below.
 
 AANoCookieMsg
 
-If set, this identifies the message that will be displayed on the
-users browser if the browser does not appear to be accepting the
-session cookie (without which this module won't work). See the Custom
-Error Pages section.
+  Syntax:   AANoCookieMsg <document>
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
 
-AAlogoutMsg
+  If set, this identifies the message that will be displayed on the
+  user's browser if the browser does not appear to be accepting the
+  session cookie (without which this module won't work). If unset, a
+  standard message will be displayed. <document> can be a text message
+  (enclosed in quotes), or a partial or full URL. See the Custom Error
+  Pages section.
 
-If set, this identifies the message that will be displayed on the
-users browser when they access a logout page. If unset, a standard
-message will be displayed. See the Logout page section.
+AALogoutMsg
+
+  Syntax:   AALogoutMsg <document>
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  If set, this identifies the message that will be displayed on the
+  user's browser when they access a logout page. If unset, a standard
+  message will be displayed. <document> can be a text message
+  (enclosed in quotes), or a partial or full URL. See the Logout page
+  section below.
 
 AAAlwaysDecode
 
-If this directive is in force for a particular URL then the module
-will always attempt to decode the session cookie and store the results
-in the environment (see below) even if authentication isn't actively
-required. This could be useful for a site that wanted to make
-information publicly available but to customise the information if the
-user had authenticated, or for a site that wanted to mediate all
-accesses through a single point (such as page.php) but wanted to
-impose its own authorization decisions on who sees what. For example
+  Syntax:   AAAlwaysDecode Off|On
+  Default:  AAAlwaysDecode Off
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
 
-      AACookieKey <whatever>
-      AAAlwaysDecode On
-      <Location /login/>
-        AuthType WebAuth
-        Require vaid-user
-      </Location>
+  If this directive is in force for a particular URL then the module
+  will always attempt to decode the session cookie and store the
+  results in the environment (see below) even if authentication isn't
+  actively required. This could be useful for a site that does not want
+  to require authentication for some information but which does want to
+  provide customisation if the user is already identified (presumably
+  as a result of accessing something else), or for a site that wanted
+  to mediate all accesses through a single point (such as page.php)
+  but wanted to impose its own authorization decisions on who sees
+  what. For example
 
-would allow everyone to see anything outside /login/. Visiting
-/login/login.html would trigger authentication. Content elsewhere in
-the site (foo.cgi, foo.php, etc) can check if the current user is
-logged-in, and if so who they are, by inspecting the REMOTE_USER
-environment variable. The acceptable values for this directive are
-'On' and 'off', the default is 'Off'.
-  
-2.2. Authentication Information
+    AACookieKey <whatever>
+    AAAlwaysDecode On
+    <Location /login.html>
+      AuthType WebAuth
+      Require vaid-user
+    </Location>
+
+  would allow everyone to see anything other than login.html. Visiting
+  login.html would trigger authentication. Content elsewhere in the
+  site (foo.cgi, foo.php, foo.ssi, etc) can check if the user is
+  already authenticated, and if so who they are, by inspecting the
+  REMOTE_USER environment variable.
+
+Versions of the module prior to 1.0.0 supported the AALogLevel
+directive. Support for this has been withdrawn - at present any use of
+this directive causes a warning to be logged; in due course use of
+this directive will be treated as an error.
+
+3.2. Authentication Information
 -------------------------------
 
 Following a successful authentication, Apache's internal view of
-current user is set to the user involved. As a result this value can
-be logged using the '%u' log format token (which is by default the
-third entry in 'Common Log Format'), and will appear as the value of
-the environment variable REMOTE_USER in the environment of CGI
-programs.
+current user is set to that provided by the authentication service. As
+a result this value can be logged using the '%u' log format token
+(which is by default the third entry in 'Common Log Format'), and will
+appear as the value of the environment variable REMOTE_USER in the
+environment of CGI programs, SSI pages, etc.
  
-In addition, the module provides the following environment variables
-to CGI programs. If required these variables can also be logged using
-the '%{...}e' log format token.
-       
+The module also provides the following additional environment
+variables. If required, these variables can also be logged using the
+'%{...}e' log format token.
+
 AAISSUE
 
-The time/date at which the current authentication session started.
-This date/time is in the format similar to that specified by RFC 3339
-except that time-offset is always 'Z' and punctuation is omitted
-e.g. "19850412T232050Z" would be 23:20:50 on 12th April 1985.
+  The time/date at which the current authentication session started.
+  This date/time is in the format similar to that specified by RFC
+  3339 except that time-offset is always 'Z' and punctuation is
+  omitted e.g. "19850412T232050Z" would be 23:20:50 on 12th April
+  1985.
 
 AALAST
 
-The time/date of the last recorded activity by the user. Note that his
-will be the same as AAISSUE unless inactivity timeouts are in use.
-This date/time is in the same format as AAISSUE.
+  The time/date of the last recorded activity by the user. Note that
+  his will be the same as AAISSUE unless inactivity timeouts are in
+  use.  This date/time is in the same format as AAISSUE.
 
 AALIFE
 
-The maximum lifetime of the current authentication, in seconds.
+  The maximum lifetime of the current authentication, in seconds.
 
 AATIMEOUT
 
-The inactivity timeout currently in force, in seconds. 0 implies that
-inactivity timeouts are not in use.
+  The inactivity timeout currently in force, in seconds. 0 implies
+  that inactivity timeouts are not in use.
 
 AAID
 
-The identifier of the authentication assertion on which the users
-authentication is based.
+  The identifier (serial number) of the WLS response on which the
+  users authentication is based.
 
 AAPRINCIPAL
 
-Same as REMOTE_USER
+  Same as REMOTE_USER
 
 AAAUTH
 
-This indicates which authentication type was used if authentication
-was established by interaction with the user. This value consists of a
-single text token. The only value currently in use is 'pwd'.
+  This indicates which authentication type was used if authentication
+  was established by interaction with the user. This value consists of
+  a single text token. The only value currently in use is 'pwd'.
 
 AASSO
 
-This indicates which authentication types were previously used if
-authentication was established based on previous successful
-authentication interactions with the user. This value consists of a a
-sequence of text tokens separated by ','. The only value currently in
-use is 'pwd'.
+  This indicates which authentication types were previously used if
+  authentication was established based on previous successful
+  authentication interactions with the user. This value consists of a
+  a sequence of text tokens separated by ','. The only value currently
+  in use is 'pwd'.
 
 2.3. Logout page
 ----------------
@@ -475,19 +619,24 @@ module to provide a 'virtual' logout page by associating a URL with
 the special handler 'AALogout'. This URL need not relate to anything
 that exists in the file system. For example:
 
-        <Location "/protected_dir/logout/"> 
-                SetHandler AALogout
-        </Location>
+  <Location "/logout.html"> 
+    SetHandler AALogout
+  </Location>
 
-will cause anything in /protected_dir/logout/, for example 
+will cause logout.html to act as a logout page. Default page content
+is provided - this can be overridden using the AALogoutMsg directive:
+as for custom error pages, the AALogoutMsg directive can be followed
+by either a simple text string, a partial URL starting '/' (in which
+case it will be assumed to be on the current server), or a full URL in
+which case the user will be redirected there. The value must be quoted
+if it contains spaces.
 
-  http://www.example.com/protected_dir/logout/logout.html
+It's a god idea to ensure that access to the logout URL is not itself
+protected by Ucam-Webauth. If it is and it is visited by someone who
+is not yet authenticated then they will first be prompted to
+authenticate themselves, only then to be told that they are logged out! 
 
-to act as a logout page. Default page content is provided - this can
-be overridden as described below in 'Custom Error Pages' using the
-AALogoutMsg directive.
-
-2.4. Custom Error Pages
+3.4. Custom Error Pages
 -----------------------
 
 A number of error conditions will be reported by returning an error
@@ -509,7 +658,11 @@ ErrorDocument directive for status codes 400, 500 and 401. A modified
 401 page will be provided if a custom one is not defined since the
 Apache default is misleading. The default Apache 400 and 500 pages
 will be used (and may well be satisfactory) if a custom page is not
-defined for these codes.
+defined for these codes. Note that under Apache version 1 (though not
+version 2), the default 400 page includes the text of messages
+recently sent to the error log. While this does not revel any
+sensitive information in the case of mod_ucam_webauth, it does make
+the pages look somewhat 'messy'. 
 
 Custom error pages for 'User declined to authenticate' and 'Browser
 not accepting session cookie' can be established using the AACancelMsg
@@ -519,19 +672,324 @@ will be used if custom ones are not defined.
 Custom messages can be either a simple text string, a partial URL
 starting '/' (in which case it will be assumed to be on the current
 server), or a full URL in which case the user will be redirected there
-(except for Authorization Required where a full URL will be ignored if
-provided). Values for the various '...Msg' directives must be quoted
-if they contain spaces.
+(except for 401 Authorization Required where a full URL will be
+ignored if provided). Values for the various '...Msg' directives must
+be quoted if they contain spaces.
 
 If the error document is a local one then a number of environment
 variables with names starting 'REDIRECT_' will contain additional
 information about what went wrong that could be displayed if the
 document is something like an SSI page or a CGI script. In particular,
-REDIRECT_ERROR_NOTES may contain an error message - however note that
-there may be other causes of server errors that will also set
+REDIRECT_ERROR_NOTES may contain an error message - however there may
+be other causes of server errors that will also set
 REDIRECT_ERROR_NOTES and displaying these could give away information
 useful to an attacker (error messages are in any case logged to the
 server error log). Other variables that may be available prefixed by
 'REDIRECT_' include those described above under Authentication
 Information.
 
+4. Error Messages
+=================
+
+mod_ucam_webauth optionally writes errors, warnings, information
+messages and debugging information to the server error log. Exactly
+what is logged is controlled by Apache's LogLevel directive. With
+LogLevel set to 'Notice' (the default) or higher, only messages about
+unexpected events will be logged. The messages that may be produced at
+'Notice' or higher are listed below with extended explanations.  The
+letter in brackets indicates the severity at which the messages are
+logged: C - Critical, E - Error, W - Warning. '%s' in a message
+indicates that additional information will be included at that
+position:
+
+AACookiePath %s is not a prefix of %s 
+
+  (C) The value of the AACookiePath directive for the current request,
+  and therefore the path component that will be used when setting a
+  session cookie, isn't a prefix of the current URI. This can't work,
+  because any cookie that is set to carry authentication information
+  about the current URL won't be returned when that URL is requested
+  in the future. This is probably the result of a configuration error
+  involving the scope of a <Location ...> or <Directory ...> block, or
+  .htaccess file, and an AACookiePath directive. The user will have
+  received a '500 Server error' message
+
+Access to %s failed: AACookieKey not defined 
+
+  (C) The AACookieKey directive must be used to set a key: there is no
+  default and the module won't work otherwise. The user will have
+  received a '500 Server error' message
+
+Authentication error, status = %s, %s 
+
+  (E) Either a WLS response itself contained an error indication (if
+  status < 600), or mod_ucam_webauth could not validate the
+  response. Possible codes and messages include the following. The
+  user will have received a '400 Bad request' message.
+
+  510: No mutually acceptable types of authentication available
+
+    The request to the WLS asked for authentication types that the WLS
+    does not support. This should not be able to happen with
+    mod_ucam_webauth.
+
+  520: Unsupported authentication protocol version
+
+    The request to the WLS used a version of the request protocol that
+    the WLS does not support. This should not be able to happen with
+    mod_ucam_webauth.
+
+  530: Parameter error in authentication request
+
+    The request to the WLS contained parameters that the WLS could not
+    parse or did not understand. This should not be able to happen
+    with mod_ucam_webauth.
+
+  540: Interaction with the user would be required
+
+    The request to the WLS required that authentication should take
+    place wit hno interaction with the user, but this was not
+    possible. This should not be able to happen with mod_ucam_webauth.
+
+  560: Web server not authorised to use the authentication service
+
+    The web server running mod_ucam_webauth (not: not the user's web
+    browser) is not authorised to use the WLS. Contact the WLS
+    administrators for more information.
+
+  570: Operation declined by the authentication service
+
+    The WLS declined to do what it was asked - further information may
+    be included. One possible reason is that the user is using a
+    browser that the WLS knows doesn't correctly support the
+    Ucam-Webauth system.
+
+  600: Wrong protocol version (%s) in WLS response
+
+    The response from the WLS used a version of the request protocol that
+    mod_ucam_webauth does not support.
+
+  600: Can't to parse issue time (%s) in WLS response
+
+    mod_ucam_webauth is unable to read the issue time contained in the
+    WLS response 
+    
+  600: WLS response issued in the future (local clock incorrect?); 
+       issue time %s
+
+    The issue time of the WLS response appears to be in the
+    future. This suggests that the clock on the web server running
+    mod_ucam_webauth may be wrong (see 'Timekeeping' above)
+
+  600: WLS response issued too long ago (local clock incorrect?); 
+       issue time %s
+
+    The issue time of the WLS response appears to be too long
+    ago. This could be because the clock on the web server running
+    mod_ucam_webauth is wrong (see 'Timekeeping' above); it could also
+    mean that someone is (intensionally or otherwise) trying to replay
+    an old response in an attempt to authenticate.
+
+  600: Non first-hand authentication under ForceInteract
+
+    A WLS response was received that indicates that the user
+    authenticated using the WLS's 'single sign on' feature but this
+    isn't allowed by the setting of AAForceInteact. Baring a bug, this
+    suggests that someone is trying to circumvent AAForceInteact.
+
+  600: Missing or invalid signature in authentication service reply
+
+    The signature on the WLS response failed to validate. Baring a
+    bug, this should mean that the response has been corrupted,
+    tampered with, or is forged.
+
+  600: Web server configuration error
+
+    Some web server configuration problem (probably lack of the
+    necessary public key) prevented verification of the
+    response. Other messages will have already been logged pinpointing
+    the problem.
+
+  600: Requested session expiry time less that one second
+
+    Somehow the requested lifetime of a session appears to be zero or
+    negative. This is probably a bug.
+
+Browser not accepting session cookie 
+
+  (W) The module checks that the user's browser is accepting the
+  session cookie, since otherwise the user will be repeatedly
+  redirected to the login server. This appears not to be the case
+  (though the check can be fooled in some circumstances). The user
+  will have received a message explaining what happened (see
+  AANoCookieMsg).
+
+Session cookie invalid or key has changed 
+  
+  (E) The signature used to protect the session cookie for tampering
+  and forgery failed to validate. Baring a bug, this suggests that the
+  offered cookie has been corrupted or tampered with, or is
+  forged. However it can also appear if AACookieKey is changed or if
+  the same cookie (same name, domain, path) ends up being used in
+  conjunction with two different cookie keys, for example from two
+  different <Directory ...> blocks each containing a different
+  AACookieKey setting. The module will behave as if the cookie hadn't
+  been there and redirect the user to the login service.
+
+Error opening public key file %s: %s 
+
+  (C) While attempting to open a file (probably a public key file)
+  something went wrong. The system's description of the error is
+  included. The user will (indirectly) receive a '400 Bad request'
+  message.
+
+Error reading public key from %s (additional information may follow)
+
+  (C) When validating the signature on a response, the corresponding
+  public key could not be parsed. The OpenSSL error message (which may
+  not be very helpful) will follow. The key file is probably corrupt,
+  or not what you are expecting, or something.  The user will
+  (indirectly) receive a '400 Bad request' message.
+
+Error validating WLS response signature (additional information may follow)
+
+  (C) The signature on a response failed to validate. Baring a bug,
+  this should mean that the response has been corrupted, tampered
+  with, or is forged. The OpenSSL error message (which may not be very
+  helpful) will follow. The user will (indirectly) receive a '400 Bad
+  request' message.
+
+Failed to parse own URL 
+
+  (C) Something went horribly wrong while trying to generate the
+  canonical URL for the current request. This might be the result of
+  an unusual web server configuration, but is probably a bug. The
+  module will plough-on regardless but other problems will probably
+  arise.
+
+Failed to validate WLS response ID %s: %s: %s 
+
+  (E) Summary message produced whenever a response fails to
+  validate.The user will (indirectly) received a '400 Bad request'
+  message.
+
+Session cookie has issue date in the future 
+Session cookie has last used date in the future
+
+  (E) The issue or last used date in the session cookie appears to be
+  in the future. Since this can't happen, it could mean that the
+  response has been corrupted or tampered with, or that the clock on
+  the web server has been reset. The user will have received a '400
+  Bad request' message.
+
+Session cookie issue date incorrect length
+Session cookie last use date incorrect length
+Session cookie lifetime unreadable
+
+  (E) The issue or last used date, or the lifetime field, in the
+  session cookie is the wrong length. This shouldn't be possible
+  without the signature also not validating so it is probably a bug.
+
+URL in  WLS response doesn't match this URL - %s != %s 
+
+  (E) The URL embedded in a WLS response doesn't match the URL it was
+  submitted to. This could be the result of an obscure configuration,
+  but will also happen if a response intended for one web server is
+  replayed to another in the hope of forging authentication.
+
+Redirect required on a POST request - POSTed data will be lost
+
+  (W) A redirect to the WLS was required (either for initial
+  authentication or becasue authentication had expired) when servicing
+  a POST request. Because of the way that mod_ucam_webauth is
+  implemented any parameters submitted along with the POST request
+  will be lost.
+
+5. Building the module
+======================
+
+If a ready-built binary package is not available for you platform, or
+those that are are unsuitable, then you can build it yourself. The
+module can be linked to Apache in two ways, either statically or
+dynamically. Dynamically linking the module has the advantage of not
+requiring the Apache server to be rebuilt, although it does require
+that support for dynamic shared objects (DSO) be already incorporated
+in the server. See the bottom of http://httpd.apache.org/docs/dso.html
+for a summary of the advantages and disadvantages of dynamic
+linking. If you are unsure about rebuilding Apache then dynamic
+linking is recommended.
+
+In addition to the module source, the distribution archive contains a
+Makefile and example RPM '.spec' files that may be useful when
+building the module in some environments.
+
+5.1. Using Dynamic Linking
+-------------------------------------
+
+The apxs tool can be used to build and install the module without
+rebuilding the Apache server. However the server must have been built
+with shared object support. This can be checked by using the following
+command:
+
+  httpd -l
+
+to list the modules linked to the Apache server - if mod_so.c is shown
+as loaded then shared object support is available. If mod_so.c is not
+present then a rebuild of your Apache server is required, either to
+enable shared object support or to statically link mod_ucam_webauth to
+your server.
+
+The simplest command for building the module dynamically is:
+
+ apxs -c -lcrypto mod_ucam_webauth.c
+
+Note that apxs may not be on your default path and may be renamed,
+e.g. to apxs2, on some platforms. apxs and related files are sometimes 
+available in a separate httpd-devel or apache-devel package.
+
+This command compiles the module as a shared object, but does not make
+Apache aware of its presence. To do this the compiled module file must
+first be copied to the directory where Apache stores shared
+modules. This may well be 'modules/' relative to ServerRoot, though
+this depends on Apache's directory layout.
+
+The apxs tool can be instructed to move the compiled module to the
+correct directory in addition to compiling it:
+
+  apxs -c -i -lcrypto mod_ucam_webauth.c
+
+or even to compile it, move it into place and attempt to alter
+httpd.conf automatically:
+
+  apxs -c -i -a -lcrypto mod_ucam_webauth.c
+
+5.2. Using Static Linking
+-------------------------
+
+Remove or backup the previous Apache build. Change into the Apache
+build directory and copy the appropriate source file to
+src/modules/extra Apache 1.3 or modules/aaa for Apache 2. Run the
+configure script with the activate-module and enable-module options as
+specified below in addition to any other options you wish to set,
+e.g. for an Apache 1.3 installation:
+
+  ./configure --prefix=<PREFIX> \
+  --activate-module=src/modules/extra/mod_ucam_webauth.c \
+  --enable-module=ucam_webauth
+
+For an Apache 2 installation the options you supply are slightly different:
+
+  ./configure --prefix=<PREFIX> \
+  --enable-ucam_webauth
+
+Issue the commands to build and install Apache in the usual way:
+
+  make
+  make install
+
+Use the command
+
+  httpd -l
+
+to check that the module has been successfully incorporated into the
+Apache server. It should be listed as mod_ucam_webauth.c.

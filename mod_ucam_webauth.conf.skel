@@ -1,8 +1,6 @@
-
 # The Apache mod_ucam_webauth module implements authentication using
 # the University of Cambridge Web Authentication System
-# (Ucam-WebAuth). This is the software implementing the Raven
-# authentication system. 
+# (Ucam-WebAuth).
 
 # In a DSO environment the module must first be loaded using the
 # 'LoadModule' directive. Under Apache v1 some configuration files use
@@ -48,4 +46,4 @@ LoadModule ucam_webauth_module @@LIBEXECDIR@@/mod_ucam_webauth.so
 # AAFail          Off
 # AAAlwaysDecode  Off
 
-# AALogLevel warn
+# AAAlwaysDecode  Off
