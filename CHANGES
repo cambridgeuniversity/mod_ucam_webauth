@@ -1,3 +1,11 @@
+1.0.5 - 2004-10-12 jw
+
+ Bugs fixed
+
+ . A bug in fix for Host: and hostname not matching in 1.0.4 caused a
+   redirect loop when used by servers that were not running on the
+   default port (80 for http, 443 for https). Now fixed. 
+
 1.0.4 - 2004-10-11 jw
 
  Bugs fixed

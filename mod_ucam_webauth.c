@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.52 2004-10-12 07:52:57 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.53 2004-10-15 14:17:33 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.4"
+#define VERSION "1.0.5"
 
 /*
 MODULE-DEFINITION-START
@@ -2261,7 +2261,7 @@ webauth_authn(request_rec *r)
   mod_ucam_webauth_cfg *c;
   apr_table_t *response;
   int rc;
-  const char *host;
+  char *host, *colon;
   
   /* Do anything? */
 
@@ -2284,9 +2284,16 @@ webauth_authn(request_rec *r)
      going to have all sorts of problems with cookies and redirects,
      so fix it (with a redirect) now. */
 
-  host = apr_table_get(r->headers_in, "Host");
+  host = apr_pstrdup(r->pool,apr_table_get(r->headers_in, "Host"));
+  colon = strchr(host,':');
+  if (colon != NULL)
+    *colon = '\0';
   if (host && r->server->server_hostname && 
       strcasecmp(r->server->server_hostname,host)) {
+    APACHE_LOG2
+      (APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
+       "configured hostname (%s) - redirecting",
+       host, r->server->server_hostname);
     apr_table_set(r->headers_out, "Location", get_url(r));
     return (r->method_number == M_GET) ? 
       HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
