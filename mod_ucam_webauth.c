@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.31 2004-06-23 10:06:07 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.32 2004-06-23 10:24:56 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc1"
+#define VERSION "0.99_1.0.0rc2"
 
 /*
 MODULE-DEFINITION-START
@@ -395,7 +395,7 @@ iso2_time_decode(request_rec *r,
 /* Get current customised response definition, if any */
 /* 'Borrowed' from the Apache source, informed by the mod_perl sources */
 
-char *
+static char *
 wls_response_code_string(request_rec *r, 
 			 int status)
 
@@ -843,7 +843,7 @@ make_cookie_table(request_rec *r,
 /* --- */
 /* wrap a session cookie table into a string for setting as a cookie */
 
-char *
+static char *
 make_cookie_str(request_rec *r,
 		mod_ucam_webauth_cfg *c,
 		apr_table_t *cookie)
