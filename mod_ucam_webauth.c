@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.9 2004-06-16 11:39:51 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.10 2004-06-16 15:47:53 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -63,14 +63,6 @@ MODULE-DEFINITION-END
 #define APACHE_POOL pool
 #define APACHE_MODULE module MODULE_VAR_EXPORT
 
-/* constants */
-
-#define APACHE_SERVER_ERROR SERVER_ERROR
-#define APACHE_FORBIDDEN FORBIDDEN
-#define APACHE_UNAUTHORIZED AUTH_REQUIRED
-#define APACHE_REDIRECT REDIRECT
-#define APACHE_FNM_NOMATCH FNM_NOMATCH
-
 /* variables */
 
 #define APACHE_REQUEST_USER r->connection->user
@@ -121,14 +113,6 @@ MODULE-DEFINITION-END
 #define APACHE_TIME apr_time_t
 #define APACHE_POOL apr_pool_t
 #define APACHE_MODULE module AP_MODULE_DECLARE_DATA
-
-/* constants */
-
-#define APACHE_SERVER_ERROR HTTP_INTERNAL_SERVER_ERROR
-#define APACHE_FORBIDDEN HTTP_FORBIDDEN
-#define APACHE_UNAUTHORIZED HTTP_UNAUTHORIZED
-#define APACHE_REDIRECT HTTP_MOVED_TEMPORARILY
-#define APACHE_FNM_NOMATCH FNM_NOMATCH
 
 /* variables */
 
@@ -954,12 +938,12 @@ ucam_webauth_handler(request_rec *r)
 
   if (APACHE_FNMATCH(APACHE_PSTRCAT(r->pool, c->AACookiePath, "*", NULL),
 		     r->parsed_uri.path,
-		     0/*APR_FNM_PATHNAME*/) == APACHE_FNM_NOMATCH) {
+		     0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
     APACHE_LOG_ERROR
       (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
        "AACookiePath %s is not a prefix of %s", 
        c->AACookiePath, r->parsed_uri.path);
-    return APACHE_SERVER_ERROR;
+    return HTTP_INTERNAL_SERVER_ERROR;
   }
   
   /* FIRST: see if we already have authentication data stored in a
@@ -999,17 +983,17 @@ ucam_webauth_handler(request_rec *r)
       
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "410") == 0) {
 	if (c->AACancelMsg != NULL) {
-	  ap_custom_response(r, APACHE_FORBIDDEN, c->AACancelMsg);
+	  ap_custom_response(r, HTTP_FORBIDDEN, c->AACancelMsg);
 	} 
 	else {
-	  ap_custom_response(r, APACHE_FORBIDDEN, auth_cancelled(r));
+	  ap_custom_response(r, HTTP_FORBIDDEN, auth_cancelled(r));
 	}
 	set_cookie(r, NULL, c);
 	
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, r,
 			 "status = 410, access forbidden");
 	
-	return APACHE_FORBIDDEN;
+	return HTTP_FORBIDDEN;
       }
 
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "200") != 0) {
@@ -1018,7 +1002,7 @@ ucam_webauth_handler(request_rec *r)
 			 APACHE_TABLE_GET(old_cookie, "status"),
 			 APACHE_TABLE_GET(old_cookie, "msg"));
 	set_cookie(r, NULL, c);
-	return APACHE_SERVER_ERROR;
+	return HTTP_INTERNAL_SERVER_ERROR;
       }
       
       // session cookie timeout check
@@ -1031,12 +1015,12 @@ ucam_webauth_handler(request_rec *r)
       if (issue == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie issue date incorrect length");
-	return APACHE_SERVER_ERROR;
+	return HTTP_INTERNAL_SERVER_ERROR;
       }
       if (expire == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie expire date incorrect length");
-	return APACHE_SERVER_ERROR;
+	return HTTP_INTERNAL_SERVER_ERROR;
       }
 
       now = APACHE_TIME_NOW;
@@ -1056,7 +1040,7 @@ ucam_webauth_handler(request_rec *r)
       if (issue > now) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 			 "session cookie has issue date in the future");
-	return APACHE_SERVER_ERROR;
+	return HTTP_INTERNAL_SERVER_ERROR;
       } else if (now >= expire) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 			 "session cookie has timed out");
@@ -1086,7 +1070,7 @@ ucam_webauth_handler(request_rec *r)
 			 "AASSO", 
 			 APACHE_TABLE_GET(old_cookie, "sso"));
 
-	ap_custom_response(r, APACHE_UNAUTHORIZED, auth_required(r));
+	ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
 
 	APACHE_LOG_ERROR
 	  (APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
@@ -1100,7 +1084,7 @@ ucam_webauth_handler(request_rec *r)
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 		       "session cookie signature invalid");
       set_cookie(r, NULL, c);
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
 
     }
 
@@ -1138,11 +1122,11 @@ ucam_webauth_handler(request_rec *r)
 		       "browser not accepting session cookie");
 
       if (c->AANoCookieMsg != NULL) {
-	ap_custom_response(r, APACHE_SERVER_ERROR, c->AANoCookieMsg);
+	ap_custom_response(r, HTTP_INTERNAL_SERVER_ERROR, c->AANoCookieMsg);
       } else {
-	ap_custom_response(r, APACHE_SERVER_ERROR, no_cookie(r, c));
+	ap_custom_response(r, HTTP_INTERNAL_SERVER_ERROR, no_cookie(r, c));
       }
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
     }
 
     /* unwrap WLS token */
@@ -1163,7 +1147,7 @@ ucam_webauth_handler(request_rec *r)
 	 "URL in response_token doesn't match this URL - %s != %s",
 	 response_url, this_url);
 
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
     }
 
     /* from now on we can (probably) safely redirect to the URL in the 
@@ -1248,17 +1232,17 @@ ucam_webauth_handler(request_rec *r)
     } else if (sig_verify_result == 2) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
 		       "error opening public key file");
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
 
     } else if (sig_verify_result == 3) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
 		       "error reading public key file");
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
 
     } else {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
 		 "signature verification error");
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
 
     }
 
@@ -1276,7 +1260,7 @@ ucam_webauth_handler(request_rec *r)
     if (expiry <= 0) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
 		     "session expiry time less that one second");
-      return APACHE_SERVER_ERROR;
+      return HTTP_INTERNAL_SERVER_ERROR;
     }
      
     /* set new session ticket (cookie) */
@@ -1317,7 +1301,7 @@ ucam_webauth_handler(request_rec *r)
 		    "Location", 
 		    APACHE_TABLE_GET(response_ticket, "url"));
 
-   return (r->method_number == M_GET) ? APACHE_REDIRECT : HTTP_SEE_OTHER;
+   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
   }
   
@@ -1371,7 +1355,7 @@ ucam_webauth_handler(request_rec *r)
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
 		   "redirecting to Raven login server");
 
-  return (r->method_number == M_GET) ? APACHE_REDIRECT : HTTP_SEE_OTHER;
+  return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
   /* (phew!) */
 
@@ -1965,7 +1949,7 @@ using_https(request_rec *r)
 
   return (APACHE_FNMATCH("https*", 
 			 ap_construct_url(r->pool, r->unparsed_uri, r), 
-			 0) != APACHE_FNM_NOMATCH);
+			 0) != FNM_NOMATCH);
 
 }
 
