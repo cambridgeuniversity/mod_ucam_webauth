@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.40 2004-07-11 16:56:15 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.41 2004-07-12 13:47:52 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -119,7 +119,7 @@ typedef struct {
   int   force_interact;
   int   fail;
   char *cancel_msg;
-  char *no_cookie_message;
+  char *no_cookie_msg;
   char *logout_msg;
   int   log_level;
   int   always_decode;
@@ -566,7 +566,7 @@ set_cookie(request_rec *r,
 			 full_cookie_name(r, c->cookie_name),
 			 "= ; path=",
 			 c->cookie_path, 
-			 ";expires=Thu, 21-Oct-1982 00:00:00 GMT", NULL);
+			 "; expires=Thu, 21-Oct-1982 00:00:00 GMT", NULL);
   } else {
     cookie = apr_pstrcat(r->pool, 
 			 full_cookie_name(r, c->cookie_name), 
@@ -578,7 +578,7 @@ set_cookie(request_rec *r,
   if (c->cookie_domain != NULL) {
     cookie = apr_pstrcat(r->pool, 
 			 cookie, 
-			 ";domain=", 
+			 "; domain=", 
 			 c->cookie_domain, NULL);
   }
   
@@ -674,6 +674,10 @@ RSA_sig_verify(request_rec *r,
   int sig_length;
   int result;
   char *key_full_path;
+  FILE *key_file;
+  char *digest = apr_palloc(r->pool, 21);
+  RSA *public_key;
+  int openssl_error;
 
   APACHE_LOG_ERROR(APLOG_DEBUG, "RSA_sig_verify...");
   APACHE_LOG_ERROR(APLOG_DEBUG, "key_path: %s", key_path);
@@ -682,10 +686,6 @@ RSA_sig_verify(request_rec *r,
     ap_make_full_path(r->pool, 
 		      key_path, 
 		      apr_pstrcat(r->pool, "pubkey", key_id, NULL));
-  FILE *key_file;
-  char *digest = apr_palloc(r->pool, 21);
-  RSA *public_key;
-  int openssl_error;
 
   SHA1((const unsigned char *)data, strlen(data), (unsigned char *)digest);
   
@@ -1230,7 +1230,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->force_interact = -1;
   cfg->fail = -1;
   cfg->cancel_msg = NULL;
-  cfg->no_cookie_message = NULL;
+  cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
   cfg->log_level = -1;    /* mustn't be a valid APLOG_* value */
   cfg->always_decode = -1;
@@ -1288,8 +1288,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->fail : base->fail;
   merged->cancel_msg = new->cancel_msg != NULL ? 
     new->cancel_msg : base->cancel_msg;
-  merged->no_cookie_message = new->no_cookie_message != NULL ? 
-    new->no_cookie_message : base->no_cookie_message;
+  merged->no_cookie_msg = new->no_cookie_msg != NULL ? 
+    new->no_cookie_msg : base->no_cookie_msg;
   merged->logout_msg = new->logout_msg != NULL ? 
     new->logout_msg : base->logout_msg;
   merged->log_level = new->log_level != -1 ? 
@@ -1347,7 +1347,7 @@ apply_config_defaults(request_rec *r,
       DEFAULT_fail; 
   n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg : 
       DEFAULT_cancel_msg;
-  n->no_cookie_message = c->no_cookie_message != NULL ? c->no_cookie_message : 
+  n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg : 
       DEFAULT_no_cookie_msg;
   n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
       DEFAULT_logout_msg;
@@ -1444,8 +1444,8 @@ dump_config(request_rec *r,
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AACancelMsg       = %s",
      (c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
   
-  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMessage = %s",
-     (c->no_cookie_message == NULL ? "NULL" : c->no_cookie_message));
+  APACHE_LOG_ERROR(APLOG_DEBUG, "  AANoCookieMsg = %s",
+     (c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
   
   APACHE_LOG_ERROR(APLOG_DEBUG, "  AALogoutMsg       = %s",
      (c->logout_msg == NULL ? "NULL" : c->logout_msg));
@@ -1654,90 +1654,20 @@ set_log_level(cmd_parms *cmd,
 
 /* ---------------------------------------------------------------------- */
 
-/* Initializer */
+/* Handler logic */
 
 /* --- */
 
-#ifdef APACHE1_3
+static int
+decode_cookie(request_rec *r, 
+              mod_ucam_webauth_cfg *c)
 
-static void
-webauth_init(server_rec *s, apr_pool_t *p) 
-     
 {
-  
-  ap_add_version_component("mod_ucam_webauth/" VERSION);
 
-}
-
-#else  
-
-static int 
-webauth_init(apr_pool_t *p, 
-	     apr_pool_t *l, 
-	     apr_pool_t *t, 
-	     server_rec *s)
-     
-{
-  
-  ap_add_version_component(p, "mod_ucam_webauth/" VERSION);
-  return OK;
-
-}
-
-#endif
-
-/* ---------------------------------------------------------------------- */
-
-/* Header Parser */
-
-static int  
-webauth_header_parser(request_rec *r) 
-     
-{
-  
-  mod_ucam_webauth_cfg *c;
   char *cookie_str, *new_cookie_str;
   int life, cookie_verify;
   apr_table_t *cookie;
   apr_time_t issue, last, now;
-
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
-  c = apply_config_defaults(r,c);
-  dump_config(r,c);  
-
-  if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0 && !c->always_decode) {
-    APACHE_LOG_ERROR
-      (APLOG_DEBUG,"mod_ucam_webauth header parser declining for %s",
-       r->uri);
-    return DECLINED;
-  }
-  
-  APACHE_LOG_ERROR
-    (APLOG_DEBUG,"######################################################");
-  
-  APACHE_LOG_ERROR
-    (APLOG_NOTICE, 
-     "mod_ucam_webauth (%s) header parser started for %s", 
-     VERSION, r->uri);
-
-  if (c->cookie_key == NULL) {
-    APACHE_LOG_ERROR
-      (APLOG_CRIT,
-       "Access to %s failed: AACookieKey not defined", r->uri);
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-
-  if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
-		     r->parsed_uri.path,
-		     0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
-    APACHE_LOG_ERROR
-      (APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
-       c->cookie_path, r->parsed_uri.path);
-    return HTTP_INTERNAL_SERVER_ERROR;
-  }
-  
-  /* see if we already have authentication data stored in a cookie */ 
 
   cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
 
@@ -1910,85 +1840,33 @@ webauth_header_parser(request_rec *r)
     ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
   
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, "successfully decoded cookie for %s", 
-     (char *)apr_table_get(cookie, "principal"));
+    (APLOG_NOTICE, "successfully decoded cookie for %s accessing %s", 
+     (char *)apr_table_get(cookie, "principal"),r->uri);
   
   /* Even though we may have been successfull, we return DECLINED so
-     as not to prevent other header_parsers from running */
+     as not to prevent other phases from running */
 
   return DECLINED;
-	
+
 }
-
-/* ---------------------------------------------------------------------- */
-
-/* Main auth handler */
 
 /* --- */
 
-static int  
-webauth_authn(request_rec *r) 
+static int
+decode_response(request_rec *r, 
+		mod_ucam_webauth_cfg *c)
      
 {
-  
-  mod_ucam_webauth_cfg *c;
-  char *cookie_str, *new_cookie_str, *token_str, *msg, *status, 
-       *request;
+
+  char *cookie_str, *new_cookie_str, *token_str, *msg, *status;
   const char *this_url, *response_url;
   int life, response_ticket_life, sig_verify_result;
   apr_table_t *cookie, *response_ticket;
   apr_time_t issue, now;
 
-  if (strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) {
-    APACHE_LOG_ERROR
-      (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s",
-       r->uri);
-    return DECLINED;
-  }
-  
-  APACHE_LOG_ERROR
-    (APLOG_DEBUG,"######################################################");
-  
-  APACHE_LOG_ERROR
-    (APLOG_NOTICE, 
-     "mod_ucam_webauth (%s) authn handler started for %s", 
-     VERSION, r->uri);
-  
-  if (r->method_number == M_POST)
-    APACHE_LOG_ERROR
-      (APLOG_WARNING, "Ucam WebAuth hander invoked for POST request, "
-       "which it doesn't really support");
-
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
-  c = apply_config_defaults(r,c);
-  dump_config(r,c);  
-  
-  cache_control(r,c->cache_control);
-
-  /* FIRST: see if we successfully decoded a session cookie in the
-     header parser */
-
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 1...");
-
-  if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
-    APACHE_LOG_ERROR
-      (APLOG_NOTICE, "successfully identified %s", 
-       (char *)apr_table_get(r->subprocess_env, "AAPrincipal"));
-    return OK;
-  }
-      
-  /* SECOND: Look to see if we are being invoked as the callback from
-     the WLS. If so, validate the response, check that the session
-     cookie already exists with a test value (because otherwise we
-     probably don't have cookies enabled), set it, and redirect back
-     to the original URL to clear the browser's location bar of the
-     WLS response */
-  
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
-
-  /* If we are a sub-request (r->main != NULL) then look for the token
-     in the corresponsing main request */
+  /* See if we have a WLS-Response CGI parameter. If we are a
+     sub-request (r->main != NULL) then look for the token in the
+     corresponsing main request */
   
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
@@ -2005,8 +1883,8 @@ webauth_authn(request_rec *r)
     cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
     if (cookie_str == NULL) {
       APACHE_LOG_ERROR(APLOG_WARNING, "Browser not accepting session cookie");
-      if (c->no_cookie_message != NULL) {
-	ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_message);
+      if (c->no_cookie_msg != NULL) {
+	ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_msg);
       } else {
 	ap_custom_response(r, HTTP_BAD_REQUEST, no_cookie(r, c));
       }
@@ -2208,11 +2086,20 @@ webauth_authn(request_rec *r)
       HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
     
   }
-  
-  /* THIRD: send a request to the WLS. Also set a test value cookie so
-     we can test that it's still available when we get back. */
-  
-  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 3..."); 
+
+  return DECLINED;
+
+}
+
+/* --- */
+
+static int
+construct_request(request_rec *r, 
+		  mod_ucam_webauth_cfg *c)
+
+{
+
+  char *request;
   
   /* We might be here as the result of a sub-request if it triggered
      authentication but the main request didn't. We can't send out
@@ -2265,8 +2152,185 @@ webauth_authn(request_rec *r)
   APACHE_LOG_ERROR(APLOG_NOTICE, "redirecting to login server");
   
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* Initializer */
+
+/* --- */
+
+#ifdef APACHE1_3
+
+static void
+webauth_init(server_rec *s, apr_pool_t *p) 
+     
+{
   
-  /* (phew!) */
+  ap_add_version_component("mod_ucam_webauth/" VERSION);
+
+}
+
+#else  
+
+static int 
+webauth_init(apr_pool_t *p, 
+	     apr_pool_t *l, 
+	     apr_pool_t *t, 
+	     server_rec *s)
+     
+{
+  
+  ap_add_version_component(p, "mod_ucam_webauth/" VERSION);
+  return OK;
+
+}
+
+#endif
+
+/* ---------------------------------------------------------------------- */
+
+/* Header Parser */
+
+static int  
+webauth_header_parser(request_rec *r)
+     
+{
+  
+  mod_ucam_webauth_cfg *c;
+
+  /* extract configuration */
+
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
+  c = apply_config_defaults(r,c);
+
+  /* do anything? */
+
+  if (!c->always_decode && 
+      (ap_auth_type(r) == NULL || 
+       strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0)) {
+    APACHE_LOG_ERROR
+      (APLOG_DEBUG,"mod_ucam_webauth header parser declining for %s "
+       "(AuthType = %s; AAAlwaysDecode = %d)",r->uri,
+       ap_auth_type(r) == NULL ? "(null)" : ap_auth_type(r), c->always_decode);
+    return DECLINED;
+  }
+  
+  APACHE_LOG_ERROR (APLOG_DEBUG,"###########################################");
+  
+  APACHE_LOG_ERROR
+    (APLOG_NOTICE, "mod_ucam_webauth (%s) header parser started for %s", 
+     VERSION, r->uri);
+
+  if (c->log_level >= APLOG_DEBUG)
+    dump_config(r,c);
+
+  /* Check for config errors */
+
+  if (c->cookie_key == NULL) {
+    APACHE_LOG_ERROR
+      (APLOG_CRIT,
+       "Access to %s failed: AACookieKey not defined", r->uri);
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
+		     r->parsed_uri.path,
+		     0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
+    APACHE_LOG_ERROR
+      (APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
+       c->cookie_path, r->parsed_uri.path);
+    return HTTP_INTERNAL_SERVER_ERROR;
+  }
+  
+  return decode_cookie(r,c);
+	
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* Main auth handler */
+
+/* --- */
+
+static int  
+webauth_authn(request_rec *r) 
+     
+{
+  
+  mod_ucam_webauth_cfg *c;
+  int rc;
+
+  /* Do anything? */
+
+  if (ap_auth_type(r) == NULL || strcasecmp(ap_auth_type(r), AUTH_TYPE) != 0) {
+    APACHE_LOG_ERROR
+      (APLOG_DEBUG,"mod_ucam_webauth authn handler declining for %s "
+       "(AuthType = %s)",
+       r->uri, ap_auth_type(r) == NULL ? "(null)" : ap_auth_type(r));
+    return DECLINED;
+  }
+  
+  APACHE_LOG_ERROR
+    (APLOG_NOTICE, "mod_ucam_webauth (%s) authn handler started for %s", 
+     VERSION, r->uri);
+
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+  c = apply_config_defaults(r,c);
+
+  if (r->method_number == M_POST)
+    APACHE_LOG_ERROR
+      (APLOG_WARNING, "Ucam WebAuth hander invoked for POST request, "
+       "which it doesn't really support");
+  
+  cache_control(r,c->cache_control);
+
+  /* FIRST: see if we successfully decoded a session cookie in the
+     header parser */
+
+  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 1...");
+
+  /* if r->main != NULL then this is a sub-request, and if it's a
+     sub-request the the header parser hasn't been run ('cos they
+     aren't in subrequests) so we don't have any cookie decoded. So we
+     decode it here */
+
+  if (r->main != NULL) {
+    APACHE_LOG_ERROR(APLOG_DEBUG, "manually running decode_cookie");
+    rc = decode_cookie(r,c);
+    if (rc != DECLINED)
+      return rc;
+  }
+  
+  if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
+    APACHE_LOG_ERROR
+      (APLOG_NOTICE, "successfully authenticated %s accessing %s", 
+       (char *)apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
+    return OK;
+  }
+
+  /* SECOND: Look to see if we are being invoked as the callback from
+     the WLS. If so, validate the response, check that the session
+     cookie already exists with a test value (because otherwise we
+     probably don't have cookies enabled), set it, and redirect back
+     to the original URL to clear the browser's location bar of the
+     WLS response */
+  
+  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
+
+  rc = decode_response(r, c);
+  if (rc != DECLINED)
+    return rc;
+
+  /* THIRD: send a request to the WLS. Also set a test value cookie so
+     we can test that it's still available when we get back. */
+  
+  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 3..."); 
+  
+  return construct_request(r,c);
   
 }
 
@@ -2281,12 +2345,10 @@ webauth_handler_logout(request_rec *r)
      
 {
 
+  mod_ucam_webauth_cfg *c;
   char *response;
   char *host = ap_escape_html(r->pool, ap_get_server_name(r));
   char *port = apr_psprintf(r->pool, "%d", ap_get_server_port(r));
-
-  mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
 
   if (strcasecmp(r->handler, "aalogout")) {
     APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: declining");
@@ -2301,7 +2363,9 @@ webauth_handler_logout(request_rec *r)
      "mod_ucam_webauth (%s) logout handler started for %s", 
      VERSION, r->uri);
 
-  apply_config_defaults(r,c);
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+  c = apply_config_defaults(r,c);
   dump_config(r,c);  
   
   cache_control(r,c->cache_control);
@@ -2327,6 +2391,9 @@ webauth_handler_logout(request_rec *r)
 #ifdef APACHE1_3
   ap_send_http_header(r);
 #endif
+
+  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: sending response",
+		    response);
 
   if (response != NULL) {
     ap_rputs(response,r);
@@ -2476,7 +2543,7 @@ static const command_rec webauth_commands[] = {
   AP_INIT_TAKE1("AANoCookieMsg", 
 		ap_set_string_slot, 
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,no_cookie_message), 
+		(mod_ucam_webauth_cfg,no_cookie_msg), 
 		RSRC_CONF | OR_AUTHCFG,
 		"Custom error if cookies don't seem to be being "
 		"accepted"),
