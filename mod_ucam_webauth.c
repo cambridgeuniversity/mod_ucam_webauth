@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.54 2004-10-18 11:30:58 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.55 2004-11-08 15:01:55 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.6"
+#define VERSION "1.0.6b"
 
 /*
 MODULE-DEFINITION-START
@@ -2186,7 +2186,8 @@ webauth_post_read_request(request_rec *r)
   APACHE_LOG2(APLOG_DEBUG, "post_read_request: for %s, args %s", 
 	      r->uri, r->args);
 
-  apr_table_set(r->notes, "AA_orig_args", r->args); 
+  if (r->args != NULL) 
+    apr_table_set(r->notes, "AA_orig_args", r->args); 
 
   return DECLINED;
 
