@@ -1,3 +1,9 @@
+0.99-1.0.0rc3 - 2004-06-23 jw
+
+ Bugs fixed:
+
+  . Resolved two missing casts in wls_decode
+
 0.99-1.0.0rc2 - 2004-06-23 jw
 
  Enhancements:
