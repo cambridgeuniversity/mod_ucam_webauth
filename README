@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 0.99_1.0.0rc5
-$Id: README,v 1.10 2004-07-12 14:22:36 jw35 Exp $
+Current with version 0.99_1.0.0rc7
+$Id: README,v 1.11 2004-08-11 14:37:31 jw35 Exp $
 
 1. Installation
 ===============
@@ -381,21 +381,6 @@ AAlogoutMsg
 If set, this identifies the message that will be displayed on the
 users browser when they access a logout page. If unset, a standard
 message will be displayed. See the Logout page section.
-
-AALogLevel
-
-This directive adjusts the verbosity of the messages from this module
-that are recorded in the error logs (see the Apache ErrorLog
-directive). When a particular level is specified, messages from all
-other levels of higher significance will be reported as well. E.g.,
-when AALogLevel info is specified, then messages with log levels of
-notice and warn will also be posted. Possible values (from highest to
-lowest) are: 'emerg', 'alert', 'crit', 'error', 'warn', 'notice',
-'info', 'debug'.  Logging at 'warn' should omit all 'routine'
-messages. Logging at 'info' or below is _very_ verbose. The default is
-'warn'. Display of error messages is also dependent on the standard
-'LogLevel' directive - for example to see 'debug' messages from this
-module it is necessary to set both AALogLevel and LogLevel to 'debug'.
 
 AAAlwaysDecode
 
