@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.11 2004-06-16 16:03:59 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.12 2004-06-16 17:22:58 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.45"
+#define VERSION "0.46p1"
 
 /*
 MODULE-DEFINITION-START
@@ -991,14 +991,14 @@ ucam_webauth_handler(request_rec *r)
 	set_cookie(r, NULL, c);
 	
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_WARNING, r,
-			 "status = 410, access forbidden");
+			 "Authentication status = 410, access forbidden");
 	
 	return HTTP_FORBIDDEN;
       }
 
       if (strcmp((char *)APACHE_TABLE_GET(old_cookie, "status"), "200") != 0) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-			 "cookie error, status = %s, %s",
+			 "Authentication error, status = %s, %s",
 			 APACHE_TABLE_GET(old_cookie, "status"),
 			 APACHE_TABLE_GET(old_cookie, "msg"));
 	set_cookie(r, NULL, c);
@@ -1014,12 +1014,12 @@ ucam_webauth_handler(request_rec *r)
 
       if (issue == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-			 "session cookie issue date incorrect length");
+			 "Session cookie issue date incorrect length");
 	return HTTP_BAD_REQUEST;
       }
       if (expire == -1) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-			 "session cookie expire date incorrect length");
+			 "Session cookie expire date incorrect length");
 	return HTTP_BAD_REQUEST;
       }
 
@@ -1039,11 +1039,11 @@ ucam_webauth_handler(request_rec *r)
 
       if (issue > now) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-			 "session cookie has issue date in the future");
+			 "Session cookie has issue date in the future");
 	return HTTP_BAD_REQUEST;
       } else if (now >= expire) {
 	APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_NOTICE, r,
-			 "session cookie has timed out");
+			 "Session cookie has timed out");
 	timeout_msg = c->AATimeoutMsg;
       } else {
 	APACHE_REQUEST_USER = 
@@ -1082,7 +1082,7 @@ ucam_webauth_handler(request_rec *r)
     } else {
 
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-		       "session cookie signature invalid");
+		       "Session cookie signature invalid");
       set_cookie(r, NULL, c);
       return HTTP_BAD_REQUEST;
 
@@ -1119,7 +1119,7 @@ ucam_webauth_handler(request_rec *r)
     old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->AACookieName));
     if (old_cookie_str == NULL) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-		       "browser not accepting session cookie");
+		       "Browser not accepting session cookie");
 
       if (c->AANoCookieMsg != NULL) {
 	ap_custom_response(r, HTTP_BAD_REQUEST, c->AANoCookieMsg);
@@ -1231,17 +1231,17 @@ ucam_webauth_handler(request_rec *r)
 
     } else if (sig_verify_result == 2) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		       "error opening public key file");
+		       "Error opening public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
 
     } else if (sig_verify_result == 3) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		       "error reading public key file");
+		       "Error reading public key file");
       return HTTP_INTERNAL_SERVER_ERROR;
 
     } else {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ALERT, r, 
-		 "signature verification error");
+		 "Signature verification error on authentication reply");
       return HTTP_BAD_REQUEST;
 
     }
@@ -1259,7 +1259,7 @@ ucam_webauth_handler(request_rec *r)
 
     if (expiry <= 0) {
       APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-		     "session expiry time less that one second");
+		     "Requested session expiry time less that one second");
       return HTTP_BAD_REQUEST;
     }
      
@@ -1455,14 +1455,13 @@ SHA1_sign(request_rec *r,
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		    "making sig with data = %s", data);
 
-  HMAC(EVP_sha1(), c->AACookieKey, sizeof(c->AACookieKey), 
-       (const unsigned char *)data, sizeof(data), new_sig, &sig_len);
+  HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
+       (const unsigned char *)data, strlen(data), new_sig, &sig_len);
+  // *(new_sig+sig_len) = '\0';
   new_sig = (unsigned char*)wls_encode(r, (char *)new_sig);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		    "new sig = %s", new_sig);
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		    "new sig length = %d", sig_len);
 
  return (char *)new_sig;
 
@@ -1482,22 +1481,20 @@ SHA1_sig_verify(request_rec *r,
 
   unsigned char *new_sig = 
     (unsigned char *)APACHE_PCALLOC(r->pool, EVP_MAX_MD_SIZE + 1);
-  //unsigned char new_sig[EVP_MAX_MD_SIZE];
   unsigned int sig_len;
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "verifying sig: %s", data);
+		   "verifying sig: %s", sig);
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "sig size = %d", sizeof(data));
+		   "on data: %s", data);
 
-  HMAC(EVP_sha1(), c->AACookieKey, sizeof(c->AACookieKey), 
-       (const unsigned char *)data, sizeof(data), new_sig, &sig_len);
+  HMAC(EVP_sha1(), c->AACookieKey, strlen(c->AACookieKey), 
+       (const unsigned char *)data, strlen(data), new_sig, &sig_len);
+  // *(new_sig+sig_len) = '\0';
   new_sig = (unsigned char*)wls_encode(r, (char *)new_sig);
 
   APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
 		   "new sig = %s", new_sig);
-  APACHE_LOG_ERROR(APLOG_MARK, APLOG_NOERRNO | APLOG_DEBUG, r,
-		   "new sig length = %d", sig_len);
 
   if (strcmp(sig, (const char *)new_sig) == 0) return 1;
   return 0;
