@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.21 2004-06-18 13:20:04 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.22 2004-06-21 08:03:44 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -121,6 +121,7 @@ typedef struct {
 #define APACHE_TIME time_t
 #define APACHE_POOL pool
 #define APACHE_MODULE module MODULE_VAR_EXPORT
+#define APACHE_URI_COMPONENTS uri_components
 
 /* variables */
 
@@ -150,6 +151,8 @@ typedef struct {
 #define APACHE_PSTRDUP ap_pstrdup
 #define APACHE_OFFSETOF XtOffsetOf
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(s)
+#define APACHE_PARSE_URI_COMPONENTS ap_parse_uri_components
+#define APACHE_UNPARSE_URI_COMPONENTS ap_unparse_uri_components
 
 /* errors */
 
@@ -180,6 +183,7 @@ typedef struct {
 #include "apr_general.h"
 #include "apr_base64.h"
 #include "apr_date.h"
+#include "apr_uri.h"
 
 /* types */
 
@@ -187,6 +191,7 @@ typedef struct {
 #define APACHE_TIME apr_time_t
 #define APACHE_POOL apr_pool_t
 #define APACHE_MODULE module AP_MODULE_DECLARE_DATA
+#define APACHE_URI_COMPONENTS apr_uri_t
 
 /* variables */
 
@@ -216,6 +221,8 @@ typedef struct {
 #define APACHE_PSTRDUP apr_pstrdup
 #define APACHE_OFFSETOF APR_OFFSETOF
 #define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(p,s)
+#define APACHE_PARSE_URI_COMPONENTS apr_uri_parse
+#define APACHE_UNPARSE_URI_COMPONENTS apr_uri_unparse
 
 /* errors */
 
@@ -287,27 +294,17 @@ wls_decode(request_rec *r,
 
   d = APACHE_PSTRDUP(r->pool, string);
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[1]");
-
   for (i = 0; i < strlen(d); i++) {
     if (d[i] == '-') d[i] = '+';
     else if (d[i] == '.') d[i] = '/';
     else if (d[i] == '_') d[i] = '=';
   }
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[2]");
-
   *data = (char*)APACHE_PALLOC(r->pool, 1+APACHE_BASE64DECODE_LEN(d));
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[3]");
 
   len = APACHE_BASE64DECODE(*data, d);
 
-  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[4]");
-
   (*data)[len] = '\0'; /* for safety if nothing else */
-
-  APACHE_LOG_ERROR(APLOG_DEBUG, "wls_decode[5]");
 
   return len;
 
@@ -338,8 +335,7 @@ iso2_time_decode(request_rec *r,
   
   char *t_http = (char*)APACHE_PALLOC(r->pool, 27);
 
-  APACHE_LOG_ERROR(APLOG_DEBUG,
-		   "iso2_time_decode...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "iso2_time_decode...");
 
   if (strlen(t_iso2) < 16) return -1;
   t_http[0] = ',';
@@ -637,7 +633,7 @@ RSA_sig_verify(request_rec *r,
   
   key_file = (FILE *)APACHE_FOPEN(r->pool, key_full_path, "r");
   if (key_file == NULL) {
-    APACHE_LOG_ERROR(APLOG_ALERT, "error opening file: %s", key_full_path);
+    APACHE_LOG_ERROR(APLOG_CRIT, "error opening file: %s", key_full_path);
     return 2;
   }
 
@@ -661,7 +657,7 @@ RSA_sig_verify(request_rec *r,
   openssl_error = ERR_get_error();
   if (openssl_error) {
     APACHE_LOG_ERROR
-      (APLOG_ALERT, 
+      (APLOG_CRIT, 
        "last OpenSSL error = %s", ERR_error_string(openssl_error, NULL));
   }
 
@@ -868,12 +864,26 @@ get_url(request_rec *r)
 
   /* This is rumored not to work, perhaps in Apache 2, perhaps
      depending on the presence (or otherwise) of ServerName and/or
-     Port and/or Listen directive. Needs testing. Also needs testing
-     to ensure it *NEVER* uses hostname from a Host: header or from a
-     full URL on the request line , and that it gets port numbers
-     right. Otherwise it should be fine :-) */ 
+     Port and/or Listen directive. Needs testing. */ 
 
-  return ap_construct_url(r->pool, r->uri, r);
+  char *url, *result;
+  APACHE_URI_COMPONENTS uri;
+
+  url = ap_construct_url(r->pool, r->unparsed_uri, r);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "get_url: raw url = %s", url);
+
+  /* ap_construct_url honours UseCannonicalName but we really don't
+     want that so we re-parse this result and override the hostname
+     component with what we know we are really called
+  */
+
+  if (APACHE_PARSE_URI_COMPONENTS(r->pool, url, &uri) != HTTP_OK)
+    APACHE_LOG_ERROR(APLOG_CRIT, "Failed to parse own URL");
+  uri.hostname = r->server->server_hostname;
+  result = APACHE_UNPARSE_URI_COMPONENTS(r->pool, &uri, (unsigned)0);
+
+  APACHE_LOG_ERROR(APLOG_DEBUG, "get_url: fixed url = %s", result);
+  return result;
 
 }
 
@@ -1516,7 +1526,7 @@ ucam_webauth_handler(request_rec *r)
   int expiry, response_ticket_life;
   char *session_ticket;
   char *request;
-  char *this_url;
+  const char *this_url;
   int sig_verify_result;
   const char *response_url;
 
@@ -1546,7 +1556,7 @@ ucam_webauth_handler(request_rec *r)
 
   if (c->AACookieKey == NULL) {
     APACHE_LOG_ERROR
-      (APLOG_ERR,
+      (APLOG_CRIT,
        "Access to %s failed: AACookieKey not defined", r->uri);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -1555,7 +1565,7 @@ ucam_webauth_handler(request_rec *r)
 		     r->parsed_uri.path,
 		     0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
     APACHE_LOG_ERROR
-      (APLOG_ERR, "AACookiePath %s is not a prefix of %s", 
+      (APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
        c->AACookiePath, r->parsed_uri.path);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -1569,7 +1579,7 @@ ucam_webauth_handler(request_rec *r)
      and repeat the authentication */
        
   APACHE_LOG_ERROR
-    (APLOG_NOTICE, "entering FIRST stage...");
+    (APLOG_NOTICE, "Stage 1...");
 
   old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->AACookieName));
 
@@ -1601,9 +1611,8 @@ ucam_webauth_handler(request_rec *r)
 	}
 	set_cookie(r, NULL, c);
 	
-	APACHE_LOG_ERROR(APLOG_WARNING, 
-			 "Authentication status = 410, access forbidden");
-	
+	APACHE_LOG_ERROR(APLOG_NOTICE, 
+			 "Authentication status = 410, user cancelled");
 	return HTTP_FORBIDDEN;
       }
 
@@ -1656,7 +1665,7 @@ ucam_webauth_handler(request_rec *r)
 	APACHE_REQUEST_USER = 
 	  (char *)APACHE_TABLE_GET(old_cookie, "principal");
 	APACHE_LOG_ERROR
-	  (APLOG_DEBUG, "user = %s", APACHE_REQUEST_USER);
+	  (APLOG_INFO, "user = %s", APACHE_REQUEST_USER);
 	APACHE_TABLE_ADD(r->subprocess_env, 
 			 "AAISSUE", 
 			 APACHE_TABLE_GET(old_cookie, "issue"));
@@ -1703,7 +1712,7 @@ ucam_webauth_handler(request_rec *r)
      the original URL to clear the browser's location bar of the WLS
      response */
   
-  APACHE_LOG_ERROR(APLOG_NOTICE, "entering SECOND stage...");
+  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 2...");
   
   token_str = get_cgi_param(r, "WLS-Response");
   
@@ -1720,7 +1729,7 @@ ucam_webauth_handler(request_rec *r)
 
     old_cookie_str = get_cookie_str(r, full_cookie_name(r, c->AACookieName));
     if (old_cookie_str == NULL) {
-      APACHE_LOG_ERROR(APLOG_ERR, "Browser not accepting session cookie");
+      APACHE_LOG_ERROR(APLOG_WARNING, "Browser not accepting session cookie");
 
       if (c->AANoCookieMsg != NULL) {
 	ap_custom_response(r, HTTP_BAD_REQUEST, c->AANoCookieMsg);
@@ -1739,6 +1748,7 @@ ucam_webauth_handler(request_rec *r)
        (strip URL from cookie str, get this from request?) */
 
     this_url = get_url(r);
+    this_url = ap_getword(r->pool, &this_url, '?');
     response_url = APACHE_TABLE_GET(response_ticket, "url");
     response_url = ap_getword(r->pool, &response_url, '?');
 
@@ -1836,7 +1846,7 @@ ucam_webauth_handler(request_rec *r)
       return HTTP_INTERNAL_SERVER_ERROR;
 
     } else {
-      APACHE_LOG_ERROR(APLOG_ALERT, 
+      APACHE_LOG_ERROR(APLOG_ERR, 
 		       "Signature verification error on authentication reply");
       return HTTP_BAD_REQUEST;
 
@@ -1844,7 +1854,7 @@ ucam_webauth_handler(request_rec *r)
     
     if (c->AAForceInteract == 1 && 
 	APACHE_TABLE_GET(response_ticket, "auth") == "") {
-      APACHE_LOG_ERROR(APLOG_ALERT, 
+      APACHE_LOG_ERROR(APLOG_ERR, 
 		       "Non first-hand authentication under ForceInteract");
       return HTTP_BAD_REQUEST;
     }
@@ -1908,7 +1918,7 @@ ucam_webauth_handler(request_rec *r)
   /* THIRD: send a request to the WLS. Also set a test value cookie so
    * we can test that it's still available when we get back */
 
-  APACHE_LOG_ERROR(APLOG_NOTICE, "entering THIRD stage..."); 
+  APACHE_LOG_ERROR(APLOG_NOTICE, "Stage 3..."); 
   
   request = APACHE_PSTRCAT(r->pool,
 			   "ver=", PROTOCOL_VERSION,
@@ -1959,6 +1969,85 @@ ucam_webauth_handler(request_rec *r)
   /* (phew!) */
 
 }
+
+/* ---------------------------------------------------------------------- */
+
+/* Logout page content handler */
+
+/* --- */
+
+//static int  
+//ucam_webauth_logout_handler(request_rec *r) 
+//     
+//{
+//
+//  mod_ucam_webauth_cfg *c = (mod_ucam_webauth_cfg *) 
+//    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+//
+//  if (strcmp(r->handler, 'AALogout')) return DECLINED;
+//  if (c->AALogoutMsg == NULL) return DECLINED;
+//
+//  APACHE_LOG_ERROR(APLOG_DEBUG, "logout_handler: hello");
+//
+//   * Two types of custom redirects --- plain text, and URLs. Plain text has
+//     * a leading '"', so the URL code, here, is triggered on its absence
+//     */                                                                      
+//
+//if (custom_response && custom_response[0] != '"') {
+//
+//        if (ap_is_url(custom_response)) {
+//           /*
+//             * The URL isn't local, so lets drop through the rest of this
+//             * apache code, and continue with the usual REDIRECT handler.
+//             * But note that the client will ultimately see the wrong
+//             * status...
+//             */
+//            r->status = REDIRECT;
+//            ap_table_setn(r->headers_out, "Location", custom_response);
+//        }
+//        else if (custom_response[0] == '/') {
+//            const char *error_notes;
+//            r->no_local_copy = 1;       /* Do NOT send USE_LOCAL_COPY for
+//                                         * error documents! */
+//            /*
+//             * This redirect needs to be a GET no matter what the original
+//             * method was.
+//             */
+//            ap_table_setn(r->subprocess_env, "REQUEST_METHOD", r->method);
+//
+//            /*
+//             * Provide a special method for modules to communicate
+//             * more informative (than the plain canned) messages to us.
+//             * Propagate them to ErrorDocuments via the ERROR_NOTES variable:
+//             */
+//            if ((error_notes = ap_table_get(r->notes, "error-notes")) != NULL) {                ap_table_setn(r->subprocess_env, "ERROR_NOTES", error_notes);
+//            }
+//            /*
+//             * If it is already a GET or a HEAD, don't change it
+//             * (method_number for GET and HEAD is the same)
+//             */
+//            if(r->method_number!=M_GET) {
+//                r->method = ap_pstrdup(r->pool, "GET");
+//                r->method_number = M_GET;
+//            }
+//            ap_internal_redirect(custom_response, r);
+//            return;
+//        }
+//        else {
+//            /*
+//             * Dumb user has given us a bad url to redirect to --- fake up
+//             * dying with a recursive server error...
+//             */
+//            recursive_error = SERVER_ERROR;
+//            ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
+//                        "Invalid error redirection directive: %s",
+//                        custom_response);
+//       }
+//    }
+//  ap_send_error_response(r, recursive_error);
+//
+//
+//}
 
 /* ---------------------------------------------------------------------- */
 
