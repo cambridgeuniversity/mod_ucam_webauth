@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.49 2004-09-10 14:45:49 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.50 2004-09-13 08:53:31 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.2"
+#define VERSION "1.0.3"
 
 /*
 MODULE-DEFINITION-START
@@ -25,6 +25,10 @@ ConfigStart
 ConfigEnd
 MODULE-DEFINITION-END
 */
+
+#include <string.h>
+#include <strings.h>
+#include <time.h>
 
 #define CORE_PRIVATE   /* Er, we want to prod some core data structures */
 
@@ -43,10 +47,6 @@ MODULE-DEFINITION-END
 #include <openssl/hmac.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
-
-#include <string.h>
-#include <strings.h>
-#include <time.h>
 
 #if defined APACHE_RELEASE && APACHE_RELEASE < 20000000
 #define APACHE1_3

@@ -1,3 +1,16 @@
+1.0.3 - 2004-09-13 jw
+
+ Bugs fixed
+
+ . Moved 'system' #include's (string.h, strings.h, time.h) above the
+   Apache ones in mod_ucam_webauth.c since the original order causes
+   problems under some (Sun's) compilers
+
+1.0.2 - 2004-09-10 jw
+
+[Added missing reference to 'problematic programming constructs' below
+- no actual code chnages]
+
 1.0.1 - 2004-09-10 jw
 
  Enhancements
