@@ -1,7 +1,106 @@
+0.99-1.0.0rc1 - 2004-06-23 jw
+
+ Enhancements:
+
+  . Changed default value of AAClockSkew to 0. This parameter will now
+    need to be explicitly set on web servers that are not NTP
+    synchronised.
+
+  . Added new config directive AALogLevel to set the minimum logging
+    level for this module. Revised logging levels so that, at the
+    default AALogLevel setting (warn), the module is normally
+    silent. Revised many log messages (todo15,18)
+
+  . Added new config directive AAForceInteract. If set to 'On', all
+    requests to the authentication server (for initial or repeat
+    authentication) will require the user to enter their
+    password. This overrides the authentication server's 'single
+    sign-on' capability, and may provide increased security at the
+    cost of decreased convenience. (todo#7, suggested by Paul Warner)
+
+  . Added new confg directive AAInactivityTimeout. When not 0 (the
+    default) this implements an addition authentication timeout based
+    on user inactivity, in addition to the 'hard' timeout controlled by
+    AAMaxSessionTimeout (todo#6, suggested by Paul Warner)
+
+  . Added new confg directive AACacheControl, possible values 'Off',
+    'On', 'Paranoid'. When 'On' (the default) the module adds minimal
+    cache control response headers to discourage caching of content in
+    shared proxy caches. 'Paranoid' causes additional headers to be
+    sent, 'Off' suppresses this behaviour (todo#14)
+
+  . Added a special content handler that can be used via 'SetHandler
+    AALogout' to automatically create a 'logout URL'. Added new
+    directives AALogoutMsg so the content of the default page can be
+    overridden, and AALogoutService to set the location of the
+    authentication service logout page that is linked to from the
+    default logout page (todo#13)
+
+  . AAFail directive now takes the standard values 'On' or 'Off'
+
+  . Overhauled the directive merging process. The values of all
+    directives used this module are now inherited from outer blocks.
+
+  . Added module version stamp to Apache startup banner, and to
+    'Server:' HTTP response header (subject to the setting of the
+    ServerTokens directive)
+
+  . Session cookie now contains issue data and lifetime, rather than
+    issue date and expiry date
+
+  . Assorted code changes to better support building Apache 1.3 and
+    Apache 2 modules from the same source 
+
+  . Assorted changes to better support Apache 2
+
+  . Updated documentation
+
+ Bugs fixed:
+
+  . Fixed a bug that could cause a successfully initial
+    authentication to be immediately followed by a re-authentication
+    request claiming 'You login to the site has expired' (todo#9
+    reported by Martin Lucas-Smith)
+
+  . Re-worked how we determine our own URL - it should now never use
+    information provided in the request (such as the 'Host:' header)
+    and therefore be safe even if 'UseCannonicalName' is off (todo#4)
+
+  . Changed most error returns to be '400 - Bad Request', '500 -
+    Server Error' now used only for server configuration errors
+    (todo#12, suggested by Ben Harris)
+
+  . Corrected a bug which caused only the first 4 characters of
+    AACookieKey to be used (toto#17)
+
+  . Corrected potential bug in encoding/decoding base64 data
+    containing NULL 
+
+  . Stopped sending 'skew' parameter in requests, since it's about to
+    become deprecated in the protocol, and improved log messages that
+    may result from out-of-sync clocks (todo#11)
+
+  . Fix a bug that would have prevented successfully authentication of
+    requests containing CGI parameters
+
+  . Added check for a '401 - Access Denied' ErrorDocument before
+    inserting the module's default page (the latter needed because the
+    Apache default is confusing in a mod_ucam_webauth context).
+
+0.45 - 2004-06-11 jw
+
+  . RPM spec files added to the distribution
+
+  . Fixed memory overflow triggered by re-authenticating to a URL
+    containing CGI parameters. Thank to Tom deMulder for assistance in
+    tracking this down (toto#5)
+
+  . Source code reformat for readability
+
 0.44 - 2004-05-04 jw
 
   . Fixed to build for gcc 2.?? (as found on RH7.2 etc) - source
-    accidently depended on the C99 feature of being able to declare
+    accidentally depended on the C99 feature of being able to declare
     variables anywhere within a block
 
   . Added MANIFEST, NOTICE, Makefile to build distribution, copyright
@@ -16,7 +115,7 @@
 
 0.42 - 2004-??-??
 
-  . Unknown chnage
+  . Unknown change
 
 0.41 - 2004-03-04
 
@@ -26,7 +125,7 @@
 
   Fixed:
 
-  . Mergering of server and per-directory configuration directives
+  . Merging of server and per-directory configuration directives
 
   . Assignment type mismatch
 
