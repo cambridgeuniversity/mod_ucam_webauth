@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.25 2004-06-22 07:03:59 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.26 2004-06-22 07:05:01 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -2335,7 +2335,7 @@ module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
 #else
 
 handler_rec webauth_handlers[] = {
-  { "AALogout", webauth_handler_logout }
+  { "AALogout", webauth_handler_logout },
   { NULL }
 };
 
