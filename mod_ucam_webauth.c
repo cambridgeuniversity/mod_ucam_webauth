@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.17 2004-06-17 15:53:55 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.18 2004-06-17 17:26:34 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -139,6 +139,7 @@ typedef struct {
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
   ap_log_rerror(x, y, rqst, __VA_ARGS__)
 #define APACHE_OFFSETOF XtOffsetOf
+#define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(s)
 
 /* definitions */
 
@@ -197,6 +198,7 @@ typedef struct {
 #define APACHE_LOG_ERROR(x, y, rqst, ...) \
   ap_log_rerror(x, y, 0, rqst, __VA_ARGS__)
 #define APACHE_OFFSETOF APR_OFFSETOF
+#define APACHE_ADD_VERSION_COMPONENT(p, s) ap_add_version_component(p,s)
 
 /* definitions */
 
@@ -1286,6 +1288,22 @@ set_AAMaxSessionLife(cmd_parms *cmd,
 
 /* ---------------------------------------------------------------------- */
 
+/* Initializer */
+
+/* --- */
+
+static void
+ucam_webauth_init(server_rec *s, APACHE_POOL *p) 
+
+{
+
+  APACHE_ADD_VERSION_COMPONENT(p, "mod_ucam_webauth/" VERSION);
+
+} 
+
+
+/* ---------------------------------------------------------------------- */
+
 /* Main auth handler */
 
 /* --- */
@@ -1339,7 +1357,7 @@ ucam_webauth_handler(request_rec *r)
   if (c->AACookieKey == NULL) {
     APACHE_LOG_ERROR
       (APLOG_MARK, APLOG_NOERRNO | APLOG_ERR, r,
-       "AACookieKey is required but is not defined");
+       "Access to %s failed: AACookieKey not defined", r->uri);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
@@ -1897,7 +1915,7 @@ static const command_rec config_commands[] = {
 
 module MODULE_VAR_EXPORT ucam_webauth_module = {
   STANDARD_MODULE_STUFF,
-  NULL,
+  ucam_webauth_init,
   create_dir_config,
   merge_dir_config,
   NULL,
@@ -1920,6 +1938,7 @@ module MODULE_VAR_EXPORT ucam_webauth_module = {
 #else
 
 static void register_hooks(apr_pool_t *p) {
+  ap_hook_post_config(ucam_webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
   ap_hook_check_user_id(ucam_webauth_handler, NULL, NULL, APR_HOOK_FIRST);
   //ap_hook_auth_checker(ucam_webauth_authz, NULL, NULL, HOOK_FIRST);
 }
