@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.53 2004-10-15 14:17:33 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.54 2004-10-18 11:30:58 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "1.0.5"
+#define VERSION "1.0.6"
 
 /*
 MODULE-DEFINITION-START
@@ -2285,20 +2285,25 @@ webauth_authn(request_rec *r)
      so fix it (with a redirect) now. */
 
   host = apr_pstrdup(r->pool,apr_table_get(r->headers_in, "Host"));
-  colon = strchr(host,':');
-  if (colon != NULL)
-    *colon = '\0';
-  if (host && r->server->server_hostname && 
-      strcasecmp(r->server->server_hostname,host)) {
-    APACHE_LOG2
-      (APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
-       "configured hostname (%s) - redirecting",
-       host, r->server->server_hostname);
-    apr_table_set(r->headers_out, "Location", get_url(r));
-    return (r->method_number == M_GET) ? 
-      HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
+  if (host != NULL) {
+    colon = strchr(host,':');
+    if (colon != NULL)
+      *colon = '\0';
+    if (r->server->server_hostname && 
+	strcasecmp(r->server->server_hostname,host)) {
+      colon = strchr(host,':');
+      if (colon != NULL)
+	*colon = '\0'; 
+      APACHE_LOG2
+	(APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
+	 "configured hostname (%s) - redirecting",
+	 host, r->server->server_hostname);
+      apr_table_set(r->headers_out, "Location", get_url(r));
+      return (r->method_number == M_GET) ? 
+	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
+    }
   }
-
+  
   c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);

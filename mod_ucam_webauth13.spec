@@ -16,7 +16,7 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
 Name: mod_ucam_webauth13
-Version: 1.0.5
+Version: 1.0.6
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
@@ -54,6 +54,9 @@ make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Mon Oct 18 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.6-1
+- Updated for 1.0.6
+
 * Fri Oct 15 2004 Jon Warbrick <jw35@cam.ac.uk> - 1.0.5-1
 - Updated for 1.0.5
 

@@ -1,3 +1,10 @@
+1.0.6 - 2004-10-18 jw
+
+ Bugs fixed
+
+ . The Host: header fix in 1.0.5 itself caused problems if a request 
+   didn't actually include a Host: header. 
+
 1.0.5 - 2004-10-12 jw
 
  Bugs fixed
