@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.34 2004-06-25 10:24:15 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.35 2004-07-05 15:53:13 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc3"
+#define VERSION "0.99_1.0.0rc4"
 
 /*
 MODULE-DEFINITION-START
@@ -606,7 +606,12 @@ RSA_sig_verify(request_rec *r,
   unsigned char* decoded_sig;
   int sig_length;
   int result;
-  char *key_full_path = 
+  char *key_full_path;
+
+  APACHE_LOG_ERROR(APLOG_DEBUG, "RSA_sig_verify...");
+  APACHE_LOG_ERROR(APLOG_DEBUG, "key_path: %s", key_path);
+
+  key_full_path = 
     ap_make_full_path(r->pool, 
 		      key_path, 
 		      apr_pstrcat(r->pool, "pubkey", key_id, NULL));
@@ -614,8 +619,6 @@ RSA_sig_verify(request_rec *r,
   char *digest = apr_palloc(r->pool, 21);
   RSA *public_key;
   int openssl_error;
-  
-  APACHE_LOG_ERROR(APLOG_DEBUG, "RSA_sig_verify...");
 
   SHA1((const unsigned char *)data, strlen(data), (unsigned char *)digest);
   
@@ -1087,7 +1090,11 @@ webauth_create_dir_config(apr_pool_t *p,
      
 {
   
-  mod_ucam_webauth_cfg *cfg = 
+  mod_ucam_webauth_cfg *cfg;
+
+  fprintf(stderr,"Doing create: %s", path);
+
+  cfg = 
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg));
   cfg->auth_service = NULL;
   cfg->logout_service = NULL;
@@ -1141,6 +1148,12 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->inactive_timeout : base->inactive_timeout;
   merged->clock_skew = new->clock_skew != -1 ? 
     new->clock_skew : base->clock_skew;
+  
+  fprintf(stderr,"Merging: base %s", 
+    base->key_dir == NULL ? "<NULL>" : base->key_dir);
+  fprintf(stderr,"Merging: new %s", 
+    new->key_dir == NULL ? "<NULL>" : base->key_dir);
+
   merged->key_dir = new->key_dir != NULL ? 
     new->key_dir : base->key_dir;
   merged->max_session_life = new->max_session_life != -1 ? 
@@ -1177,49 +1190,63 @@ webauth_merge_dir_config(apr_pool_t *p,
 /* --- */
 /* apply the defaults to a merged config structure */
 
-static void
-apply_config_defaults(request_rec *r, mod_ucam_webauth_cfg *c)
+static mod_ucam_webauth_cfg *
+apply_config_defaults(request_rec *r, 
+                      mod_ucam_webauth_cfg *c)
 
 {
+    
+  mod_ucam_webauth_cfg *n = 
+    (mod_ucam_webauth_cfg *)apr_pcalloc(r->pool, sizeof(mod_ucam_webauth_cfg));
+
+  n->auth_service = c->auth_service != NULL ? c->auth_service : 
+      DEFAULT_auth_service; 
+  n->logout_service = c->logout_service != NULL ? c->auth_service :
+      DEFAULT_logout_service;
+  n->description = c->description != NULL ? c->description : 
+      DEFAULT_description;
+  n->response_timeout = c->response_timeout != -1 ? c->response_timeout : 
+      DEFAULT_response_timeout;
+  n->clock_skew = c->clock_skew != -1 ? c->clock_skew :
+      DEFAULT_clock_skew;
   
-  if (c->auth_service == NULL) c->auth_service = 
-				    DEFAULT_auth_service; 
-  if (c->logout_service == NULL) c->logout_service = 
-				    DEFAULT_logout_service; 
-  if (c->description == NULL)c->description = DEFAULT_description;
-  if (c->response_timeout == -1) c->response_timeout = 
-				    DEFAULT_response_timeout;
-  if (c->clock_skew == -1) c->clock_skew = 
-			            DEFAULT_clock_skew;  
-  if (c->key_dir == NULL) c->key_dir = 
-			    ap_server_root_relative(r->pool,DEFAULT_key_dir); 
-  if (c->max_session_life == -1) c->max_session_life = 
-				    DEFAULT_max_session_life;
-  if (c->inactive_timeout == -1) c->inactive_timeout = 
-				    DEFAULT_inactive_timeout;
-  if (c->timeout_msg == NULL) c->timeout_msg = 
-				    DEFAULT_timeout_msg;
-  if (c->cache_control == -1) c->cache_control = 
-                                    DEFAULT_cache_control;
-  if (c->cookie_key == NULL) c->cookie_key = 
-                                    DEFAULT_cookie_key; 
-  if (c->cookie_name == NULL) c->cookie_name = 
-                                    DEFAULT_cookie_name;
-  if (c->cookie_path == NULL) c->cookie_path = 
-                                    DEFAULT_cookie_path;
-  if (c->cookie_domain == NULL) c->cookie_domain = 
-                                    DEFAULT_cookie_domain;
-  if (c->force_interact == -1) c->force_interact = 
-                                    DEFAULT_force_interact;  
-  if (c->fail == -1) c->fail =  DEFAULT_fail; 
-  if (c->cancel_msg == NULL) c->cancel_msg = 
-                                    DEFAULT_cancel_msg;
-  if (c->no_cookie_message == NULL) c->no_cookie_message = 
-                                    DEFAULT_no_cookie_msg;
-  if (c->logout_msg == NULL) c->logout_msg = 
-                                    DEFAULT_logout_msg;
-  if (c->log_level == -1) c->log_level = 
-                                    DEFAULT_log_level;
+  APACHE_LOG_ERROR(APLOG_DEBUG, "Defaulting: before %s", 
+		   c->key_dir == NULL ? "<NULL>" : c->key_dir);
+  n->key_dir = c->key_dir != NULL ? c->key_dir :
+      ap_server_root_relative(r->pool,DEFAULT_key_dir);
+  APACHE_LOG_ERROR(APLOG_DEBUG, "Defaulting: after %s", 
+		    n->key_dir == NULL ? "<NULL>" : n->key_dir);
+
+  n->max_session_life = c->max_session_life != -1 ? c->max_session_life :
+      DEFAULT_max_session_life;
+  n->inactive_timeout = c->inactive_timeout != -1 ? c->inactive_timeout :
+      DEFAULT_inactive_timeout;
+  n->timeout_msg = c->timeout_msg != NULL ? c->timeout_msg :
+      DEFAULT_timeout_msg;
+  n->cache_control = c->cache_control != -1 ? c->cache_control :
+      DEFAULT_cache_control;
+  n->cookie_key = c->cookie_key != NULL ? c->cookie_key : 
+      DEFAULT_cookie_key; 
+  n->cookie_name = c->cookie_name != NULL ? c->cookie_name : 
+      DEFAULT_cookie_name;
+  n->cookie_path = c->cookie_path != NULL ? c->cookie_path :
+      DEFAULT_cookie_path;
+  n->cookie_domain = c->cookie_domain != NULL ? c->cookie_domain : 
+      DEFAULT_cookie_domain;
+  n->force_interact = c->force_interact != -1 ? c->force_interact :
+      DEFAULT_force_interact;  
+  n->fail = c->fail != -1 ? c->fail :
+      DEFAULT_fail; 
+  n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg : 
+      DEFAULT_cancel_msg;
+  n->no_cookie_message = c->no_cookie_message != NULL ? c->no_cookie_message : 
+      DEFAULT_no_cookie_msg;
+  n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
+      DEFAULT_logout_msg;
+  n->log_level = c->log_level != -1 ? c->log_level :
+      DEFAULT_log_level;
+
+  return n;
 
 }
 
@@ -1590,7 +1617,7 @@ webauth_authn(request_rec *r)
   c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
 
-  apply_config_defaults(r,c);
+  c = apply_config_defaults(r,c);
   dump_config(r,c);  
 
   if (c->cookie_key == NULL) {
