@@ -16,7 +16,7 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
 Name: %{base}13
-Version: 0.99_1.0.0rc2
+Version: 0.99_1.0.0rc3
 Release: 1
 Group: System Environment/Daemons
 URL: http://raven.cam.ac.uk/
@@ -53,6 +53,9 @@ mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
 %doc NOTICE
 
 %changelog
+* Fri Jun 25 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc3
+- Updated for 0.99_1.0.0rc3
+
 * Wed Jun 23 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc2
 - Updated for 0.99_1.0.0rc2
 
