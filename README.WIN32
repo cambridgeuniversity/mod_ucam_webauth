@@ -5,7 +5,7 @@ Using mod_ucam_webauth with Windows Apache
 ==========================================
 
 Current with version 1.0.2
-$Id: README.WIN32,v 1.1 2004-09-27 16:18:51 jw35 Exp $
+$Id: README.WIN32,v 1.2 2004-09-28 08:53:42 jw35 Exp $
 
 Binary distributions of mod_ucam_webauth are available for use with
 Apache running on a windows platform. There are separate distributions
@@ -74,6 +74,6 @@ following:
   * For a default installation of the Apache project distribution the
     error log file will be found at
 
-    C:\Program Files\Apache Group\Apache\conf\httpd.conf  [Apache 1]
-    C:\Program Files\Apache Group\Apache2\conf\httpd.conf [Apache 2]    
+    C:\Program Files\Apache Group\Apache\logs\error.log  [Apache 1]
+    C:\Program Files\Apache Group\Apache2\logs\error.log [Apache 2]    
    
