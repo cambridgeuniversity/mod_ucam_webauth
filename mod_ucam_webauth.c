@@ -4,7 +4,7 @@
    Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
-   $Id: mod_ucam_webauth.c,v 1.35 2004-07-05 15:53:13 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.36 2004-07-07 15:05:48 jw35 Exp $
 
    Copyright (c) University of Cambridge 2004 
    See the file NOTICE for conditions of use and distribution.
@@ -14,7 +14,7 @@
 
 */
 
-#define VERSION "0.99_1.0.0rc4"
+#define VERSION "0.99_1.0.0rc5"
 
 /*
 MODULE-DEFINITION-START
@@ -196,6 +196,70 @@ typedef struct {
 module AP_MODULE_DECLARE_DATA ucam_webauth_module;
 
 /* Utility routines */
+
+/* --- */
+
+static char *
+escape_url(apr_pool_t *p,
+	   const char *from)
+
+{
+
+  static char safechars[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "01234567890-_.!~*'()";
+
+  char *to = (char*)ap_pcalloc(p,(strlen(from)*3)+1);
+  char *ptr;
+  
+  ptr = to;
+
+  while (*from != '\0') {
+    if (*from == ' ') {
+      *(ptr++) = '+';
+    }
+    else if (strchr(safechars,*from)) {
+      *(ptr++) = *from; 
+    }
+    else {
+      sprintf(ptr, "%%%02x", (int)*from);
+      ptr+=3;
+    }
+    ++from;
+  }
+  *ptr = '\0';
+
+  return to;
+}
+
+/* --- */
+
+static char *
+escape_sig(apr_pool_t *p,
+	   const char *from)
+
+{
+
+  char *to = (char*)ap_pcalloc(p,(strlen(from)*3)+1);
+  char *ptr;
+  
+  ptr = to;
+
+  while (*from != '\0') {
+    if (*from == '%' || *from == '!') {
+      sprintf(ptr, "%%%02x", (int)*from);
+      ptr+=3;
+    }
+    else {
+      *(ptr++) = *from; 
+    }
+    ++from;
+  }
+  *ptr = '\0';
+
+  return to;
+}
 
 /* --- */
 /* modified base64 encoding */
@@ -503,7 +567,7 @@ set_cookie(request_rec *r,
   } else {
     cookie = apr_pstrcat(r->pool, 
 			 full_cookie_name(r, c->cookie_name), 
-			 "=", value,
+			 "=", escape_url(r->pool,value),
 			 "; path=", 
 			 c->cookie_path, NULL);
   }
@@ -680,17 +744,17 @@ cookie_check_sig_string(request_rec *r,
   
   return apr_pstrcat
     (r->pool,
-     apr_table_get(cookie, "ver"), "!",
-     apr_table_get(cookie, "status"), "!",
-     apr_table_get(cookie, "msg"), "!",
-     apr_table_get(cookie, "issue"), "!",
-     apr_table_get(cookie, "last"), "!",
-     apr_table_get(cookie, "life"), "!",
-     apr_table_get(cookie, "id"), "!",
-     apr_table_get(cookie, "principal"), "!",
-     apr_table_get(cookie, "auth"), "!",
-     apr_table_get(cookie, "sso"), "!",
-     apr_table_get(cookie, "params"), 
+     escape_sig(r->pool,apr_table_get(cookie, "ver")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "status")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "msg")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "issue")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "last")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "life")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "id")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "principal")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
+     escape_sig(r->pool,apr_table_get(cookie, "params")), 
      NULL);
   
 }
@@ -703,17 +767,17 @@ wls_response_check_sig_string(request_rec *r,
 
   return apr_pstrcat
     (r->pool,
-     apr_table_get(wls_response, "ver"), "!",
-     apr_table_get(wls_response, "status"), "!",
-     apr_table_get(wls_response, "msg"), "!",
-     apr_table_get(wls_response, "issue"), "!",
-     apr_table_get(wls_response, "id"), "!",
-     apr_table_get(wls_response, "url"), "!",
-     apr_table_get(wls_response, "principal"), "!",
-     apr_table_get(wls_response, "auth"), "!",
-     apr_table_get(wls_response, "sso"), "!",
-     apr_table_get(wls_response, "life"), "!",
-     apr_table_get(wls_response, "params"), 
+     escape_sig(r->pool,apr_table_get(wls_response, "ver")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "status")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "msg")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "issue")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "id")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "url")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "principal")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
+     escape_sig(r->pool,apr_table_get(wls_response, "params")), 
      NULL);
 
 }
@@ -727,49 +791,62 @@ unwrap_wls_token(request_rec *r,
 {
   
   const char *pair;
+  char *word;
   apr_table_t *wls_token;
   pair = token_str;
   wls_token = (apr_table_t *)apr_table_make(r->pool, 11);
   
-  apr_table_set(wls_token, 
-		"ver", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"status", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"msg", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"issue", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"id", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"url", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"principal", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"auth", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"sso", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"life", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"params", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"kid", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(wls_token, 
-		"sig", 
-		(const char *)ap_getword_nulls(r->pool, &pair, '!'));
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"ver",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"status",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"msg",word); 
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"issue",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"id",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"url",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"principal",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);  
+  apr_table_set(wls_token,"auth",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"sso",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"life",word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"params",word); 
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"kid",word); 
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"sig",word); 
   
   return wls_token;
 
@@ -804,6 +881,7 @@ get_cookie_str(request_rec *r,
     
     if (strcmp(name, cookie_name) == 0) {
       APACHE_LOG_ERROR(APLOG_DEBUG, "found cookie match!");
+      ap_unescape_url((char*)pair);
       return (char *)pair;
     }
   }
@@ -820,24 +898,62 @@ make_cookie_table(request_rec *r,
 {
 
   const char *pair;
+  char *word;
   apr_table_t *cookie;
   pair = cookie_str;
   cookie = (apr_table_t *)apr_table_make(r->pool, 11);
   
-  apr_table_set(cookie, "ver", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "status", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "msg", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "issue", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "last", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "life", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "id", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "principal", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "auth", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "sso", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "params", ap_getword_nulls(r->pool, &pair, '!'));
-  apr_table_set(cookie, "key", ap_getword_nulls(r->pool, &pair, '!')); 
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "ver", word);
+  
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "status", word);
 
-  apr_table_set(cookie, "sig", ap_getword_nulls(r->pool, &pair, '!'));
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "msg", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "issue", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "last", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "life", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "id", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "principal", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "auth", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "sso", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "params", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "key", word);
+
+  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  ap_unescape_url(word);
+  apr_table_set(cookie, "sig", word);
 
   return cookie;
 
@@ -864,7 +980,7 @@ make_cookie_str(request_rec *r,
      SHA1_sign(r, c, cookie_str),
      NULL);
   
-  cookie_str = ap_escape_uri(r->pool, cookie_str);
+  cookie_str = escape_url(r->pool, cookie_str);
 
   APACHE_LOG_ERROR(APLOG_DEBUG, "make_cookie_str: result = %s", cookie_str); 
   return cookie_str;
@@ -1092,8 +1208,6 @@ webauth_create_dir_config(apr_pool_t *p,
   
   mod_ucam_webauth_cfg *cfg;
 
-  fprintf(stderr,"Doing create: %s", path);
-
   cfg = 
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg));
   cfg->auth_service = NULL;
@@ -1148,12 +1262,6 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->inactive_timeout : base->inactive_timeout;
   merged->clock_skew = new->clock_skew != -1 ? 
     new->clock_skew : base->clock_skew;
-  
-  fprintf(stderr,"Merging: base %s", 
-    base->key_dir == NULL ? "<NULL>" : base->key_dir);
-  fprintf(stderr,"Merging: new %s", 
-    new->key_dir == NULL ? "<NULL>" : base->key_dir);
-
   merged->key_dir = new->key_dir != NULL ? 
     new->key_dir : base->key_dir;
   merged->max_session_life = new->max_session_life != -1 ? 
@@ -1654,8 +1762,6 @@ webauth_authn(request_rec *r)
   if (old_cookie_str != NULL && strcmp(old_cookie_str, TESTSTRING) != 0) {
     APACHE_LOG_ERROR(APLOG_INFO, "found existing authentication cookie");
 
-    ap_unescape_url(old_cookie_str);
-
     APACHE_LOG_ERROR(APLOG_DEBUG, "cookie str = %s", old_cookie_str);
     
     old_cookie = make_cookie_table(r, old_cookie_str);
@@ -2068,7 +2174,7 @@ webauth_authn(request_rec *r)
   
   request = apr_pstrcat(r->pool,
 			"ver=", PROTOCOL_VERSION,
-			"&url=", get_url(r),
+			"&url=", escape_url(r->pool,get_url(r)),
 			"&date=", 
 			iso2_time_encode(r, apr_time_now()),
 			NULL);
@@ -2076,14 +2182,13 @@ webauth_authn(request_rec *r)
   if (c->description != NULL)
     request = apr_pstrcat(r->pool, 
 			  request, 
-			  "&desc=", c->description, 
+			  "&desc=", escape_url(r->pool,c->description), 
 			  NULL);
   
   if (timeout_msg != NULL)
     request = apr_pstrcat(r->pool, 
 			  request, 
-			  "&msg=", 
-			  c->timeout_msg, 
+			  "&msg=", escape_url(r->pool,c->timeout_msg), 
 			  NULL);
   
   if (c->fail == 1)
@@ -2095,7 +2200,7 @@ webauth_authn(request_rec *r)
   request = apr_pstrcat(r->pool,
 			c->auth_service, 
 			"?",
-			ap_escape_uri(r->pool, request),
+			request,
 			NULL);
   
   APACHE_LOG_ERROR(APLOG_DEBUG, "request = %s", request);
