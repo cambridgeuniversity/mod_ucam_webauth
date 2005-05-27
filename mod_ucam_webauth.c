@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.59 2005-03-22 11:30:57 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.60 2005-05-27 13:36:20 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.1.0"
+#define VERSION "1.1.0pre1.2.0"
 
 /*
 MODULE-DEFINITION-START
@@ -1841,6 +1841,9 @@ decode_cookie(request_rec *r,
   apr_table_set(r->subprocess_env, 
 		"AASSO", 
 		apr_table_get(cookie, "sso"));
+
+  apr_table_add(r->headers_in, "X-AAPrinciple", 
+		apr_table_get(cookie, "principal"));
   
   /* set a custom HTTP_UNAUTHORIZED page if there isn't one already
      because the default Apache one if misleading in a Ucam WebAuth
