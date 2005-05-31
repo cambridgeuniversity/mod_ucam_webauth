@@ -1,3 +1,31 @@
+1.2.0 - 2005-05-31 jw
+
+ Enhancements
+
+ . Made it possible to include authentication information as HTTP
+   headers in the request being processed. While of limited use on a
+   single server (identical information is available in environment
+   variables) this functionality can be useful where authentication is
+   performed on one machine and the request subsequently proxied to
+   another. This represents one way in which the authentication
+   provided by mod_ucam_webauth can be exploited on a webserver other
+   than Apache. See the documentation for AAHeaders and AAHeaderKey
+   for details.
+
+ . Updated documentation
+
+ Bugs fixed
+
+ . Removed duplicated 'site' from default timeout message
+
+ . Under some circumstances when servers were running on default ports
+   a zero was incorrectly added to the end of the cookie name.
+
+ . Cosmetic fix to the debug message dumping AACookieKey
+
+ . Restored debug dumping of configuration data when processing
+   authentication.
+
 1.1.0 - 2005-03-22 jw
 
 No code changes - assorted comment and text alterations to make it clear

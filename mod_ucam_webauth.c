@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.60 2005-05-27 13:36:20 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.61 2005-05-31 13:45:50 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.1.0pre1.2.0"
+#define VERSION "1.2.0"
 
 /*
 MODULE-DEFINITION-START
@@ -91,6 +91,18 @@ MODULE-DEFINITION-END
 #define CC_ON       1
 #define CC_PARANOID 2
 
+#define HDR_NONE        0
+#define HDR_ISSUE       1
+#define HDR_LAST        2
+#define HDR_LIFE        4
+#define HDR_TIMEOUT     8
+#define HDR_ID         16
+#define HDR_PRINCIPAL  32
+#define HDR_AUTH       64
+#define HDR_SSO       128
+#define HDR_ALL       (HDR_NONE | HDR_ISSUE | HDR_LAST | HDR_LIFE \
+    | HDR_TIMEOUT | HDR_ID | HDR_PRINCIPAL | HDR_AUTH | HDR_SSO)
+
 /* default parameters */
 
 #define DEFAULT_auth_service     \
@@ -103,7 +115,7 @@ MODULE-DEFINITION-END
 #define DEFAULT_key_dir          "conf/webauth_keys"
 #define DEFAULT_max_session_life 7200
 #define DEFAULT_inactive_timeout 0
-#define DEFAULT_timeout_msg      "your session on the site site has expired"
+#define DEFAULT_timeout_msg      "your session on the site has expired"
 #define DEFAULT_cache_control    CC_ON
 #define DEFAULT_cookie_key       NULL
 #define DEFAULT_cookie_name      "Ucam-WebAuth-Session"
@@ -115,6 +127,8 @@ MODULE-DEFINITION-END
 #define DEFAULT_no_cookie_msg    NULL
 #define DEFAULT_logout_msg       NULL
 #define DEFAULT_always_decode    0
+#define DEFAULT_headers          HDR_NONE
+#define DEFAULT_header_key       NULL
 
 /* module configuration structure */
 
@@ -139,6 +153,8 @@ typedef struct {
   char *no_cookie_msg;
   char *logout_msg;
   int   always_decode;
+  int   headers;
+  char *header_key;
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
@@ -215,6 +231,8 @@ typedef struct {
   {name, func, data, override, TAKE1, errmsg}
 #define AP_INIT_FLAG(name, func, data, override, errmsg) \
   {name, func, data, override, FLAG, errmsg}
+#define AP_INIT_RAW_ARGS(name, func, data, override, errmsg) \
+  {name, func, data, override, RAW_ARGS, errmsg}
 
 #endif
 
@@ -577,7 +595,8 @@ full_cookie_name(request_rec *r,
   int https = using_https(r);
   int port = r->server->port;
   
-  if ((https && port != 443) || (!https && port != 80)) {
+  if (port > 0 && 
+      ((https && port != 443) || (!https && port != 80))) {
     name = apr_psprintf(r->pool,"%s-%d",name,port);
   }
 
@@ -1290,6 +1309,8 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
   cfg->always_decode = -1;
+  cfg->headers = -1;
+  cfg->header_key = NULL;  
   return (void *)cfg;
 
 }
@@ -1350,6 +1371,10 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->logout_msg : base->logout_msg;
   merged->always_decode = new->always_decode != -1 ? 
     new->always_decode : base->always_decode;
+  merged->headers = new->headers != -1 ? 
+    new->headers : base->headers;
+  merged->header_key = new->header_key != NULL ? 
+    new->header_key : base->header_key;
 
   return (void *)merged;
 
@@ -1407,6 +1432,10 @@ apply_config_defaults(request_rec *r,
       DEFAULT_logout_msg;
   n->always_decode = c->always_decode != -1 ? c->always_decode :
       DEFAULT_always_decode;
+  n->headers = c->headers != -1 ? c->headers :
+      DEFAULT_headers;
+  n->header_key = c->header_key != NULL ? c->header_key : 
+      DEFAULT_header_key; 
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
@@ -1488,7 +1517,7 @@ dump_config(request_rec *r,
       APACHE_LOG0(APLOG_DEBUG, "  AACookieKey       = NULL");
     } else {
       APACHE_LOG2(APLOG_DEBUG, 
-	    "  AACookieKey       = %4.4s... (truncated, %d characters total)", 
+	    "  AACookieKey       = %-.4s... (%d characters total)", 
 		  c->cookie_key, strlen(c->cookie_key));
     }
     
@@ -1518,7 +1547,35 @@ dump_config(request_rec *r,
     
     APACHE_LOG1(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
 		c->always_decode);
-  
+
+    msg = "";
+    if (c->headers & HDR_ISSUE)
+      msg = apr_pstrcat(r->pool, msg, "Issue ", NULL);      
+    if (c->headers & HDR_LAST)
+      msg = apr_pstrcat(r->pool, msg, "Last ", NULL); 
+    if (c->headers & HDR_LIFE)
+      msg = apr_pstrcat(r->pool, msg, "Life ", NULL); 
+    if (c->headers & HDR_TIMEOUT)
+      msg = apr_pstrcat(r->pool, msg, "Timeout ", NULL);
+    if (c->headers & HDR_ID)
+      msg = apr_pstrcat(r->pool, msg, "ID ", NULL); 
+    if (c->headers & HDR_PRINCIPAL)
+      msg = apr_pstrcat(r->pool, msg, "Principle ", NULL); 
+    if (c->headers & HDR_AUTH)
+      msg = apr_pstrcat(r->pool, msg, "Auth ", NULL); 
+    if (c->headers & HDR_SSO)
+      msg = apr_pstrcat(r->pool, msg, "SSO", NULL);
+    APACHE_LOG1(APLOG_DEBUG, "  AAHeaders         = %s",
+		msg);
+
+    if (c->header_key == NULL) {
+      APACHE_LOG0(APLOG_DEBUG, "  AAHeaderKey       = NULL");
+    } else {
+      APACHE_LOG2(APLOG_DEBUG, 
+	    "  AAHeaderKey       = %-.4s... (%d characters total)", 
+		  c->header_key, strlen(c->header_key));
+    }
+
   }
 
 }
@@ -1658,9 +1715,103 @@ set_log_level(cmd_parms *cmd,
   
 }
 
+/* --- */
+
+static const char *
+set_headers(cmd_parms *cmd, 
+	    void *mconfig, 
+	    const char *arg) 
+     
+{
+  
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+  
+  cfg->headers = HDR_NONE;
+
+  while (arg[0]) {
+
+    char *word = ap_getword_conf(cmd->pool, &arg);
+
+    if (!strcasecmp(word, "Issue")) {
+      cfg->headers |= HDR_ISSUE;
+    }
+    else if (!strcasecmp(word, "Last")) {
+      cfg->headers |= HDR_LAST;
+    }
+    else if (!strcasecmp(word, "Life")) {
+      cfg->headers |= HDR_LIFE;
+    }
+    else if (!strcasecmp(word, "Timeout")) {
+      cfg->headers |= HDR_TIMEOUT;
+    }
+    else if (!strcasecmp(word, "ID")) {
+      cfg->headers |= HDR_ID;
+    }
+    else if (!strcasecmp(word, "Principle")) {
+      cfg->headers |= HDR_PRINCIPAL;
+    }
+    else if (!strcasecmp(word, "Auth")) {
+      cfg->headers |= HDR_AUTH;
+    }
+    else if (!strcasecmp(word, "SSO")) {
+      cfg->headers |= HDR_SSO;
+    }
+    else if (!strcasecmp(word, "All")) {
+      cfg->headers = HDR_ALL;
+    }
+    else if (!strcasecmp(word, "none")) {
+      cfg->headers = HDR_NONE;
+    }
+    else {
+      return "AAHeaders: unrecognised keyword - "
+	"expecting one or more of 'Issue', 'Last', 'Life', 'Timeout', "
+	"'ID', 'Principle', 'Auth', 'SSO', 'All', or 'None'";
+    }
+  }
+  
+  return NULL;
+  
+}
+
 /* ---------------------------------------------------------------------- */
 
 /* Handler logic */
+
+static char *
+add_hash(request_rec *r, 
+	 const char *data,
+	 char *key)
+
+{
+
+  unsigned char *hash = 
+    (unsigned char *)apr_pcalloc(r->pool, EVP_MAX_MD_SIZE + 1);
+  char *string, *encoded;
+  unsigned int raw_len, enc_len;
+
+  /* Do nothing if the key is 'none' */
+
+  APACHE_LOG1(APLOG_DEBUG, "add_hash: data = %s", data); 
+
+  if (!strcasecmp(key,"none"))
+      return (char *)data;
+
+  /* otherwise create the HMAC and encode it */
+
+  string = apr_pstrcat(r->pool, data, key, NULL);
+
+  HMAC(EVP_sha1(), key, strlen(key), 
+       (const unsigned char *)string, strlen(string), hash, &raw_len);
+
+  encoded = (char*)apr_palloc(r->pool, 1+apr_base64_encode_len(raw_len));
+  enc_len = apr_base64_encode(encoded, (const char*)hash, raw_len);
+  encoded[enc_len] = '\0';
+
+  APACHE_LOG1(APLOG_DEBUG, "hash = %s", encoded);
+
+  return apr_pstrcat(r->pool, encoded, " ", data, NULL);
+
+}
 
 /* --- */
 
@@ -1670,7 +1821,7 @@ decode_cookie(request_rec *r,
 
 {
 
-  char *cookie_str, *new_cookie_str;
+  char *cookie_str, *new_cookie_str, *hkey;
   int life, cookie_verify;
   apr_table_t *cookie;
   apr_time_t issue, last, now;
@@ -1842,8 +1993,42 @@ decode_cookie(request_rec *r,
 		"AASSO", 
 		apr_table_get(cookie, "sso"));
 
-  apr_table_add(r->headers_in, "X-AAPrinciple", 
-		apr_table_get(cookie, "principal"));
+  /* Add additional headers */
+
+  if (c->headers != HDR_NONE) {
+
+    hkey = c->header_key;
+    if (!hkey) {
+      APACHE_LOG0(APLOG_ERR, "AAHeaders used but AAHeaderKey not set"); 
+      return HTTP_INTERNAL_SERVER_ERROR;
+    }
+      
+    if (c->headers & HDR_ISSUE)
+      apr_table_set(r->headers_in, "X-AAIssue", 
+		    add_hash(r,apr_table_get(cookie, "issue"),hkey));
+    if (c->headers & HDR_LAST)
+      apr_table_set(r->headers_in, "X-AAlast", 
+		    add_hash(r,apr_table_get(cookie, "last"),hkey));
+    if (c->headers & HDR_LIFE)
+      apr_table_set(r->headers_in, "X-AALife", 
+		    add_hash(r,apr_table_get(cookie, "life"),hkey));
+    if (c->headers & HDR_TIMEOUT)
+      apr_table_set(r->headers_in, "X-AATimeout", 
+	      add_hash(r,apr_psprintf(r->pool,"%d",c->inactive_timeout),hkey));
+    if (c->headers & HDR_ID)
+      apr_table_set(r->headers_in, "X-AAID", 
+		    add_hash(r,apr_table_get(cookie, "id"),hkey));
+    if (c->headers & HDR_PRINCIPAL)
+      apr_table_set(r->headers_in, "X-AAPrincipal", 
+		    add_hash(r,apr_table_get(cookie, "principal"),hkey));
+    if (c->headers & HDR_AUTH)
+      apr_table_set(r->headers_in, "X-AAAuth", 
+		    add_hash(r,apr_table_get(cookie, "auth"),hkey));
+    if (c->headers & HDR_SSO)
+      apr_table_set(r->headers_in, "X-AASSO", 
+		    add_hash(r,apr_table_get(cookie, "sso"),hkey));
+
+  }
   
   /* set a custom HTTP_UNAUTHORIZED page if there isn't one already
      because the default Apache one if misleading in a Ucam WebAuth
@@ -2299,6 +2484,8 @@ webauth_authn(request_rec *r)
   c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
+
+  dump_config(r,c);
   
   cache_control(r,c->cache_control);
 
@@ -2626,6 +2813,19 @@ static const command_rec webauth_commands[] = {
 	       "either 'on' or 'off'; "
 	       "session cookies are always decoded"),
 
+  AP_INIT_RAW_ARGS("AAHeaders", 
+		   set_headers, 
+		   NULL,
+		   RSRC_CONF | OR_AUTHCFG,
+		   "a list of additional headers to include in the request"),
+
+  AP_INIT_TAKE1("AAHeaderKey", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,header_key), 
+		RSRC_CONF | OR_AUTHCFG,
+		"the secret key for additional headers (required)"),
+  
   {NULL}
 
 };

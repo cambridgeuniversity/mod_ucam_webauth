@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.1.0
-$Id: README,v 1.20 2005-03-22 11:30:56 jw35 Exp $
+Current with version 1.2.0
+$Id: README,v 1.21 2005-05-31 13:45:50 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -26,14 +26,15 @@ found at:
 
   https://raven.cam.ac.uk/project/apache/ 
 
-The module supports versions 1.3 and 2 of Apache. If you have an
-existing Apache installation and are unsure of the version you can use:
+The module can be built from the same source for versions 1.3 and 2 of
+Apache.  If you have an existing Apache installation and are unsure of
+the version you can use:
 
   httpd -v
 
 to determine your installed version. [If the directory containing
 httpd is not on you default path you will need to replace 'httpd' with
-the full path of the program]
+the full path of the program].
 
 mod_ucam_webauth's operation is quite complex (see other documentation
 on Ucam-Webauth) but a normal sequence goes:
@@ -95,9 +96,9 @@ files.
 2.2. RSA Public Keys
 --------------------
 
-The module uses RSA public key cryptography to verify that messages
-from the WLS really were sent by it and are not some attempt by a
-third-party to gain access to protected resources.
+The module uses RSA public key cryptography to verify that WLS
+response messages were sent by the trusted WLS and are not some
+attempt by a third-party to gain access to protected resources.
 
 For the Raven service the public keys required are available from
 https://raven.cam.ac.uk/project/keys/ By default the module expects to
@@ -112,14 +113,13 @@ the compiled-in value of ServerRoot for your copy of Apache by using
 
 [as with httpd above, if the directory containing apxs is not on you
 default path you will need to replace 'apxs' with the full path of the
-program; in some environments apxs is renamed, for example to apxs2]
+program; in some environments apxs is renamed, for example to apxs2].
 
 However, the compiled-in value can be overridden both on the command
 line used to start Apache and in the configuration file. If all else
 fails, trying to use the module with no keys installed will result in
 an error message in the server's error log which includes the expected
-path to the keys. The location of the keys can also be explicitly
-configured - see AAKeyPath under 'Configuration Directives' below.
+path to the keys.
 
 The names of the key files should not be changed - beware that they
 have no filename suffix but that some browsers may add .txt or similar
@@ -128,18 +128,18 @@ when downloading them.
 2.3 Timekeeping
 ---------------
 
-The protocol used to communicate between the module and the central
-ucam-webauth servers requires that both have access to accurate time
-values. Central ucam-webauth servers use NTP (Network Time Protocol)
-to set their clocks. Providing the server using the module also has an
+The protocol used to communicate between the module and the WLS server
+requires that both have access to accurate time values. Central
+ucam-webauth servers use NTP (Network Time Protocol) to set their
+clocks. Providing the server using the module also has an
 NTP-synchronised clock (and in general they should for other reasons)
 then the default values for the time-related parameters in the module
-should be fine. 
+should be fine.
 
 If the server doesn't use NTP than the AAClockSkew configuration
 directive (see below) _must_ be used to provide an estimate of the
 maximum possible error in the server's clock. Error messages
-containing the text 'local clock incorrect?'  are likely if this
+containing the text 'local clock incorrect?' are likely if this
 parameter is not used on a server that needs it.
 
 3. Configuration 
@@ -184,7 +184,7 @@ various ways that the 'require' directive can be used.
 
 [Prior to version 1.0.0, AuthType was specified as 'WebAuth'. This is
 still accepted as an alternative but is deprecated and may not be
-supported in the future]
+supported in the future].
 
 The AACookieKey directive is required. It provides data used to sign
 and verify the session cookie, providing detection of any
@@ -193,7 +193,7 @@ some random string and the value must be protected since with
 knowledge of the key an attacker can forge authentication. Since
 Apache configuration files are often readable by any user of the
 system hosting the web server it can be a good idea to put the
-AACookieKey directive in a file of it's own, protect it so that it can
+AACookieKey directive in a file of its own, protect it so that it can
 only be read by the user used to start Apache (commonly root), and
 then use an Include directive to incorporate it in the main
 configuration file.
@@ -203,7 +203,7 @@ to the resources to users with a Ucam-WebAuth login or to client
 computers with hostnames ending cam.ac.uk but not otherwise:
 
   AACookieKey "some random string"
-  <Directory "path to proteted directory">
+  <Directory "path to protected directory">
     Order allow,deny
     Allow from .cam.ac.uk
     AuthType Ucam-WebAuth
@@ -214,8 +214,8 @@ computers with hostnames ending cam.ac.uk but not otherwise:
 In these examples the resources to be protected are selected by a
 <Directory> directive; resources specified by <Location> or <Files>
 directives can also be protected. 'AuthType' must be set to
-'Ucam-WebAuth'. A 'Require' directive must also before authentication
-will take place.
+'Ucam-WebAuth'. A 'Require' directive must also appear before
+authentication will take place.
 
 3.1. Configuration Directives
 -----------------------------
@@ -549,6 +549,76 @@ AAAlwaysDecode
   already authenticated, and if so who they are, by inspecting the
   REMOTE_USER environment variable.
 
+AAHeaders
+
+  Syntax:   AAHeaders all | none | item[ item...]
+  Default   AAHeader none
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  Following successful authentication, the module can make various
+  items of authentication information (see 3.2. Authentication
+  Information below for details) available as if they had appeared in
+  the HTTP headers of the request being processed. While of limited
+  use on a single server (identical information is available in
+  environment variables) this functionality can be useful where
+  authentication is performed on one machine and Apache mod_proxy
+  functionality is then used to forward the request to a different
+  machine. In this case the new headers will be forwarded with the
+  request. This represents one way in which the authentication
+  provided by mod_ucam_webauth can be exploited on a webserver other
+  than Apache.
+
+  This directive should either be followed by a space separated list
+  of the authentication items (see below) to include as headers, or by
+  the word 'all' to include all possible items, or by the word 'none'
+  to include none. The arguments to the directive are interpreted
+  case-insensitively. Each use of the directive sets the entire list of
+  items to include - individual items are not inherited and the
+  directive does not support the '+/-' syntax used by standard
+  directives like Options.
+
+  For each item requested, a header will be added to the current
+  request. Its name will be formed from the item name by appending
+  'X-AA' - for example the directive 'AAHeader principal' will add a
+  header called 'X-AAPrincipal'. The value of the header will consist
+  of a cryptographic hash, a single space, and the value of the
+  corresponding item. The hash will be a BASE64 SHA-1 based RFC2104
+  HMAC of the concatenation of the value and the secret set by
+  AAHeaderKey, in that order. The addition of the hash and the
+  separating space can be suppressed by setting AAHeaderKey to
+  'none'. The addition of the cryptographic hash makes it possible for
+  a system receiving such a header to know with some confidence that
+  the header came from a particular mod_ucam_webauth module and not,
+  as a result of exploitation of one of a number of possible
+  misconfigurations, direct from an attacker.
+
+AAHeaderKey
+
+  Syntax:   AAHeaderKey "text" | none
+  Context:  all
+  Override: AuthConfig
+  Module:   mod_ucam_webauth
+
+  A random key used to generate the cryptographic hash used to protect
+  the values of headers added by AAHeaders from tampering and forgery.
+  Any reasonably unpredictable string (for example an md5sum taken
+  from a rapidly changing logfile) will be satisfactory.  This
+  parameter has no default and must be set anytime AAHeaders has a
+  value other than none. It can be set to the (case-insensitive)
+  string 'none' in which case no hash generation will take place.
+
+  Knowledge of this key could allow an attacker to forge a request
+  containing what appear to be header values set by this module.  As
+  with AACookieKey, for preference this directive should be placed in a
+  file that is only readable by the user used to start Apache,
+  commonly root. One way to achieve this, while leaving the main
+  configuration file mainly readable, would be to put the AACookieKey
+  directive in a file only readable by root (or whoever) that is
+  incorporated into the main configuration using the 'Include'
+  directive.
+
 Versions of the module prior to 1.0.0 supported the AALogLevel
 directive. Support for this has been withdrawn - at present any use of
 this directive causes a warning to be logged; in due course use of
@@ -560,15 +630,25 @@ this directive will be treated as an error.
 Following a successful authentication, Apache's internal view of
 current user is set to that provided by the authentication service. As
 a result this value can be logged using the '%u' log format token
-(which is by default the third entry in 'Common Log Format'), and will
-appear as the value of the environment variable REMOTE_USER in the
-environment of CGI programs, SSI pages, etc.
- 
-The module also provides the following additional environment
-variables. If required, these variables can also be logged using the
-'%{...}e' log format token.
+(which is the third entry in 'Common Log Format'), and will appear as
+the value of the environment variable REMOTE_USER in the environment
+of CGI programs, SSI pages, etc.
 
-AAISSUE
+Other items of authentication information are made available as
+environment variables, and optionally as HTTP headers (see the
+AAHeaders directive). If required, these items can be logged using the
+log format tokens '%{...}e' (for environment variables) or %{...}i'
+(for header values).
+
+Environment variable names are formed by prepending 'AA' to an
+upper-case version of the item name; header names are formed from the
+item name by appending 'X-AA'. For example, the ID of the current user
+will be available in the environment variable 'AAPRINCIPAL' and
+optionally in the header 'X-AAPrincipal'.
+
+Available authentication information:
+
+issue
 
   The time/date at which the current authentication session started.
   This date/time is in the format similar to that specified by RFC
@@ -576,37 +656,37 @@ AAISSUE
   omitted e.g. "19850412T232050Z" would be 23:20:50 on 12th April
   1985.
 
-AALAST
+last
 
   The time/date of the last recorded activity by the user. Note that
   his will be the same as AAISSUE unless inactivity timeouts are in
   use.  This date/time is in the same format as AAISSUE.
 
-AALIFE
+life
 
   The maximum lifetime of the current authentication, in seconds.
 
-AATIMEOUT
+timeout
 
   The inactivity timeout currently in force, in seconds. 0 implies
   that inactivity timeouts are not in use.
 
-AAID
+id
 
   The identifier (serial number) of the WLS response on which the
   users authentication is based.
 
-AAPRINCIPAL
+principal
 
   Same as REMOTE_USER
 
-AAAUTH
+auth
 
   This indicates which authentication type was used if authentication
   was established by interaction with the user. This value consists of
   a single text token. The only value currently in use is 'pwd'.
 
-AASSO
+sso
 
   This indicates which authentication types were previously used if
   authentication was established based on previous successful
@@ -717,6 +797,13 @@ AACookiePath %s is not a prefix of %s
   involving the scope of a <Location ...> or <Directory ...> block, or
   .htaccess file, and an AACookiePath directive. The user will have
   received a '500 Server error' message
+
+AAHeaders used but AAHeaderKey not set
+
+  (E) The AAHeaderKey directive must be used to set a key if the
+  AAHeaders directive has a value other than 'none': there is no
+  default and any requests for which AAHeaderKey us unset will fail.
+  The user will have received a '500 Server error' message.
 
 Access to %s failed: AACookieKey not defined 
 
