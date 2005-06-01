@@ -1,18 +1,25 @@
 # Detect distribution
+
+%define apache2_package httpd
+%define apache2_devel httpd-devel
+%define apxs %{_sbindir}/apxs
+
 %if %(rpm --quiet -q suse-release && echo 1 || echo 0) == 1
-  %define dist_tag %(rpm -q --queryformat='suse%{VERSION}' suse-release | sed -e's/\\.//g')
+  %define ver %(rpm -q --queryformat='%{VERSION}' suse-release | sed -e's/\\.//g')
+  %define dist_tag suse%{ver}
   %define apache2_package apache2
+  %define apache2_devel apache2-devel
   %define apxs %{_sbindir}/apxs2
+  %if %{ver} >= 93
+    %define apache2_package apache2-prefork
+    %define apxs %{_sbindir}/apxs2-prefork
+  %endif
 %endif
 %if %(rpm --quiet -q redhat-release && echo 1 || echo 0) == 1
   %define dist_tag %(rpm -q --queryformat='rh%{VERSION}' redhat-release| sed -e's/\\.//g')
-  %define apache2_package httpd
-  %define apxs %{_sbindir}/apxs
 %endif
 %if %(rpm --quiet -q fedora-release && echo 1 || echo 0) == 1
   %define dist_tag %(rpm -q --queryformat='fc%{VERSION}' fedora-release | sed -e's/\\.//g')
-  %define apache2_package httpd
-  %define apxs %{_sbindir}/apxs
 %endif
 %{!?dist_tag: %{error: ERROR: *** Unsupported distribution ***}}
 %{echo: Building for %{dist_tag}}
@@ -23,14 +30,14 @@
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
 Version: 1.2.0
-Release: 1
+Release: 2
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
 Source: mod_ucam_webauth-%{version}.tar.gz
 License: LGPL
 BuildRoot: %{_tmppath}/%{name}-root
-BuildPrereq: %{apache2_package}-devel, openssl-devel
+BuildPrereq: %{apache2_devel}, openssl-devel
 Requires: %{apache2_package}, openssl
 
 %description
@@ -61,6 +68,9 @@ make install APXS=%{apxs} SUFFIX=la \
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Wed Jun 01 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-2
+- spec file updated to build on SuSE 9.3 for prefork MPM (only)
+
 * Tue May 31 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-1
 - Updated for 1.2.0
 
