@@ -1,3 +1,16 @@
+1.2.1 - 2005-06-02 jw
+
+ Enhancements
+
+ . Added README.Platforms containing platform-specific notes
+
+ . Enhanced the included '.spec' files, and hence the RPMs containing
+   the module, to create a directory in the right place to contain the
+   public keys needed by the module. For SuSE linux, this directory is
+   created as /etc/httpd/webauth_keys/ and a symlink pointing to it
+   created in the true 'default' location of
+   /srv/www/conf/webauth_keys/
+
 1.2.0 - 2005-05-31 jw
 
  Enhancements

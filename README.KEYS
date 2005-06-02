@@ -1,0 +1,12 @@
+This directory is the location in which the Apache mod_ucam_webauth
+module expects by default to find the public key(s) used to verify
+authentication responses. This location can be changed using the
+AAKeyDir configuration directive.
+
+For the University of Cambridge Raven service, the current keys can be
+collected from
+
+  https://raven.cam.ac.uk/project/keys/
+
+mod_ucam_webauth uses only the PEM formated PKCS#1 format files
+(stored in files named pubkey<n>).

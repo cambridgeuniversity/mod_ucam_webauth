@@ -4,14 +4,16 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.2.0
-$Id: README,v 1.21 2005-05-31 13:45:50 jw35 Exp $
+Current with version 1.2.1
+$Id: README,v 1.22 2005-06-02 13:14:19 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
 follows) allows Apache to use the Cambridge Web Authentication System
 (Ucam-Webauth) to identify users. Within the University, such a system
 is provided by Raven: http://raven.cam.ac.uk.
+
+See also README.Platforms for platform-specific notes.
 
 1. Introduction
 ===============

@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.61 2005-05-31 13:45:50 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.62 2005-06-02 13:14:21 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.2.0"
+#define VERSION "1.2.1"
 
 /*
 MODULE-DEFINITION-START

@@ -1,0 +1,173 @@
+Notes about deploying mod_ucam_webauth
+======================================
+
+Platform-specific notes for mod_ucam_webauth
+
+$Id: README.Platforms,v 1.1 2005-06-02 13:14:20 jw35 Exp $
+
+
+
+Apache version 1.3
+==================
+
+
+Apache1 on SuSE Linux 9.0, SLES, OES
+------------------------------------
+
+apxs is installed as /usr/sbin/apxs
+
+Apache runs with a ServerRoot of /srv/www/
+
+The module is installed into /usr/lib/apache/. It should be loaded
+with a LoadModule line in httpd.conf or otherwise in a file included
+into httpd.conf:
+
+  LoadModule ucam_webauth_module /usr/lib/apache/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /srv/www/conf/webauth_keys/
+
+It might be better to use the AAKeyDir directive to relocate this to
+something like /etc/httpd/webauth_keys/. The SuSE RPMs will by default
+create /etc/apache2/webauth_keys/ and will make
+/srv/www/conf/webauth_keys a symlink to it.
+
+Apache logs are stored in /var/log/httpd/
+
+
+Apache on MacOS (10.3, possibly others)
+---------------------------------------
+
+See also http://bigmac.csi.cam.ac.uk/~darranbryant/Homepage/ravenonOSX.htm
+
+apxs is installed as /usr/sbin/apxs
+
+Apache appears to run with a ServerRoot of /usr/
+
+The module is installed into /usr/libexec/httpd/. It should be loaded
+with a LoadModule line in httpd.conf or otherwise in a file included
+into httpd.conf:
+
+  LoadModule ucam_webauth_module libexec/httpd/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /usr/conf/webauth_keys/
+
+Apache logs are stored at /private/var/log/httpd
+
+
+Apache1 on Windows (Apache project binary install)
+--------------------------------------------------
+
+See also README.WIN32
+
+By default, the Apache project binary installer installs into
+C:\Program Files\Apache Group\Apache\. This is the default ServerRoot.
+
+The module needs to be installed into 
+C:\Program Files\Apache Group\Apache\modules. The supplied copy of
+msvcr70.dll should be copied either into the Windows directory or
+into C:\Program Files\Apache Group\Apache\
+
+The module should be loaded with a LoadModule line in httpd.conf or
+otherwise in a file included into httpd.conf:
+
+  LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  C:\Program Files\Apache Group\Apache\conf\webauth_keys\
+
+Apache logs are stored at C:\Program Files\Apache Group\Apache\logs\
+
+
+
+Apache version 2
+================
+
+
+Apache2 on Red Hat, Fedora
+--------------------------
+
+apxs is installed as /usr/sbin/apxs
+
+Apache runs with a ServerRoot of /etc/httpd/
+
+The module is installed into /usr/lib/httpd/modules/,
+(a.k.a. /etc/httpd/modules/ via a symlink). It should be loaded with a
+LoadModule line in httpd.conf, or in a *.conf file in
+/etc/httpd/conf.d/, or otherwise in a file included into httpd.conf:
+
+  LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /etc/httpd/conf/webauth_keys/
+
+Apache logs are stored in /var/log/httpd/
+
+
+Apache2 on SuSE Linux
+---------------------
+
+apxs is installed as /usr/sbin/apxs2. Alternate versions
+(apxs2-prefork, apxs2-worker, etc) are available and differ only in
+where the built module is installed (see
+/usr/share/doc/packages/apache2/README.SuSE) 
+
+Apache appears to run with a ServerRoot of /srv/www/
+
+The module is installed into /usr/lib/apache2/. It should be loaded by
+adding 'ucam_webauth' to the list of modules assigned to the
+APACHE_MODULES key in /etc/sysconfig/apache2. For some versions of
+SuSE it will be necessary to run
+
+  SuSEconfig --module apache2
+
+to bring this change into operation, later versions do so
+automatically when Apache is restarted.
+
+If necessary, the module can be loaded with a LoadModule line in
+httpd.conf, or in a *.conf file in /etc/httpd/conf.d/, or otherwise in
+a file included into httpd.conf:
+
+  LoadModule ucam_webauth_module /usr/lib/apache2/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /srv/www/conf/webauth_keys/
+
+It might be better to use the AAKeyDir directive to relocate this to
+something like /etc/apache2/webauth_keys/. The SuSE RPMs will by
+default create /etc/apache2/webauth_keys/ and will make
+/srv/www/conf/webauth_keys a symlink to it.
+
+Apache logs are stored in /var/log/httpd/
+
+
+Apache2 on Windows (Apache project binary install)
+--------------------------------------------------
+
+See also README.WIN32
+
+By default, the Apache project binary installer installs into
+C:\Program Files\Apache Group\Apache2\. This is the default ServerRoot.
+
+The module needs to be installed into 
+C:\Program Files\Apache Group\Apache2\modules. The supplied copy of
+msvcr70.dll should be copied either into the Windows directory or
+into C:\Program Files\Apache Group\Apache2\
+
+The module should be loaded with a LoadModule line in httpd.conf or
+otherwise in a file included into httpd.conf:
+
+  LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  C:\Program Files\Apache Group\Apache2\conf\webauth_keys\
+
+Apache logs are stored at C:\Program Files\Apache Group\Apache2\logs\
+

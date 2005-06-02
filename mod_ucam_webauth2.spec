@@ -1,27 +1,33 @@
-# Detect distribution
+# Build parameters
+
+# Defaults
 
 %define apache2_package httpd
-%define apache2_devel httpd-devel
-%define apxs %{_sbindir}/apxs
+%define apache2_devel   httpd-devel
+%define apxs            %{_sbindir}/apxs
+%define keysdir         /etc/httpd/conf/webauth_keys
+
+# Auto-detect distribution
 
 %if %(rpm --quiet -q suse-release && echo 1 || echo 0) == 1
-  %define ver %(rpm -q --queryformat='%{VERSION}' suse-release | sed -e's/\\.//g')
-  %define dist_tag suse%{ver}
+  %define dist suse
+  %define ver  %(rpm -q --queryformat='%{VERSION}' suse-release | sed -e's/\\.//g')
   %define apache2_package apache2
-  %define apache2_devel apache2-devel
-  %define apxs %{_sbindir}/apxs2
-  %if %{ver} >= 93
-    %define apache2_package apache2-prefork
-    %define apxs %{_sbindir}/apxs2-prefork
-  %endif
+  %define apache2_devel   apache2-devel
+  %define apxs            %{_sbindir}/apxs2
+  %define keysdir         /etc/apache2/webauth_keys
 %endif
 %if %(rpm --quiet -q redhat-release && echo 1 || echo 0) == 1
-  %define dist_tag %(rpm -q --queryformat='rh%{VERSION}' redhat-release| sed -e's/\\.//g')
+  %define dist rh
+  %define ver  %(rpm -q --queryformat='%{VERSION}' redhat-release| sed -e's/\\.//g')
 %endif
 %if %(rpm --quiet -q fedora-release && echo 1 || echo 0) == 1
-  %define dist_tag %(rpm -q --queryformat='fc%{VERSION}' fedora-release | sed -e's/\\.//g')
+  %define dist fc
+  %define ver  %(rpm -q --queryformat='%{VERSION}' fedora-release | sed -e's/\\.//g')
 %endif
-%{!?dist_tag: %{error: ERROR: *** Unsupported distribution ***}}
+%{!?dist: %{error: ERROR: *** Unsupported distribution ***}}
+
+%define dist_tag %{dist}%{ver}
 %{echo: Building for %{dist_tag}}
 
 %define _rpmfilename %%{arch}/%%{name}-%%{version}-%%{release}.%%{arch}.%{dist_tag}.rpm 
@@ -30,12 +36,13 @@
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
 Version: 1.2.0
-Release: 2
+Release: 5
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
 Source: mod_ucam_webauth-%{version}.tar.gz
-License: LGPL
+Source1: README.KEYS
+License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
 BuildPrereq: %{apache2_devel}, openssl-devel
 Requires: %{apache2_package}, openssl
@@ -55,6 +62,16 @@ make APXS=%{apxs}
 mkdir -p $RPM_BUILD_ROOT%{apache_libexecdir}
 make install APXS=%{apxs} SUFFIX=la \
   OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
+mkdir -p $RPM_BUILD_ROOT%{keysdir}
+cp $RPM_SOURCE_DIR/README.KEYS $RPM_BUILD_ROOT%{keysdir}
+
+%post
+%if %{dist} == "suse"
+if [ ! -e /srv/www/conf/webauth_keys ]; then
+  mkdir -p /srv/www/conf/
+  ln -s %{keysdir} /srv/www/conf/webauth_keys
+fi
+%endif
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
@@ -62,12 +79,19 @@ make install APXS=%{apxs} SUFFIX=la \
 %files
 %defattr(-,root,root)
 %{apache_libexecdir}/mod_ucam_webauth.so
+%{keysdir}/README.KEYS
 %doc CHANGES
 %doc README
+%doc README.Platforms
 %doc COPYING
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Thu Jun 02 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-5
+- further install improvements
+- create empty keys directory if necessary
+- restore SuSE 9.3 to building for generic use
+
 * Wed Jun 01 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-2
 - spec file updated to build on SuSE 9.3 for prefork MPM (only)
 

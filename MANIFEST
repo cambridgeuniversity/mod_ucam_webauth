@@ -1,5 +1,6 @@
 mod_ucam_webauth.c
 README
+README.Platforms
 COPYING
 CHANGES
 mod_ucam_webauth13.spec
