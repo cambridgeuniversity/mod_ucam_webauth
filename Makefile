@@ -70,6 +70,7 @@ zip13:
 	cp Windows/msvcr70.dll zip_build/msvcr70.dll
 	cp README              zip_build/README.txt 
 	cp README.WIN32        zip_build/README_WIN32.txt
+	cp README.Platforms    zip_build/README_Platforms.txt
 	cp COPYING             zip_build/COPYING.txt
 	rm -f mod_ucam_webauth`cat Windows/VERSION13`.zip
 	zip -j  mod_ucam_webauth`cat Windows/VERSION13`.zip \
@@ -85,6 +86,7 @@ zip2:
 	cp Windows/msvcr70.dll zip_build/msvcr70.dll
 	cp README              zip_build/README.txt 
 	cp README.WIN32        zip_build/README_WIN32.txt
+	cp README.Platforms    zip_build/README_Platforms.txt
 	cp COPYING             zip_build/COPYING.txt
 	rm -f mod_ucam_webauth`cat Windows/VERSION2`.zip
 	zip -j  mod_ucam_webauth`cat Windows/VERSION2`.zip \
