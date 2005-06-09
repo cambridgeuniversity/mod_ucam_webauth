@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Using mod_ucam_webauth with Windows Apache
 ==========================================
 
-Current with version 1.2.1
-$Id: README.WIN32,v 1.5 2005-06-07 16:50:01 jw35 Exp $
+Current with version 1.2.2
+$Id: README.WIN32,v 1.6 2005-06-09 10:06:26 jw35 Exp $
 
 Binary distributions of mod_ucam_webauth are available for use with
 Apache running on a windows platform. There are separate distributions
