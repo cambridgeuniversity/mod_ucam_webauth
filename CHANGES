@@ -1,3 +1,11 @@
+1.2.2 - 2005-06-09 jw
+
+ Bugs fixed
+
+ . Corrected spelling error ('principle' should be 'principal') in the
+   parsing of the AAHeaders directive (and in a corresponding debug
+   message).
+
 1.2.1 - 2005-06-02 jw
 
  Enhancements

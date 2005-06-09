@@ -4,8 +4,8 @@ University of Cambridge Web Authentication System
 Apache Authentication Agent (mod_ucam_webauth) Documentation
 ============================================================
 
-Current with version 1.2.1
-$Id: README,v 1.22 2005-06-02 13:14:19 jw35 Exp $
+Current with version 1.2.2
+$Id: README,v 1.23 2005-06-09 09:57:04 jw35 Exp $
 
 The University of Cambridge Web Authentication System Apache
 Authentication Agent ('mod_ucam_webauth' or just 'the module' in what
@@ -554,7 +554,7 @@ AAAlwaysDecode
 AAHeaders
 
   Syntax:   AAHeaders all | none | item[ item...]
-  Default   AAHeader none
+  Default   AAHeaders none
   Context:  all
   Override: AuthConfig
   Module:   mod_ucam_webauth
@@ -583,7 +583,7 @@ AAHeaders
 
   For each item requested, a header will be added to the current
   request. Its name will be formed from the item name by appending
-  'X-AA' - for example the directive 'AAHeader principal' will add a
+  'X-AA' - for example the directive 'AAHeaders principal' will add a
   header called 'X-AAPrincipal'. The value of the header will consist
   of a cryptographic hash, a single space, and the value of the
   corresponding item. The hash will be a BASE64 SHA-1 based RFC2104

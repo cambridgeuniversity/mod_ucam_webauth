@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.62 2005-06-02 13:14:21 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.63 2005-06-09 09:57:05 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.2.1"
+#define VERSION "1.2.2"
 
 /*
 MODULE-DEFINITION-START
@@ -1560,7 +1560,7 @@ dump_config(request_rec *r,
     if (c->headers & HDR_ID)
       msg = apr_pstrcat(r->pool, msg, "ID ", NULL); 
     if (c->headers & HDR_PRINCIPAL)
-      msg = apr_pstrcat(r->pool, msg, "Principle ", NULL); 
+      msg = apr_pstrcat(r->pool, msg, "Principal ", NULL); 
     if (c->headers & HDR_AUTH)
       msg = apr_pstrcat(r->pool, msg, "Auth ", NULL); 
     if (c->headers & HDR_SSO)
@@ -1747,7 +1747,7 @@ set_headers(cmd_parms *cmd,
     else if (!strcasecmp(word, "ID")) {
       cfg->headers |= HDR_ID;
     }
-    else if (!strcasecmp(word, "Principle")) {
+    else if (!strcasecmp(word, "Principal")) {
       cfg->headers |= HDR_PRINCIPAL;
     }
     else if (!strcasecmp(word, "Auth")) {
@@ -1765,7 +1765,7 @@ set_headers(cmd_parms *cmd,
     else {
       return "AAHeaders: unrecognised keyword - "
 	"expecting one or more of 'Issue', 'Last', 'Life', 'Timeout', "
-	"'ID', 'Principle', 'Auth', 'SSO', 'All', or 'None'";
+	"'ID', 'Principal', 'Auth', 'SSO', 'All', or 'None'";
     }
   }
   
