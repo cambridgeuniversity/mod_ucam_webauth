@@ -45,7 +45,7 @@ make
 mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
 make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
 mkdir -p $RPM_BUILD_ROOT%{keysdir}
-cp $RPM_SOURCE_DIR/keys-readme.skel $RPM_BUILD_ROOT%{keysdir}/README.KEYS
+cp $RPM_SOURCE_DIR/README.KEYS $RPM_BUILD_ROOT%{keysdir}/
 
 %post
 %if %{dist} == "suse"
@@ -63,9 +63,11 @@ fi
 %{apache_libexecdir}/mod_ucam_webauth.so
 %{keysdir}/README.KEYS
 %doc CHANGES
-%doc README
-%doc README.Platforms
 %doc COPYING
+%doc INSTALL
+%doc INSTALL.Platforms
+%doc README
+%doc README.Config
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
