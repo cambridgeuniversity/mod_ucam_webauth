@@ -2,68 +2,50 @@
 
 # Defaults
 
-%define apache2_package httpd
-%define apache2_devel   httpd-devel
-%define apxs            %{_sbindir}/apxs
+%define dist            std
 %define keysdir         /etc/httpd/conf/webauth_keys
 
-# Auto-detect distribution
+# Auto-detect distributions that neeed fixups. This may extension for
+# new distributions - please inform raven-support@ucs.cam.ac.uk of any
+# changes you find you need to make so tha tthey can be included in
+# future versions of this file.
 
 %if %(rpm --quiet -q suse-release && echo 1 || echo 0) == 1
   %define dist suse
-  %define ver  %(rpm -q --queryformat='%{VERSION}' suse-release | sed -e's/\\.//g')
-  %define apache2_package apache2
-  %define apache2_devel   apache2-devel
-  %define apxs            %{_sbindir}/apxs2
-  %define keysdir         /etc/apache2/webauth_keys
+  %define keysdir /etc/httpd/webauth_keys
 %endif
-%if %(rpm --quiet -q redhat-release && echo 1 || echo 0) == 1
-  %define dist rh
-  %define ver  %(rpm -q --queryformat='%{VERSION}' redhat-release| sed -e's/\\.//g')
-%endif
-%if %(rpm --quiet -q fedora-release && echo 1 || echo 0) == 1
-  %define dist fc
-  %define ver  %(rpm -q --queryformat='%{VERSION}' fedora-release | sed -e's/\\.//g')
-%endif
-%{!?dist: %{error: ERROR: *** Unsupported distribution ***}}
 
-%define dist_tag %{dist}%{ver}
-%{echo: Building for %{dist_tag}}
+%define apache_libexecdir %(/usr/sbin/apxs -q LIBEXECDIR)
 
-%define _rpmfilename %%{arch}/%%{name}-%%{version}-%%{release}.%%{arch}.%{dist_tag}.rpm 
-%define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
-
-Summary: University of Cambridge Web Authentication system agent for Apache 2
-Name: mod_ucam_webauth2
-Version: 1.2.2
+Summary: University of Cambridge Web Authentication system agent for Apache 1.3
+Name: mod_ucam_webauth13
+Version: 1.3.0
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
 Source: mod_ucam_webauth-%{version}.tar.gz
-Source1: README.KEYS
 License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
-BuildPrereq: %{apache2_devel}, openssl-devel
-Requires: %{apache2_package}, openssl
+BuildPrereq: apache-devel, openssl-devel
+Requires: apache, openssl
 
 %description
-mod_ucam_webauth2 provides an interface to the University of
-Cambridge Web Authentication system for Apache v2 servers.
+mod_ucam_webauth13 provides an interface to the University of
+Cambridge Web Authentication system for Apache v1.3 servers.
 
 %prep
 %setup -n mod_ucam_webauth-%{version}
 
 %build
-make APXS=%{apxs}
+make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT%{apache_libexecdir}
-make install APXS=%{apxs} SUFFIX=la \
-  OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
+mkdir -p $RPM_BUILD_ROOT%{_libdir}/apache
+make install OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{apache_libexecdir}
 mkdir -p $RPM_BUILD_ROOT%{keysdir}
-cp $RPM_SOURCE_DIR/README.KEYS $RPM_BUILD_ROOT%{keysdir}
+cp $RPM_SOURCE_DIR/keys-readme.skel $RPM_BUILD_ROOT%{keysdir}/README.KEYS
 
 %post
 %if %{dist} == "suse"
@@ -87,17 +69,17 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Mon Nov 28 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.3.0-1
+- Update to 1.3.0
+- Remove much of the platform auto-detect code and go back to 
+  creating RPMs with 'standard' names
+
 * Thu Jun 09 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.2-1
 - Update to 1.2.2
 
-* Thu Jun 02 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.1-1
-- further install improvements
+* Thu Jun 02 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.1-5
 - create empty keys directory if necessary
-- restore SuSE 9.3 to building for generic use
-- added README.Platforms
-
-* Wed Jun 01 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-2
-- spec file updated to build on SuSE 9.3 for prefork MPM (only)
+- Added README.Platforms
 
 * Tue May 31 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.0-1
 - Updated for 1.2.0
@@ -121,13 +103,16 @@ fi
 - Updated to 1.0.0
 - Added Vendor tag
 
+* Wed Jul 14 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc6-2
+- Corrected path to apxs
+
 * Mon Jul 12 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc6
 - Updated for 0.99_1.0.0rc6
-- Fixed following mess caused by last update
+- Added echo of build target
 
 * Fri Jul 09 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc5
 - Updated for 0.99_1.0.0rc5
-- Updated to use Makefile by copying from mod_ucam_webauth13.spec
+- Updated to use Makefile
 
 * Fri Jun 25 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.99_1.0.0rc3
 - Updated for 0.99_1.0.0rc3

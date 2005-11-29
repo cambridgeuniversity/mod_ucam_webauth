@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.63 2005-06-09 09:57:05 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.64 2005-11-29 13:16:02 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.2.2"
+#define VERSION "1.3.0"
 
 /*
 MODULE-DEFINITION-START
@@ -226,6 +226,7 @@ typedef struct {
 
 #define AP_MODULE_DECLARE_DATA MODULE_VAR_EXPORT
 #define APR_OFFSETOF XtOffsetOf
+#define APR_FNM_NOMATCH FNM_NOMATCH
 
 #define AP_INIT_TAKE1(name, func, data, override, errmsg) \
   {name, func, data, override, TAKE1, errmsg}
@@ -579,7 +580,7 @@ using_https(request_rec *r)
 
   return (apr_fnmatch("https*", 
 			 ap_construct_url(r->pool, r->unparsed_uri, r), 
-			 0) != FNM_NOMATCH);
+			 0) != APR_FNM_NOMATCH);
 
 }
 
@@ -1182,9 +1183,13 @@ no_cookie(request_rec *r,
      "been configured to reject some or all cookies. To access "
      "this resource you must at least accept a cookie called "
      "'<tt><b>", cookie_name, "</b></tt>' from ", cookie_domain,
-     ".<p>This cookie will be deleted when you quit your "
-     "web browser. It contains your identity and other information "
-     "used to manage authentication.", sig, "</body></hmtl>", NULL);
+     ".<p>This can also happen if you follow a bookmark pointing "
+     "a login page. This won't work - to create a shortcut to a "
+     "protected resource you should bookmark the page you arrive "
+     "at immediately after authenticating.<p>This cookie will be "
+     "deleted when you quit your web browser. It contains your "
+     "identity and other information used to manage authentication.", 
+     sig, "</body></html>", NULL);
 
 }
 
@@ -1835,8 +1840,7 @@ decode_cookie(request_rec *r,
   }
   
   if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
-		  r->parsed_uri.path,
-		  0/*APR_FNM_PATHNAME*/) == FNM_NOMATCH) {
+		  r->parsed_uri.path, 0) == APR_FNM_NOMATCH) {
     APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
 		c->cookie_path, r->parsed_uri.path);
     return HTTP_INTERNAL_SERVER_ERROR;

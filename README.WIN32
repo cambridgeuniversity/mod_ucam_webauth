@@ -1,11 +1,7 @@
-University of Cambridge Web Authentication System
-=================================================
-
-Using mod_ucam_webauth with Windows Apache
-==========================================
-
-Current with version 1.2.2
-$Id: README.WIN32,v 1.6 2005-06-09 10:06:26 jw35 Exp $
+     ===============================================================
+     University of Cambridge Web Authentication System (UcamWebauth)
+               Using mod_ucam_webauth with Windows Apache
+     ===============================================================
 
 Binary distributions of mod_ucam_webauth are available for use with
 Apache running on a windows platform. There are separate distributions
@@ -35,21 +31,16 @@ directory as the Apache program (Apache.exe):
 Note that without this DLL attempts to start a copy of Apache
 configured to use mod_ucam_webauth will result in messages similar to
 
-  Syntax error on line 193 of c:/program files/apache group/apache/conf/httpd.conf:
-  Cannot load c:/program files/apache group/apache/modules/mod_ucam_webauth.so int
-o server: (126) The specified module could not be found:
+  Syntax error on line 193 of httpd.conf:
+  Cannot load mod_ucam_webauth.so into server: 
+        (126) The specified module could not be found:
 
 even if mod_ucam_webauth.so is in fact correctly installed.
 
 Once these steps are completed, configure Apache to use
-mod_ucam_webauth as described in the README file, but note the
-following:
-
-  * The Apache executable is called Apache.exe under Windows, not
-    httpd
-
-  * The necessary OpenSSL components are included in the compiled
-    module
+mod_ucam_webauth as described in sections 3 and 4 ('Operating
+requirements' and 'Initial configuration') of INSTALL, and in
+README.Config, but note the following:
 
   * The 'apxs' tool is not available. For a default installation of
     the Apache project distribution the RSA public keys should by
@@ -77,33 +68,8 @@ following:
     C:\Program Files\Apache Group\Apache\logs\error.log  [Apache 1]
     C:\Program Files\Apache Group\Apache2\logs\error.log [Apache 2]    
    
-Licencing
-=========
+  * The necessary OpenSSL components are included in the compiled
+    module
 
-Copyright (c) University of Cambridge 2004,2005
-
-This application agent is free software; you can redistribute it
-and/or modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either version
-2.1 of the License, or (at your option) any later version.
-
-The agent is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
-  
-You should have received a copy of the GNU Lesser General Public
-License along with this toolkit; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-USA
-
-See the file COPYING.txt for details.
-
-
-
-
-
-
-
-
-
+--
+$Id: README.WIN32,v 1.7 2005-11-29 13:16:01 jw35 Exp $

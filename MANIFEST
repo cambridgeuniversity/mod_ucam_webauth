@@ -1,9 +1,10 @@
 mod_ucam_webauth.c
 README
-README.Platforms
+README.Config
+INSTALL
+INSTALL.Platforms
 COPYING
 CHANGES
-mod_ucam_webauth13.spec
-mod_ucam_webauth2.spec
 mod_ucam_webauth.conf.skel
 Makefile
+MANIFEST

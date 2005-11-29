@@ -37,6 +37,9 @@ dist:
 	 mkdir -p mod_ucam_webauth-$$ver; \
 	 rm -rf mod_ucam_webauth-$$ver/*; \
 	 cp `cat MANIFEST` mod_ucam_webauth-$$ver; \
+	 mkdir -p mod_ucam_webauth-$$ver/rpm-build; \
+	 (cd rpm-build; \
+          cp `cat MANIFEST` ../mod_ucam_webauth-$$ver/rpm-build); \
 	 tar zcf mod_ucam_webauth-$$ver.tar.gz mod_ucam_webauth-$$ver;\
          rm -rf mod_ucam_webauth-$$ver )
 
