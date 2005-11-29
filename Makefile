@@ -51,16 +51,16 @@ rpm13: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
 	 cp mod_ucam_webauth-$$ver.tar.gz /home/jw35/rpmdevel/SOURCES)
-	cp README.KEYS /home/jw35/rpmdevel/SOURCES
-	cp mod_ucam_webauth13.spec /home/jw35/rpmdevel/SPECS
+	cp rpm-build/README.KEYS /home/jw35/rpmdevel/SOURCES
+	cp rpm-build/mod_ucam_webauth13.spec /home/jw35/rpmdevel/SPECS
 	rpmbuild -ba /home/jw35/rpmdevel/SPECS/mod_ucam_webauth13.spec
 
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
 	 cp mod_ucam_webauth-$$ver.tar.gz /home/jw35/rpmdevel/SOURCES)
-	cp README.KEYS /home/jw35/rpmdevel/SOURCES
-	cp mod_ucam_webauth2.spec /home/jw35/rpmdevel/SPECS
+	cp rpm-build/README.KEYS /home/jw35/rpmdevel/SOURCES
+	cp rpm-build/mod_ucam_webauth2.spec /home/jw35/rpmdevel/SPECS
 	rpmbuild -ba /home/jw35/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
 zip13: 
