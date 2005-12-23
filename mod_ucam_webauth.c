@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.64 2005-11-29 13:16:02 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.65 2005-12-23 11:50:17 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.3.0"
+#define VERSION "1.3.0dev1"
 
 /*
 MODULE-DEFINITION-START
@@ -109,26 +109,27 @@ MODULE-DEFINITION-END
   "https://raven.cam.ac.uk/auth/authenticate.html"
 #define DEFAULT_logout_service   \
   "https://raven.cam.ac.uk/auth/logout.html"
-#define DEFAULT_description      NULL
-#define DEFAULT_response_timeout 30
-#define DEFAULT_clock_skew       0
-#define DEFAULT_key_dir          "conf/webauth_keys"
-#define DEFAULT_max_session_life 7200
-#define DEFAULT_inactive_timeout 0
-#define DEFAULT_timeout_msg      "your session on the site has expired"
-#define DEFAULT_cache_control    CC_ON
-#define DEFAULT_cookie_key       NULL
-#define DEFAULT_cookie_name      "Ucam-WebAuth-Session"
-#define DEFAULT_cookie_path      "/"
-#define DEFAULT_cookie_domain    NULL
-#define DEFAULT_force_interact   0
-#define DEFAULT_fail             0
-#define DEFAULT_cancel_msg       NULL
-#define DEFAULT_no_cookie_msg    NULL
-#define DEFAULT_logout_msg       NULL
-#define DEFAULT_always_decode    0
-#define DEFAULT_headers          HDR_NONE
-#define DEFAULT_header_key       NULL
+#define DEFAULT_description        NULL
+#define DEFAULT_response_timeout   30
+#define DEFAULT_clock_skew         0
+#define DEFAULT_key_dir            "conf/webauth_keys"
+#define DEFAULT_max_session_life   7200
+#define DEFAULT_inactive_timeout   0
+#define DEFAULT_timeout_msg        "your session on the site has expired"
+#define DEFAULT_cache_control      CC_ON
+#define DEFAULT_cookie_key         NULL
+#define DEFAULT_cookie_name        "Ucam-WebAuth-Session"
+#define DEFAULT_cookie_path        "/"
+#define DEFAULT_cookie_domain      NULL
+#define DEFAULT_force_interact     0
+#define DEFAULT_fail               0
+#define DEFAULT_ign_response_life  0
+#define DEFAULT_cancel_msg         NULL
+#define DEFAULT_no_cookie_msg      NULL
+#define DEFAULT_logout_msg         NULL
+#define DEFAULT_always_decode      0
+#define DEFAULT_headers            HDR_NONE
+#define DEFAULT_header_key         NULL
 
 /* module configuration structure */
 
@@ -149,6 +150,7 @@ typedef struct {
   char *cookie_domain;
   int   force_interact;
   int   fail;
+  int   ign_response_life;
   char *cancel_msg;
   char *no_cookie_msg;
   char *logout_msg;
@@ -1310,6 +1312,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->cookie_domain = NULL;
   cfg->force_interact = -1;
   cfg->fail = -1;
+  cfg->ign_response_life = -1;
   cfg->cancel_msg = NULL;
   cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
@@ -1368,6 +1371,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->force_interact : base->force_interact;
   merged->fail = new->fail != -1 ? 
     new->fail : base->fail;
+  merged->ign_response_life = new->ign_response_life != -1 ? 
+    new->ign_response_life : base->ign_response_life;
   merged->cancel_msg = new->cancel_msg != NULL ? 
     new->cancel_msg : base->cancel_msg;
   merged->no_cookie_msg = new->no_cookie_msg != NULL ? 
@@ -1429,6 +1434,8 @@ apply_config_defaults(request_rec *r,
       DEFAULT_force_interact;  
   n->fail = c->fail != -1 ? c->fail :
       DEFAULT_fail; 
+  n->ign_response_life = c->ign_response_life != -1 ? c->ign_response_life :
+      DEFAULT_ign_response_life; 
   n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg : 
       DEFAULT_cancel_msg;
   n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg : 
@@ -1472,31 +1479,31 @@ dump_config(request_rec *r,
 
     APACHE_LOG0(APLOG_DEBUG, "Config dump:");
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAAuthService     = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AAAuthService        = %s",
 		(c->auth_service == NULL ? "NULL" : c->auth_service));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AALogoutService   = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AALogoutService      = %s",
 		(c->logout_service == NULL ? "NULL" : c->logout_service));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AADescription     = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AADescription        = %s",
 		(c->description == NULL ? "NULL" : c->description));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAResponseTimeout = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAResponseTimeout    = %d",
 		c->response_timeout);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAClockSkew       = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAClockSkew          = %d",
 		c->clock_skew);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAKeyDir          = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AAKeyDir             = %s",
 		(c->key_dir == NULL ? "NULL" : c->key_dir));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAMaxSessionLife  = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAMaxSessionLife     = %d",
 		c->max_session_life);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAInactiveTimeout = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAInactiveTimeout    = %d",
 		c->inactive_timeout);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AATimeoutMsg      = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AATimeoutMsg         = %s",
 		(c->timeout_msg == NULL ? "NULL" : c->timeout_msg));
     
     switch(c->cache_control) {
@@ -1515,42 +1522,45 @@ dump_config(request_rec *r,
     default:
       msg = "unknown";
     }
-    APACHE_LOG1(APLOG_DEBUG, "  AACacheControl    = %s", 
+    APACHE_LOG1(APLOG_DEBUG, "  AACacheControl       = %s", 
 		msg);
     
     if (c->cookie_key == NULL) {
-      APACHE_LOG0(APLOG_DEBUG, "  AACookieKey       = NULL");
+      APACHE_LOG0(APLOG_DEBUG, "  AACookieKey          = NULL");
     } else {
       APACHE_LOG2(APLOG_DEBUG, 
-	    "  AACookieKey       = %-.4s... (%d characters total)", 
+	    "  AACookieKey          = %-.4s... (%d characters total)", 
 		  c->cookie_key, strlen(c->cookie_key));
     }
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookieName      = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AACookieName         = %s",
 		(c->cookie_name == NULL ? "NULL" : c->cookie_name));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookiePath      = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AACookiePath         = %s",
 		(c->cookie_path == NULL ? "NULL" : c->cookie_path));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookieDomain    = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AACookieDomain       = %s",
 		(c->cookie_domain == NULL ? "NULL" : c->cookie_domain));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAForceInteract   = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAForceInteract      = %d",
 		c->force_interact);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAFail            = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAFail               = %d",
 		c->fail);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACancelMsg       = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AAIgnoreResponseLife = %d",
+		c->ign_response_life);
+    
+    APACHE_LOG1(APLOG_DEBUG, "  AACancelMsg          = %s",
 		(c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg     = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AALogoutMsg       = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AALogoutMsg          = %s",
 		(c->logout_msg == NULL ? "NULL" : c->logout_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAAlwaysDecode    = %d",
+    APACHE_LOG1(APLOG_DEBUG, "  AAAlwaysDecode       = %d",
 		c->always_decode);
 
     msg = "";
@@ -1570,14 +1580,14 @@ dump_config(request_rec *r,
       msg = apr_pstrcat(r->pool, msg, "Auth ", NULL); 
     if (c->headers & HDR_SSO)
       msg = apr_pstrcat(r->pool, msg, "SSO", NULL);
-    APACHE_LOG1(APLOG_DEBUG, "  AAHeaders         = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AAHeaders            = %s",
 		msg);
 
     if (c->header_key == NULL) {
-      APACHE_LOG0(APLOG_DEBUG, "  AAHeaderKey       = NULL");
+      APACHE_LOG0(APLOG_DEBUG, "  AAHeaderKey          = NULL");
     } else {
       APACHE_LOG2(APLOG_DEBUG, 
-	    "  AAHeaderKey       = %-.4s... (%d characters total)", 
+	    "  AAHeaderKey          = %-.4s... (%d characters total)", 
 		  c->header_key, strlen(c->header_key));
     }
 
@@ -2237,8 +2247,15 @@ validate_response(request_rec *r,
   
   life = c->max_session_life;
   response_ticket_life = atoi(apr_table_get(response_ticket, "life"));
-  if (response_ticket_life > 0 && response_ticket_life < life)
-    life = response_ticket_life;
+
+  if (c->ign_response_life == 1) {
+    APACHE_LOG2(APLOG_DEBUG, "Ignoring WLS ticket_life = %d, using life = %d",
+		response_ticket_life, life);
+  } else {
+    /* obey the normal rules */
+    if (response_ticket_life > 0 && response_ticket_life < life)
+      life = response_ticket_life;
+  }
   
   APACHE_LOG1(APLOG_DEBUG, "life = %d", life);
   
@@ -2716,6 +2733,15 @@ static const command_rec webauth_commands[] = {
 		RSRC_CONF | OR_AUTHCFG,
 		"the hard session timeout (seconds)"),
   
+  AP_INIT_FLAG("AAIgnoreResponseLife",
+		ap_set_flag_slot, 
+		(void *)APR_OFFSETOF(mod_ucam_webauth_cfg,ign_response_life),
+		RSRC_CONF | OR_AUTHCFG,
+		"either 'on' or 'off'; "
+		"'on' prevents the session timeout set by AAMaxSessionLife "
+		"from being overriden by a shorter 'life' parameter from the "
+                "authentication service response mesage"),
+
   AP_INIT_TAKE1("AAInactiveTimeout", 
 		set_inactive_timeout, 
 		NULL, 
