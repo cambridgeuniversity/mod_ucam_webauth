@@ -18,7 +18,7 @@ raven-support@ucs.cam.ac.uk
 Only Apache 1.3 is available.
 
 See also
-http://bigmac.csi.cam.ac.uk/~darranbryant/Homepage/ravenonOSX.htm
+https://wiki.csx.cam.ac.uk/raven/Installing_the_Apache_authentication_module_under_MacOS_X
 
 A C compiler and related build tools are not a standard part of a
 MaxOS install. They are available as part of the Xcode tools which can
@@ -41,6 +41,11 @@ The keys will by default be searched for in
 
 Apache logs are stored at /private/var/log/httpd
 
+Apache on OS 10 server uses Apple's own authentication module,
+mod_auth_apple, in place of the standard Apache module, mod_auth. In
+OS version 10.4.6 (and probably in future versions) mod_auth_apple
+won't inter-work with mod_ucam_webauth. Instructions for working
+around this problem appear in the wiki document noted above.
 
 2. Red Hat, Fedora
 ==================
@@ -186,4 +191,4 @@ Apache logs are stored at C:\Program Files\Apache Group\Apache2\logs\
 
 
 --
-$Id: INSTALL.Platforms,v 1.1 2005-11-29 13:15:57 jw35 Exp $
+$Id: INSTALL.Platforms,v 1.2 2006-06-06 09:36:04 jw35 Exp $
