@@ -10,7 +10,7 @@
 # changes you find you need to make so tha tthey can be included in
 # future versions of this file.
 
-%if %(rpm --quiet -q suse-release && echo 1 || echo 0) == 1
+%if %((rpm --quiet -q suse-release || rpm --quiet -q sles-release) && echo 1 || echo 0) == 1
   %define dist suse
   %define keysdir /etc/httpd/webauth_keys
 %endif
@@ -19,7 +19,7 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 1.3
 Name: mod_ucam_webauth13
-Version: 1.3.0
+Version: 1.4.0
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
@@ -71,6 +71,11 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+%changelog
+* Tue Jan 30 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-1
+- Update to support SLES
+- Update to 1.4.0
+
 * Mon Nov 28 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.3.0-1
 - Update to 1.3.0
 - Remove much of the platform auto-detect code and go back to 

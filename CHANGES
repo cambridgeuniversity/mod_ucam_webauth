@@ -1,3 +1,40 @@
+1.4.0 - 2007-01-30 jw
+
+ Enhancements
+
+ . New directive, AAIgnoreResponseLife. If an authentication response
+   message contains a 'life' parameter then agents such as
+   mod_ucam_webauth are expected to use it to set an upper limit to
+   the lifetime of any session that they establish. The idea being
+   that sessions on individual web servers will then not last longer
+   than an SSO session established on the authentication server. For
+   the rare occasions when it is not appropriate, setting
+   'AAIgnoreResponseLife on' overrides this behavior in which case
+   session timeouts will be set by AAMaxSessionLife only. [Thanks to
+   Jon Peatfield from DAMTP who provided this functionality]
+
+ . Add note to README.Config warning about the possibility of
+   authentication response message replay via log files or network
+   snooping.
+
+ . Extend RPM '.spec' files to additionally support SLES (SUSE Linux
+   Enterprise Server)
+
+ Bugs fixed
+
+ . Caused file-based custom error messages, such as those established
+   with AACancelMsg, to display correctly even if subject to
+   AAAlwaysDecode. Previously the presence of AAAlwaysDecode caused
+   access to the custom message to be rejected because of the
+   'Cancelled' status, resulting in a messy error display to the
+   user. AAAlwaysDecode now ignores cookies with an error indicator.
+
+ . Corrected format specifiers in some debug log messages to support
+   use on 64-bit systems.
+
+ . Suppressed warning message about 'response' being used without
+   initialization in webauth_authn
+
 1.3.0 - 2005-11-28 jw
 
  Change to distributions
@@ -24,7 +61,7 @@
    instructions for building and installing RPMs.
 
  . Update Apache 2 code to use new APR_-prefixed macros rather than
-   the depricated Apache 1.3 set. Apache 1.3 builds still see the old
+   the deprecated Apache 1.3 set. Apache 1.3 builds still see the old
    names.
 
  . Extend the default 'no cookie' error page to mention that trying to
@@ -61,7 +98,7 @@
    variables) this functionality can be useful where authentication is
    performed on one machine and the request subsequently proxied to
    another. This represents one way in which the authentication
-   provided by mod_ucam_webauth can be exploited on a webserver other
+   provided by mod_ucam_webauth can be exploited on a web server other
    than Apache. See the documentation for AAHeaders and AAHeaderKey
    for details.
 
