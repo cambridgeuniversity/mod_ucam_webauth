@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.66 2005-12-23 12:52:51 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.67 2007-01-30 17:04:50 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.3.0dev2"
+#define VERSION "1.4.0"
 
 /*
 MODULE-DEFINITION-START
@@ -130,8 +130,6 @@ MODULE-DEFINITION-END
 #define DEFAULT_always_decode      0
 #define DEFAULT_headers            HDR_NONE
 #define DEFAULT_header_key         NULL
-#define DEFAULT_rewrite_raw        NULL
-#define DEFAULT_rewrite_cooked     NULL
 
 /* module configuration structure */
 
@@ -159,8 +157,6 @@ typedef struct {
   int   always_decode;
   int   headers;
   char *header_key;
-  char *rewrite_raw;
-  char *rewrite_cooked;
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
@@ -236,8 +232,6 @@ typedef struct {
 
 #define AP_INIT_TAKE1(name, func, data, override, errmsg) \
   {name, func, data, override, TAKE1, errmsg}
-#define AP_INIT_TAKE2(name, func, data, override, errmsg) \
-  {name, func, data, override, TAKE2, errmsg}
 #define AP_INIT_FLAG(name, func, data, override, errmsg) \
   {name, func, data, override, FLAG, errmsg}
 #define AP_INIT_RAW_ARGS(name, func, data, override, errmsg) \
@@ -581,45 +575,27 @@ get_cgi_param(request_rec *r,
 
 /* --- */
 
-static const char *get_url(request_rec *r, mod_ucam_webauth_cfg *c);
-
 static int 
-using_https(request_rec *r,
-	    mod_ucam_webauth_cfg *c) 
+using_https(request_rec *r) 
 
 {
-  const char *cached = apr_table_get(r->notes, "AA_using_https");
 
-  if (cached != NULL) {
+  return (apr_fnmatch("https*", 
+			 ap_construct_url(r->pool, r->unparsed_uri, r), 
+			 0) != APR_FNM_NOMATCH);
 
-    APACHE_LOG1(APLOG_DEBUG, "Cache fetch using_https: '%s'", cached);
-    return (strcmp("yes", cached) == 0);
-
-  } else {
-
-    const char *url   = get_url(r, c);
-    int         match = (apr_fnmatch("https*", url, 0) != APR_FNM_NOMATCH);
-    char       *cache = (match ? "yes" : "no");
-
-    APACHE_LOG1(APLOG_DEBUG, "Cache store using_https: '%s'", cache);
-    apr_table_set(r->notes, "AA_using_https", cache);
-
-    return match;
-
-  }
 }
 
 /* --- */
 
 static char *
 full_cookie_name(request_rec *r, 
-		 char *cookie_name,
-                 mod_ucam_webauth_cfg *c) 
+		 char *cookie_name) 
 
 {
 
   char *name = (char *)apr_pstrdup(r->pool, cookie_name);
-  int https = using_https(r, c);
+  int https = using_https(r);
   int port = r->server->port;
   
   if (port > 0 && 
@@ -627,7 +603,7 @@ full_cookie_name(request_rec *r,
     name = apr_psprintf(r->pool,"%s-%d",name,port);
   }
 
-  if (https) {
+  if (using_https(r)) {
     name = apr_pstrcat(r->pool, cookie_name, "-S", NULL);
   }
 
@@ -652,13 +628,13 @@ set_cookie(request_rec *r,
 
   if (value == NULL) {
     cookie = apr_pstrcat(r->pool, 
-			 full_cookie_name(r, c->cookie_name, c),
+			 full_cookie_name(r, c->cookie_name),
 			 "= ; path=",
 			 c->cookie_path, 
 			 "; expires=Thu, 21-Oct-1982 00:00:00 GMT", NULL);
   } else {
     cookie = apr_pstrcat(r->pool, 
-			 full_cookie_name(r, c->cookie_name, c), 
+			 full_cookie_name(r, c->cookie_name), 
 			 "=", escape_url(r->pool,value),
 			 "; path=", 
 			 c->cookie_path, NULL);
@@ -671,7 +647,7 @@ set_cookie(request_rec *r,
 			 c->cookie_domain, NULL);
   }
   
-  if (using_https(r, c)) {
+  if (using_https(r)) {
     cookie = apr_pstrcat(r->pool, cookie, "; secure", NULL);
   }
   
@@ -813,7 +789,8 @@ RSA_sig_verify(request_rec *r,
 
   sig_length = wls_decode(r, sig, &decoded_sig);
 
-  APACHE_LOG1(APLOG_DEBUG, "digest length = %d", strlen(digest));
+  APACHE_LOG1(APLOG_DEBUG, "digest length = %lu", 
+              (unsigned long)strlen(digest));
   APACHE_LOG1(APLOG_DEBUG, "sig length = %d", sig_length);
 
   result = RSA_verify(NID_sha1, 
@@ -1093,101 +1070,17 @@ make_cookie_str(request_rec *r,
 
 /* --- */
 
-/*
- * alias_match() is taken from Apache's mod_proxy.c
- */
-
-static int alias_match(const char *uri, const char *alias_fakename)
-{
-    const char *end_fakename = alias_fakename + strlen(alias_fakename);
-    const char *aliasp = alias_fakename, *urip = uri;
-
-    while (aliasp < end_fakename) {
-        if (*aliasp == '/') {
-            /*
-             * any number of '/' in the alias matches any number in the
-             * supplied URI, but there must be at least one...
-             */
-            if (*urip != '/')
-                return 0;
-
-            while (*aliasp == '/')
-                ++aliasp;
-            while (*urip == '/')
-                ++urip;
-        }
-        else {
-            /* Other characters are compared literally */
-            if (*urip++ != *aliasp++)
-                return 0;
-        }
-    }
-
-    /* Check last alias path component matched all the way */
-
-    if (aliasp[-1] != '/' && *urip != '\0' && *urip != '/')
-        return 0;
-
-    /*
-     * Return number of characters from URI which matched (may be greater
-     * than length of alias, since we may have matched doubled slashes)
-     */
-
-    return urip - uri;
-}
-
-static const char *
-get_url(request_rec *r,
-	mod_ucam_webauth_cfg *c) 
+static char *
+get_url(request_rec *r) 
 
 {
-  char *url, *result;
-  apr_uri_t uri;
-
-  if (c->rewrite_raw && c->rewrite_cooked) {
-
-    const char *cached = apr_table_get(r->notes, "AA_rewritten_url");
-
-    if (cached != NULL) {
-
-      APACHE_LOG1(APLOG_DEBUG, "Cache fetch rewritten_url: '%s'", cached);
-      return cached;
-
-    } else {
-
-      /* Attempt rewrite from unparsed_uri */
-      int match_len = 0;
-
-      match_len = alias_match(r->unparsed_uri, c->rewrite_raw);
-      APACHE_LOG3(APLOG_DEBUG, 
-		  "get_url: alias_match '%s' against '%s' returned %d",
-		  r->unparsed_uri, c->rewrite_raw, match_len);
-
-      if (match_len > 0) {
-
-	result = apr_pstrcat(r->pool, c->rewrite_cooked,
-			     r->unparsed_uri + match_len, NULL);
-
-	APACHE_LOG2(APLOG_INFO,
-		    "get_url: '%s' rewritten to '%s'",
-		    r->unparsed_uri, result);
-	apr_table_set(r->notes, "AA_rewritten_url", result);
-
-	return result;
-      }
- 
-      APACHE_LOG3(APLOG_WARNING,
-		"get_url: rewrite failed for '%s' using '%s' => '%s'",
-		r->unparsed_uri, c->rewrite_raw, c->rewrite_cooked);
-      /* DROP THROUGH to traditional processing */
-
-    }
-
-  } /* endif rewriting */
 
   /* This is rumoured not to work, perhaps in Apache 2, perhaps
      depending on the presence (or otherwise) of ServerName and/or
      Port and/or Listen directive. Needs testing. */ 
+
+  char *url, *result;
+  apr_uri_t uri;
 
   url = ap_construct_url(r->pool, r->unparsed_uri, r);
   APACHE_LOG1(APLOG_DEBUG, "get_url: raw url = %s", url);
@@ -1269,7 +1162,7 @@ no_cookie(request_rec *r,
 {
 
   char *cookie_name = 
-    ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name, c));
+    ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name));
   char *sig = (char *)ap_psignature("<hr>", r);
   char *cookie_domain;
   if (c->cookie_domain != NULL) {
@@ -1427,8 +1320,6 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->always_decode = -1;
   cfg->headers = -1;
   cfg->header_key = NULL;  
-  cfg->rewrite_raw = NULL;
-  cfg->rewrite_cooked = NULL;
   return (void *)cfg;
 
 }
@@ -1495,10 +1386,6 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->headers : base->headers;
   merged->header_key = new->header_key != NULL ? 
     new->header_key : base->header_key;
-  merged->rewrite_raw = new->rewrite_raw != NULL ? 
-    new->rewrite_raw : base->rewrite_raw;
-  merged->rewrite_cooked = new->rewrite_cooked != NULL ? 
-    new->rewrite_cooked : base->rewrite_cooked;
 
   return (void *)merged;
 
@@ -1562,10 +1449,6 @@ apply_config_defaults(request_rec *r,
       DEFAULT_headers;
   n->header_key = c->header_key != NULL ? c->header_key : 
       DEFAULT_header_key; 
-  n->rewrite_raw = c->rewrite_raw != NULL ? c->rewrite_raw : 
-      DEFAULT_rewrite_raw; 
-  n->rewrite_cooked = c->rewrite_cooked != NULL ? c->rewrite_cooked : 
-      DEFAULT_rewrite_cooked; 
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
@@ -1647,8 +1530,8 @@ dump_config(request_rec *r,
       APACHE_LOG0(APLOG_DEBUG, "  AACookieKey          = NULL");
     } else {
       APACHE_LOG2(APLOG_DEBUG, 
-	    "  AACookieKey          = %-.4s... (%d characters total)", 
-		  c->cookie_key, strlen(c->cookie_key));
+	    "  AACookieKey          = %-.4s... (%lu characters total)", 
+		  c->cookie_key, (unsigned long)strlen(c->cookie_key));
     }
     
     APACHE_LOG1(APLOG_DEBUG, "  AACookieName         = %s",
@@ -1705,19 +1588,10 @@ dump_config(request_rec *r,
       APACHE_LOG0(APLOG_DEBUG, "  AAHeaderKey          = NULL");
     } else {
       APACHE_LOG2(APLOG_DEBUG, 
-	    "  AAHeaderKey          = %-.4s... (%d characters total)", 
-		  c->header_key, strlen(c->header_key));
+	    "  AAHeaderKey          = %-.4s... (%lu characters total)", 
+		  c->header_key, (unsigned long)strlen(c->header_key));
     }
 
-    if (c->rewrite_raw == NULL && c->rewrite_cooked == NULL) {
-      APACHE_LOG0(APLOG_DEBUG, "  AARewrite            = NULL");
-    } else if (c->rewrite_raw != NULL && c->rewrite_cooked != NULL) {
-      APACHE_LOG2(APLOG_DEBUG, 
-		  "  AARewrite            = '%s' => '%s'",
-		  c->rewrite_raw, c->rewrite_cooked);
-    } else {
-      APACHE_LOG0(APLOG_DEBUG, "  AARewrite            = ILLEGAL!");
-    }
   }
 
 }
@@ -1915,24 +1789,6 @@ set_headers(cmd_parms *cmd,
   
 }
 
-/* --- */
-
-static const char *
-set_rewrite(cmd_parms *cmd, 
-	    void *mconfig, 
-	    const char *raw,
-	    const char *rewritten) 
-     
-{
-  
-  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
-
-  cfg->rewrite_raw    = (char *)raw;
-  cfg->rewrite_cooked = (char *)rewritten;
-
-  return NULL;
-}
-
 /* ---------------------------------------------------------------------- */
 
 /* Handler logic */
@@ -2001,7 +1857,7 @@ decode_cookie(request_rec *r,
     return HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name, c));
+  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
 
   if (cookie_str == NULL || strcmp(cookie_str, TESTSTRING) == 0) {
     APACHE_LOG0(APLOG_INFO, "No existing authentication cookie");
@@ -2243,7 +2099,7 @@ decode_response(request_rec *r,
      are in a sub-request it's the URL from the coresponding main
      request that we need */  
   
-  this_url = get_url(r->main ? r->main : r, c);
+  this_url = get_url(r->main ? r->main : r);
   this_url = ap_getword(r->pool, &this_url, '?');
   response_url = apr_table_get(response_ticket, "url");
   response_url = ap_getword(r->pool, &response_url, '?');
@@ -2280,7 +2136,7 @@ validate_response(request_rec *r,
   
   APACHE_LOG1(APLOG_DEBUG, "Searching for cookie %s", c->cookie_name);
   
-  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name, c));
+  cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
   if (cookie_str == NULL) {
     APACHE_LOG0(APLOG_WARNING, "Browser not accepting session cookie"); 
     if (c->no_cookie_msg != NULL) {
@@ -2488,7 +2344,7 @@ construct_request(request_rec *r,
   request = apr_pstrcat
     (r->pool,
      "ver=", PROTOCOL_VERSION,
-     "&url=", escape_url(r->pool,get_url(r->main ? r->main : r, c)),
+     "&url=", escape_url(r->pool,get_url(r->main ? r->main : r)),
      "&date=", 
      iso2_time_encode(r, apr_time_now()),
      NULL);
@@ -2602,7 +2458,7 @@ webauth_authn(request_rec *r)
 {
   
   mod_ucam_webauth_cfg *c;
-  apr_table_t *response;
+  apr_table_t *response = NULL;
   int rc;
   char *host, *colon;
   
@@ -2622,12 +2478,6 @@ webauth_authn(request_rec *r)
     (APLOG_INFO, "** mod_ucam_webauth (%s) authn handler started for %s", 
      VERSION, r->uri);
 
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
-  c = apply_config_defaults(r,c);
-
-  dump_config(r,c);
-  
   /* If the hostname the user used (as reported by the 'Host' header)
      doesn't match the configured hostname for this server then we are
      going to have all sorts of problems with cookies and redirects,
@@ -2647,11 +2497,17 @@ webauth_authn(request_rec *r)
 	(APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
 	 "configured hostname (%s) - redirecting",
 	 host, r->server->server_hostname);
-      apr_table_set(r->headers_out, "Location", get_url(r, c));
+      apr_table_set(r->headers_out, "Location", get_url(r));
       return (r->method_number == M_GET) ? 
 	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
     }
   }
+  
+  c = (mod_ucam_webauth_cfg *) 
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
+  c = apply_config_defaults(r,c);
+
+  dump_config(r,c);
   
   cache_control(r,c->cache_control);
 
@@ -2743,7 +2599,10 @@ webauth_fixup(request_rec *r)
 
   dump_config(r,c);
   
-  return decode_cookie(r,c);
+  /* Discard the result of decoding - either it worked or it didn't */
+  (void)decode_cookie(r,c);
+  
+  return DECLINED; 
 
 }
 
@@ -3000,14 +2859,7 @@ static const command_rec webauth_commands[] = {
 		(mod_ucam_webauth_cfg,header_key), 
 		RSRC_CONF | OR_AUTHCFG,
 		"the secret key for additional headers (required)"),
-
-  AP_INIT_TAKE2("AARewrite",
-		set_rewrite,
-		NULL,
-		RSRC_CONF | OR_AUTHCFG,
-		"rewrite the originating URL for use in authentication "
-		"and redirects"),
-
+  
   {NULL}
 
 };
