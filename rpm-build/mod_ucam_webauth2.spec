@@ -10,9 +10,9 @@
 
 # Auto-detect distributions that neeed fixups. This may extension for
 # new distributions - please inform raven-support@ucs.cam.ac.uk of any
-# changes you find you need to make so tha tthey can be included in
+# changes you find you need to make so that they can be included in
 # future versions of this file.
-%if %((rpm --quiet -q suse-release || rpm --quiet -q sles-release) && echo 1 || echo 0) == 1
+%if %(test -e /etc/SuSE-release && echo 1 || echo 0) == 1
   %define dist suse
   %define apache2_package apache2
   %define apache2_devel   apache2-devel
@@ -25,7 +25,7 @@
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
 Version: 1.4.0
-Release: 1
+Release: 2
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
@@ -78,6 +78,9 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Fri Feb 02 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-2
+* Fixup OS detection to cope with OpenSUSE
+
 * Tue Jan 30 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-1
 - Update to support SLES
 - Update to 1.4.0
