@@ -25,11 +25,11 @@ Configuration' below.
 * Apache
 
   The module is only of any use when used with a copy of Apache,
-  version 1.3 or version 2.0 (it may or may not work with version
-  2.1/2.2). Apache comes as part of most Unix/Linux distributions,
+  version 1.3, 2.0, 2.1 or 2.2 (it may or may not work with later
+  versions). Apache comes as part of most Unix/Linux distributions,
   though it may be necessary to install an additional package, perhaps
-  called httpd-devel or apache-devel, for access to the tools needed
-  to build the module.
+  called httpd-devel, apache-devel, or apache2-devel for access to the
+  tools needed to build the module.
 
 * OpenSSL
 
@@ -78,21 +78,21 @@ If your copy of the OpenSSL library isn't in a standard place it may
 be necessary to modify the '-lcrypto' option. apxs may not be on
 root's default path and may be renamed, e.g. to apxs2, on some
 platforms - see INSTALL.Platforms for some further details. apxs and
-related files are sometimes provided by a httpd-devel or apache-devel
-package which will need to be installed.
+related files are sometimes provided by a httpd-devel, apache-devel,
+or apache2-devel package which will need to be installed.
 
 
-2.3 Building and installing RPMs
+2.2 Building and installing RPMs
 --------------------------------
 
 The module is distributed as a pair of 'Source RPMs', one for Apache
-v1.3 and one for Apache 2. On RPM-based Linux systems it is straight
-forward to use one of these to build a binary RPM which can then be
-installed as for any other package. This is particularly useful if you
-need to install the module on a number of similar systems. This
-approach will only work with copies of Apache that include shared
-object support (see above). This is almost always the case with
-RPM-based distributions.
+1.3 and one for Apache 2.0/2.1/2.2. On RPM-based Linux systems it is
+straight forward to use one of these to build a binary RPM which can
+then be installed as for any other package. This is particularly
+useful if you need to install the module on a number of similar
+systems. This approach will only work with copies of Apache that
+include shared object support (see above). This is almost always the
+case with RPM-based distributions.
 
 To build an RPM, download the appropriate Source RPM, cd to the
 directory containing it, and then as root issue the command
@@ -108,8 +108,15 @@ can be installed by issuing, e.g., the command
 
   rpm -Uvh /usr/src/redhat/RPMS/i386/mod_ucam_webauth<n>-<ver>.i386.rpm
 
+Linux distributions vary somewhat in how they package Apache-related
+software so the source RPMs are unlikely to install on every possible
+system. Even with only a little experience of modifying RPMs it should
+be easy enough to install the source RPM and modify the '.spec' file
+to work with a new system. If you find you need to do this, please
+inform raven-support@ucs.cam.ac.uk so that any changes can be included
+in future versions.
 
-2.2  Static Linking
+2.3  Static Linking
 -------------------
 
 Apache can be built with all modules linked into the main program - so
@@ -119,9 +126,9 @@ Apache source tree and then to rebuild Apache.
 
 Change into the Apache build directory and copy mod_ucam_webauth.c
 from an unpacked tar distribution to src/modules/extra (for Apache
-1.3) or modules/aaa (for Apache 2). Run the configure script with the
-options as specified below in addition to any other options you wish
-to set.
+1.3) or modules/aaa (for Apache 2.0/2.1/2.2). Run the configure script
+with the options as specified below in addition to any other options
+you wish to set.
 
 For an Apache 1.3 installation:
 
@@ -161,18 +168,10 @@ Apache server. It should be listed as mod_ucam_webauth.c.
   By default the module expects to find keys in a directory called
   conf/webauth_keys/ within Apache's server's 'ServerRoot'
   directory. INSTALL.Platforms documents server root for some
-  systems. Alternatively the 'apxs' tool (see '2.1 Building and
-  installing using APXS' above) can display the compiled-in default
-  value of ServerRoot (though this can be overridden both on the
-  command line used to start Apache and in the configuration file) by
-  using
-
-    apxs -q PREFIX
-
-  If all else fails, trying to use the module with no keys installed
-  will result in an error message in the server's error log which
-  includes the expected path to the keys. The key file location can
-  also be set using the AAKeyDir directive (see README.Config).
+  systems. If all else fails, trying to use the module with no keys
+  installed will result in an error message in the server's error log
+  which includes the expected path to the keys. The key file location
+  can also be set using the AAKeyDir directive (see README.Config).
 
   The names of the key files should not be changed - beware that they
   have no filename suffix but that some browsers may add .txt or
@@ -199,16 +198,19 @@ Apache server. It should be listed as mod_ucam_webauth.c.
 ========================
 
 If the module has been built as a dynamic shared objects then it must
-first be loaded using a 'LoadModule' directive such as:
+first be loaded into Apache. Your distribution may have its own way of
+managing modules (see INSTALL.Platforms) but a default Apache
+installation would require a 'LoadModule' directive such as:
 
   LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
 
-in the Apache configuration file, replacing 'modules/' if necessary
-with the path to the directory containing the module, relative to
-ServerRoot if it doesn't start '/'. This is not necessary if the
-module has been statically linked into the httpd program.
+in the Apache configuration file, replacing
+'modules/mod_ucam_webauth.so' if necessary with the path to the the
+file containing the module, relative to ServerRoot if it doesn't start
+'/'. This is not necessary if the module has been statically linked
+into the httpd program.
 
-Under Apache v1 some configuration files use 'ClearModuleList'
+Under Apache 1.3 some configuration files use 'ClearModuleList'
 followed by 'AddModule' directives to ensure that modules are used in
 the right order - if mod_ucam_webauth is loaded before
 'ClearModuleList' then
@@ -233,14 +235,14 @@ tampering. See README.Config for further important information about
 this. See standard Apache documentation for other ways to use the
 'Require' directive to restrict access to identified individuals.
 
-In this example the protected resources is selected with a
-<Directory> directive; resources specified by <Location> or <Files>
-directives can also be protected. 'AuthType' must be set to
-'Ucam-WebAuth'. A 'Require' directive must also appear before
-authentication will take place.
+In this example the protected resources is selected with a <Directory>
+directive; resources specified by <Location> or <Files> directives can
+also be protected. 'AuthType' must be set to 'Ucam-WebAuth'. A
+'Require' directive must also appear before authentication will take
+place.
 
 See README.Config for more information about configuring the module.
 
 
 --
-$Id: INSTALL,v 1.1 2005-11-29 13:15:55 jw35 Exp $
+$Id: INSTALL,v 1.2 2007-03-19 13:18:56 jw35 Exp $
