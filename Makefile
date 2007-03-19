@@ -66,36 +66,28 @@ rpm2: dist rpmdirs
 	cp rpm-build/mod_ucam_webauth2.spec /home/jw35/rpmdevel/SPECS
 	rpmbuild -ba /home/jw35/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
-zip13: 
+windows:
+	rm -f mod_ucam_webauth-`cat Windows/VERSION`.zip
 	mkdir -p zip_build
-	cp Windows/mod_ucam_webauth`cat Windows/VERSION13`.so \
-	        zip_build/mod_ucam_webauth.so
-	cp Windows/msvcr70.dll zip_build/msvcr70.dll
-	cp README              zip_build/README.txt 
-	cp README.WIN32        zip_build/README_WIN32.txt
-	cp README.Platforms    zip_build/README_Platforms.txt
-	cp COPYING             zip_build/COPYING.txt
-	rm -f mod_ucam_webauth`cat Windows/VERSION13`.zip
-	zip -j  mod_ucam_webauth`cat Windows/VERSION13`.zip \
-	       zip_build/*.so zip_build/*.dll
-	zip -jl mod_ucam_webauth`cat Windows/VERSION13`.zip \
-	        zip_build/*.txt
-	rm -r zip_build/
+	cp CHANGES                  zip_build/CHANGES.txt
+	cp COPYING                  zip_build/COPYING.txt
+	cp INSTALL                  zip_build/INSTALL.txt
+	cp INSTALL.Platforms        zip_build/INSTALL_Platforms.txt
+	cp README                   zip_build/README.txt 
+	cp README.Config            zip_build/README_Config.txt
+	cp README.WIN32             zip_build/README_WIN32.txt
 
-zip2: 
-	mkdir -p zip_build
-	cp Windows/mod_ucam_webauth`cat Windows/VERSION2`.so \
-	        zip_build/mod_ucam_webauth.so
-	cp Windows/msvcr70.dll zip_build/msvcr70.dll
-	cp README              zip_build/README.txt 
-	cp README.WIN32        zip_build/README_WIN32.txt
-	cp README.Platforms    zip_build/README_Platforms.txt
-	cp COPYING             zip_build/COPYING.txt
-	rm -f mod_ucam_webauth`cat Windows/VERSION2`.zip
-	zip -j  mod_ucam_webauth`cat Windows/VERSION2`.zip \
-	       zip_build/*.so zip_build/*.dll
-	zip -jl mod_ucam_webauth`cat Windows/VERSION2`.zip \
+	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
+	       Windows/mod_ucam_webauth13-`cat Windows/VERSION`.so
+	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
+	       Windows/mod_ucam_webauth20-`cat Windows/VERSION`.so
+	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
+	       Windows/mod_ucam_webauth22-`cat Windows/VERSION`.so
+	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
+	       Windows/vcredist_x86.exe
+	zip -jl mod_ucam_webauth-`cat Windows/VERSION`.zip \
 	        zip_build/*.txt
+
 	rm -r zip_build/
 
 clean:
