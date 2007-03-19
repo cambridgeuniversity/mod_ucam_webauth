@@ -1,0 +1,17 @@
+This directory contains the files actually necessary to build an RPM
+from scratch. However if you just want an RPM you'd do better to
+install and then rebuild one of the source RPMs that are distributed
+from 
+
+  http://raven.cam.ac.uk/project/apache/
+
+But if you _really_ want to build from this, do the following:
+
+  1) Copy the .tar distribution file to <wherever>/SOURCE
+
+  2) Copy README.KEYS to <wherever>/SOURCE
+
+  3) Copy the correct .spec file (for Apache 1.3 or Apache 2) to 
+     <wherever>/SPEC
+
+  4) Run rpmbuild on the spec file
