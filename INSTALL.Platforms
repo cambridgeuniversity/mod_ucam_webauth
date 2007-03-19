@@ -3,17 +3,88 @@
                  Platform-specific Installation Notes
      ===============================================================
 
-     1. MacOS
-     2. Red Hat, Fedora
-     3. SuSE Linux
-     4. Windows
+     1. Debian/Ubuntu
+     2. MacOS
+     3. Red Hat, Fedora
+     4. SuSE Linux
+     5. Windows
 
 Please send corrections and additions to this documents to
 raven-support@ucs.cam.ac.uk
 
 
-1. MacOS (10.3, possibly others)
-================================
+1. Debian/Ubuntu
+================
+
+Apache 1
+--------
+
+Apache 1.3 is available in the apache package.
+
+apxs is installed as /usr/bin/apxs
+
+Apache runs with a ServerRoot of /etc/apache/
+
+The module should be installed into /usr/lib/apache/1.3/. According to
+Debian/Ubuntu conventions, it should be loaded by creating a file
+/usr/lib/apache/1.3/500mod_ucam_webauth.info containing the line
+
+  LoadModule: ucam_webauth_module /usr/lib/apache/1.3/mod_ucam_webauth.so
+
+and then running
+
+  apache-modconf apache enable mod_ucam_webauth
+
+Alternatively, the module could be loaded with a LoadModule line in
+httpd.conf, or in a *.conf file in /etc/apache/conf.d/, or otherwise in
+a file included into httpd.conf:
+
+  LoadModule ucam_webauth_module /usr/lib/apache/1.3/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /etc/apache/conf/webauth_keys/
+
+Apache logs are stored in /var/log/apache/
+
+Apache 2
+--------
+
+Apache 2.0 is available in the apache2 package.
+
+apxs is installed as /usr/bin/apxs2
+
+Apache runs with a ServerRoot of /etc/apache2/
+
+The module should be installed into
+/usr/lib/apache2/modules/. According to Debian/Ubuntu conventions (see
+/etc/apache2/README), it should be loaded from a file in
+/etc/apache2/mods-available called ucam_webauth.load containing:
+
+  LoadModule ucam_webauth_module /usr/lib/apache2/modules/mod_ucam_webauth.so
+
+Initial configuration directives (probably including AACookieKey)
+should appear in a file in the same directory called
+ucam_webauth.conf. If this file contains a Cookie Key it should only
+be readable by root. Modules are enabled by symlinking to their .load
+and .conf files from the /etc/apache2/mods-enabled directory - the
+utility a2enmod can be used to create the symlinks.
+
+Alternatively, the module could be loaded with a LoadModule line in
+apache2.conf, or in a *.conf file in /etc/apache2/conf.d/, or otherwise in
+a file included into apache2.conf:
+
+  LoadModule ucam_webauth_module /usr/lib/apache2/modules/mod_ucam_webauth.so
+
+The keys will by default be searched for in
+
+  /etc/apache2/conf/webauth_keys/
+
+Apache logs are stored in /var/log/apache2/
+
+
+2. MacOS (10.3, 10.4, possibly others)
+======================================
 
 Only Apache 1.3 is available.
 
@@ -29,9 +100,9 @@ apxs is installed as /usr/sbin/apxs
 
 Apache appears to run with a ServerRoot of /usr/
 
-The module is installed into /usr/libexec/httpd/. It should be loaded
-with a LoadModule line in httpd.conf or otherwise in a file included
-into httpd.conf:
+The module should be installed into /usr/libexec/httpd/. It should be
+loaded with a LoadModule line in httpd.conf or otherwise in a file
+included into httpd.conf:
 
   LoadModule ucam_webauth_module libexec/httpd/mod_ucam_webauth.so
 
@@ -39,15 +110,16 @@ The keys will by default be searched for in
 
   /usr/conf/webauth_keys/
 
-Apache logs are stored at /private/var/log/httpd
+Apache logs are stored at /private/var/log/httpd/
 
 Apache on OS 10 server uses Apple's own authentication module,
 mod_auth_apple, in place of the standard Apache module, mod_auth. In
-OS version 10.4.6 (and probably in future versions) mod_auth_apple
+OS version 10.4.6 (and probably in subsequent versions) mod_auth_apple
 won't inter-work with mod_ucam_webauth. Instructions for working
 around this problem appear in the wiki document noted above.
 
-2. Red Hat, Fedora
+
+3. Red Hat, Fedora
 ==================
 
 Only Apache 2 is available
@@ -56,7 +128,7 @@ apxs is installed as /usr/sbin/apxs
 
 Apache runs with a ServerRoot of /etc/httpd/
 
-The module is installed into /usr/lib/httpd/modules/,
+The module should be installed into /usr/lib/httpd/modules/,
 (a.k.a. /etc/httpd/modules/ via a symlink). It should be loaded with a
 LoadModule line in httpd.conf, or in a *.conf file in
 /etc/httpd/conf.d/, or otherwise in a file included into httpd.conf:
@@ -70,22 +142,24 @@ The keys will by default be searched for in
 Apache logs are stored in /var/log/httpd/
 
 
-3. SuSE Linux
+4. SuSE Linux
 =============
 
 Apache 1.3
 ----------
 
-Note that Apache 1.3 is only available in SLES and OES versions of
-SuSE Linux.
+Apache 1.3 is provided by the httpd package.
+
+Note that Apache 1.3 is only available in versions of SLES up to and
+including 9.0, and in some OES versions of SuSE Linux.
 
 apxs is installed as /usr/sbin/apxs
 
 Apache runs with a ServerRoot of /srv/www/
 
-The module is installed into /usr/lib/apache/. It should be loaded
-with a LoadModule line in httpd.conf or otherwise in a file included
-into httpd.conf:
+The module should be installed into /usr/lib/apache/. It should be
+loaded with a LoadModule line in httpd.conf or otherwise in a file
+included into httpd.conf:
 
   LoadModule ucam_webauth_module /usr/lib/apache/mod_ucam_webauth.so
 
@@ -95,36 +169,47 @@ The keys will by default be searched for in
 
 It might be better to use the AAKeyDir directive to relocate this to
 something like /etc/httpd/webauth_keys/. The RPMs will by default
-create /etc/httpd/webauth_keys/ and will make
-/srv/www/conf/webauth_keys a symlink to it.
+create /etc/httpd/webauth_keys/ and make /srv/www/conf/webauth_keys a
+symlink to it.
 
 Apache logs are stored in /var/log/httpd/
 
 Apache 2
 --------
 
+Apache 2 is provided by the apache2 package. This provides Apache 2.0
+in SLES 9 and SuSE Linux 10.0; it provides Apache 2.2 in SLES 10, SuSE
+Linux 10.1 and OpenSuSE 10.2.
+
 apxs is installed as /usr/sbin/apxs2. Alternate versions
-(apxs2-prefork, apxs2-worker, etc) are available and differ only in
-where the built module is installed (see
-/usr/share/doc/packages/apache2/README.SuSE) 
+(apxs2-prefork, apxs2-worker, etc) are available for building modules
+customise for particular MPMs (see
+/usr/share/doc/packages/apache2/README.SuSE)
 
-Apache appears to run with a ServerRoot of /srv/www/
+Apache runs with a ServerRoot of /srv/www/
 
-The module is installed into /usr/lib/apache2/. It should be loaded by
-adding 'ucam_webauth' to the list of modules assigned to the
-APACHE_MODULES key in /etc/sysconfig/apache2. For some versions of
-SuSE it will be necessary to run
+The module should installed into /usr/lib/apache2/ (/usr/lib64/apache2/
+on 64-bit systems). It should be loaded by adding 'ucam_webauth' to
+the list of modules assigned to the APACHE_MODULES key in
+/etc/sysconfig/apache2 (the utility a2enmod can be used to manipulate
+this list). For older versions of SuSE it will be necessary to run
 
   SuSEconfig --module apache2
 
-to bring this change into operation, later versions do so
-automatically when Apache is restarted.
+to bring this change into operation, later versions do this
+automatically when Apache is restarted. Either way, all the modules in
+/usr/lib/apache2/ will be symlinked from /usr/lib/apache2-prefork/,
+/usr/lib/apache2-worker, etc, depending in which Apache MPM is in use.
 
-If necessary, the module can be loaded with a LoadModule line in
-httpd.conf, or in a *.conf file in /etc/httpd/conf.d/, or otherwise in
+Alternatively, the module could be loaded with a LoadModule line in
+httpd.conf, or in a *.conf file in /etc/apache/conf.d/, or otherwise in
 a file included into httpd.conf:
 
   LoadModule ucam_webauth_module /usr/lib/apache2/mod_ucam_webauth.so
+
+or
+
+  LoadModule ucam_webauth_module /usr/lib64/apache2/mod_ucam_webauth.so
 
 The keys will by default be searched for in
 
@@ -132,63 +217,45 @@ The keys will by default be searched for in
 
 It might be better to use the AAKeyDir directive to relocate this to
 something like /etc/apache2/webauth_keys/. The SuSE RPMs will by
-default create /etc/apache2/webauth_keys/ and will make
+default create /etc/apache2/webauth_keys/ and make
 /srv/www/conf/webauth_keys a symlink to it.
 
 Apache logs are stored in /var/log/httpd/
 
 
-4. Windows
+5. Windows
 ==========
 
-Apache1
--------
+All versions
+------------
 
-See also README.WIN32
+See README.WIN32. Binary builds of the module are available - the
+correct binary module must be used to match the version of Apache in
+use (1.3, 2.0, or 2.2).
 
-By default, the Apache project binary installer installs into
-C:\Program Files\Apache Group\Apache\. This is the default ServerRoot.
+By default, the Apache project binary installer installs into one of
+the following. This is the default ServerRoot:
 
-The module needs to be installed into 
-C:\Program Files\Apache Group\Apache\modules. The supplied copy of
-msvcr70.dll should be copied either into the Windows directory or
-into C:\Program Files\Apache Group\Apache\
+  C:\Program Files\Apache Group\Apache\                  [Apache 1.3]
+  C:\Program Files\Apache Group\Apache2\                 [Apache 2.0]
+  C:\Program Files\Apache Software Foundation\Apache2.2\ [Apache 2.2]
 
-The module should be loaded with a LoadModule line in httpd.conf or
-otherwise in a file included into httpd.conf:
-
-  LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
-
-The keys will by default be searched for in
-
-  C:\Program Files\Apache Group\Apache\conf\webauth_keys\
-
-Apache logs are stored at C:\Program Files\Apache Group\Apache\logs\
-
-Apache 2
---------
-
-See also README.WIN32
-
-By default, the Apache project binary installer installs into
-C:\Program Files\Apache Group\Apache2\. This is the default ServerRoot.
-
-The module needs to be installed into 
-C:\Program Files\Apache Group\Apache2\modules. The supplied copy of
-msvcr70.dll should be copied either into the Windows directory or
-into C:\Program Files\Apache Group\Apache2\
+The module should be installed into the modules\ directory within the
+apache directory. The 'Microsoft Visual C++ 2005 Redistributable
+Package' supplied in the file vcredist_x86.exe must be installed if
+not already present.
 
 The module should be loaded with a LoadModule line in httpd.conf or
 otherwise in a file included into httpd.conf:
 
   LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
 
-The keys will by default be searched for in
+The keys will by default be searched for in conf\webauth_keys\ within
+the installation directory.
 
-  C:\Program Files\Apache Group\Apache2\conf\webauth_keys\
-
-Apache logs are stored at C:\Program Files\Apache Group\Apache2\logs\
+Apache logs are stored in the logs\ directory within the installation
+directory.
 
 
 --
-$Id: INSTALL.Platforms,v 1.2 2006-06-06 09:36:04 jw35 Exp $
+$Id: INSTALL.Platforms,v 1.3 2007-03-19 13:19:26 jw35 Exp $
