@@ -7,6 +7,7 @@
 %define apache2_devel   httpd-devel
 %define apxs            %{_sbindir}/apxs
 %define keysdir         /etc/httpd/conf/webauth_keys
+%define extra_prereq    %{nil}
 
 # Auto-detect distributions that neeed fixups. This may extension for
 # new distributions - please inform raven-support@ucs.cam.ac.uk of any
@@ -18,14 +19,15 @@
   %define apache2_devel   apache2-devel
   %define apxs            %{_sbindir}/apxs2
   %define keysdir         /etc/apache2/webauth_keys
+  %define extra_prereq    apache2-prefork
 %endif
 
 %define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
-Version: 1.4.0
-Release: 2
+Version: 1.4.0a
+Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
 URL: http://raven.cam.ac.uk/
@@ -33,7 +35,7 @@ Source: mod_ucam_webauth-%{version}.tar.gz
 Source1: README.KEYS
 License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
-BuildPrereq: %{apache2_devel}, openssl-devel
+BuildPrereq: %{apache2_devel}, openssl-devel, %{extra_prereq}
 Requires: %{apache2_package}, openssl
 
 %description
@@ -78,8 +80,12 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Mon Mar 19 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0a-1
+- Add apache2-prefork as a prereq (seems to be needed by apxs)
+- Update to 1.4.0a (documentation update)
+
 * Fri Feb 02 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-2
-* Fixup OS detection to cope with OpenSUSE
+- Fixup OS detection to cope with OpenSUSE
 
 * Tue Jan 30 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-1
 - Update to support SLES
