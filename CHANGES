@@ -1,14 +1,18 @@
-1.4.0a - 2007-03-19 jw
-
- Documentation/packaging update only - no change to the module itself.
+1.4.1 - 2007-04-13 jw
 
  Enhancements
 
+ . The module now sets Apache's internal auth_type value to
+   'Ucam-WebAuth' if it has performed authentication (c.f. mod_auth
+   setting this to 'Basic'). This in turn causes the CGI environment
+   variable AUTH_TYPE to be set. Further, a new directive
+   AAForceAuthType allows configuration of the auth_type value
+   returned. Something like 'AAForceAuthType Basic' could allow
+   authentication systems intended for use with HTTP Basic Auth to
+   work under Ucam-WebAuth.
+
  . Assorted updates to documentation, mainly to correctly address
    Apache 1.3 vs. 2.0 vs. 2.2 issues.
-
- . Windows distribution now includes a binary build of the module 
-   for Apache 2.2
 
  . Extend RPM '.spec' files to additionally support OpenSuSE 10.2, and
    to require apache2-prefork when building under SuSE since this
