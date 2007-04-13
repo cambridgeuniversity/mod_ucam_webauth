@@ -26,7 +26,7 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
-Version: 1.4.0a
+Version: 1.4.1
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
@@ -80,9 +80,9 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
-* Mon Mar 19 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0a-1
+* Mon Mar 19 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.1-1
 - Add apache2-prefork as a prereq (seems to be needed by apxs)
-- Update to 1.4.0a (documentation update)
+- Update to 1.4.1
 
 * Fri Feb 02 2007 Jon Warbrick <jw35@cam.ac.uk> - 1.4.0-2
 - Fixup OS detection to cope with OpenSUSE
