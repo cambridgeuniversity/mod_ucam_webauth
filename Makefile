@@ -76,15 +76,15 @@ windows:
 	cp README                   zip_build/README.txt 
 	cp README.Config            zip_build/README_Config.txt
 	cp README.WIN32             zip_build/README_WIN32.txt
+	cp Windows/mod_ucam_webauth13-`cat Windows/VERSION`.so \
+	                            zip_build/mod_ucam_webauth13.so
+	cp Windows/mod_ucam_webauth20-`cat Windows/VERSION`.so \
+	                            zip_build/mod_ucam_webauth20.so
+	cp Windows/mod_ucam_webauth22-`cat Windows/VERSION`.so \
+	                            zip_build/mod_ucam_webauth22.so
 
 	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	       Windows/mod_ucam_webauth13-`cat Windows/VERSION`.so
-	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	       Windows/mod_ucam_webauth20-`cat Windows/VERSION`.so
-	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	       Windows/mod_ucam_webauth22-`cat Windows/VERSION`.so
-	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	       Windows/vcredist_x86.exe
+	       zip_build/*.so zip_build/*.exe
 	zip -jl mod_ucam_webauth-`cat Windows/VERSION`.zip \
 	        zip_build/*.txt
 
