@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.68 2007-03-19 13:18:11 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.69 2007-04-13 16:29:11 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.4.0a"
+#define VERSION "1.4.1"
 
 /*
 MODULE-DEFINITION-START
@@ -130,6 +130,7 @@ MODULE-DEFINITION-END
 #define DEFAULT_always_decode      0
 #define DEFAULT_headers            HDR_NONE
 #define DEFAULT_header_key         NULL
+#define DEFAULT_force_auth_type    "Ucam-WebAuth"
 
 /* module configuration structure */
 
@@ -157,6 +158,7 @@ typedef struct {
   int   always_decode;
   int   headers;
   char *header_key;
+  char *force_auth_type;
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
@@ -1320,6 +1322,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->always_decode = -1;
   cfg->headers = -1;
   cfg->header_key = NULL;  
+  cfg->force_auth_type = NULL;
   return (void *)cfg;
 
 }
@@ -1386,6 +1389,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->headers : base->headers;
   merged->header_key = new->header_key != NULL ? 
     new->header_key : base->header_key;
+  merged->force_auth_type = new->force_auth_type != NULL ? 
+    new->force_auth_type : base->force_auth_type;
 
   return (void *)merged;
 
@@ -1449,6 +1454,8 @@ apply_config_defaults(request_rec *r,
       DEFAULT_headers;
   n->header_key = c->header_key != NULL ? c->header_key : 
       DEFAULT_header_key; 
+  n->force_auth_type = c->force_auth_type != NULL ? c->force_auth_type : 
+      DEFAULT_force_auth_type; 
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
@@ -1591,6 +1598,9 @@ dump_config(request_rec *r,
 	    "  AAHeaderKey          = %-.4s... (%lu characters total)", 
 		  c->header_key, (unsigned long)strlen(c->header_key));
     }
+
+    APACHE_LOG1(APLOG_DEBUG, "  AAForceAuthType      = %s",
+		(c->force_auth_type == NULL ? "NULL" : c->force_auth_type));
 
   }
 
@@ -1979,8 +1989,10 @@ decode_cookie(request_rec *r,
   
 #ifdef APACHE1_3
   r->connection->user = (char *)apr_table_get(cookie, "principal");
+  r->connection->ap_auth_type = c->force_auth_type;
 #else
   r->user = (char *)apr_table_get(cookie, "principal");
+  r->ap_auth_type = (char *) c->force_auth_type;
 #endif
   
   apr_table_set(r->subprocess_env, 
@@ -2859,6 +2871,13 @@ static const command_rec webauth_commands[] = {
 		(mod_ucam_webauth_cfg,header_key), 
 		RSRC_CONF | OR_AUTHCFG,
 		"the secret key for additional headers (required)"),
+
+  AP_INIT_TAKE1("AAForceAuthType", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,force_auth_type), 
+		RSRC_CONF | OR_AUTHCFG,
+		"override the returned authentication type"),
   
   {NULL}
 
