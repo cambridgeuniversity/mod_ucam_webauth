@@ -68,7 +68,8 @@ rpm2: dist rpmdirs
 
 windows:
 	rm -f mod_ucam_webauth-`cat Windows/VERSION`.zip
-	mkdir -p zip_build
+	mkdir -p zip_build          zip_build/Apache13 \
+	         zip_build/Apache20 zip_build/Apache22
 	cp CHANGES                  zip_build/CHANGES.txt
 	cp COPYING                  zip_build/COPYING.txt
 	cp INSTALL                  zip_build/INSTALL.txt
@@ -76,18 +77,17 @@ windows:
 	cp README                   zip_build/README.txt 
 	cp README.Config            zip_build/README_Config.txt
 	cp README.WIN32             zip_build/README_WIN32.txt
+	cp Windows/vcredist_x86.exe zip_build/vcredist_x86.exe
 	cp Windows/mod_ucam_webauth13-`cat Windows/VERSION`.so \
-	                            zip_build/mod_ucam_webauth13.so
+	                            zip_build/Apache13/mod_ucam_webauth.so
 	cp Windows/mod_ucam_webauth20-`cat Windows/VERSION`.so \
-	                            zip_build/mod_ucam_webauth20.so
+	                            zip_build/Apache20/mod_ucam_webauth.so
 	cp Windows/mod_ucam_webauth22-`cat Windows/VERSION`.so \
-	                            zip_build/mod_ucam_webauth22.so
-
-	zip -j  mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	       zip_build/*.so zip_build/*.exe
-	zip -jl mod_ucam_webauth-`cat Windows/VERSION`.zip \
-	        zip_build/*.txt
-
+	                            zip_build/Apache22/mod_ucam_webauth.so
+	(cd zip_build; \
+	 zip    ../mod_ucam_webauth-`cat ../Windows/VERSION`.zip \
+	                          Apache13/* Apache20/* Apache22/* *.exe; \
+	 zip -l ../mod_ucam_webauth-`cat ../Windows/VERSION`.zip *.txt)
 	rm -r zip_build/
 
 clean:
