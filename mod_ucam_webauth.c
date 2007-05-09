@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.69 2007-04-13 16:29:11 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.70 2007-05-09 09:40:09 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.4.1"
+#define VERSION "1.4.1dev1"
 
 /*
 MODULE-DEFINITION-START
@@ -1860,7 +1860,8 @@ decode_cookie(request_rec *r,
     return HTTP_INTERNAL_SERVER_ERROR;
   }
   
-  if (apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
+  if (r->parsed_uri.path != NULL &&
+      apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
 		  r->parsed_uri.path, 0) == APR_FNM_NOMATCH) {
     APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
 		c->cookie_path, r->parsed_uri.path);
