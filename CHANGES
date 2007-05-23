@@ -1,3 +1,15 @@
+1.4.2 - 2007-05-23 jw
+
+ Bugs fixed
+
+ . Fix a bug causing a segmentation violation if mod_ucam_webauth is
+   used to protect an entire website including the root URL and the
+   server recieves a CONNECT request. The CONNECT method allows https:
+   requests to be relayed through proxies but this bug manifests
+   even if Apache's support for proxying is disabled. Viruses and
+   other malware sometimes attempt to use CONNECT requests in an
+   attempt to hide their network address.
+
 1.4.1 - 2007-04-13 jw
 
  Enhancements
