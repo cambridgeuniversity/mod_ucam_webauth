@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.71 2007-05-23 15:14:17 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.72 2009-12-22 15:07:13 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.4.2"
+#define VERSION "1.4.2.bjh21.2"
 
 /*
 MODULE-DEFINITION-START
@@ -122,9 +122,11 @@ MODULE-DEFINITION-END
 #define DEFAULT_cookie_path        "/"
 #define DEFAULT_cookie_domain      NULL
 #define DEFAULT_force_interact     0
+#define DEFAULT_refuse_interact    0
 #define DEFAULT_fail               0
 #define DEFAULT_ign_response_life  0
 #define DEFAULT_cancel_msg         NULL
+#define DEFAULT_need_interact_msg  NULL
 #define DEFAULT_no_cookie_msg      NULL
 #define DEFAULT_logout_msg         NULL
 #define DEFAULT_always_decode      0
@@ -150,9 +152,11 @@ typedef struct {
   char *cookie_path;
   char *cookie_domain;
   int   force_interact;
+  int   refuse_interact;
   int   fail;
   int   ign_response_life;
   char *cancel_msg;
+  char *need_interact_msg;
   char *no_cookie_msg;
   char *logout_msg;
   int   always_decode;
@@ -1234,6 +1238,37 @@ auth_cancelled(request_rec *r)
 
 /* --- */
 
+static char*
+interact_required(request_rec *r) 
+
+{
+
+  char *sig = (char *)ap_psignature("<hr>", r);
+  char *admin = ap_escape_html(r->pool, r->server->server_admin);
+  if (admin != NULL) {
+    admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
+  } else {
+    admin = "";
+  }
+
+  return apr_pstrcat
+    (r->pool,
+     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
+     "<html><head><title>Error - interaction required</title></head>"
+     "<body><h1>Error - interaction required</h1>"
+     "<p>Authentication cannot proceed because this server is configured "
+     "to only serve the resource that you requested if the authentication "
+     "system can authenticate you without interacting with you, and it "
+     "cannot.",
+     "<p>This error should not usually be seen by users, so if you have "
+     "reached this message by a reasonable means you may wish to contact "
+     "the administrator of this server ", admin, " to correct the problem.",
+     sig, "</body></html>", NULL);
+
+}
+
+/* --- */
+
 static char *
 auth_required(request_rec *r) 
 
@@ -1314,9 +1349,11 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->cookie_path = NULL;
   cfg->cookie_domain = NULL;
   cfg->force_interact = -1;
+  cfg->refuse_interact = -1;
   cfg->fail = -1;
   cfg->ign_response_life = -1;
   cfg->cancel_msg = NULL;
+  cfg->need_interact_msg = NULL;
   cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
   cfg->always_decode = -1;
@@ -1373,12 +1410,16 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->cookie_domain : base->cookie_domain;
   merged->force_interact = new->force_interact != -1 ? 
     new->force_interact : base->force_interact;
+  merged->refuse_interact = new->refuse_interact != -1 ? 
+    new->refuse_interact : base->refuse_interact;
   merged->fail = new->fail != -1 ? 
     new->fail : base->fail;
   merged->ign_response_life = new->ign_response_life != -1 ? 
     new->ign_response_life : base->ign_response_life;
   merged->cancel_msg = new->cancel_msg != NULL ? 
     new->cancel_msg : base->cancel_msg;
+  merged->need_interact_msg = new->need_interact_msg != NULL ? 
+    new->need_interact_msg : base->need_interact_msg;
   merged->no_cookie_msg = new->no_cookie_msg != NULL ? 
     new->no_cookie_msg : base->no_cookie_msg;
   merged->logout_msg = new->logout_msg != NULL ? 
@@ -1438,12 +1479,16 @@ apply_config_defaults(request_rec *r,
       DEFAULT_cookie_domain;
   n->force_interact = c->force_interact != -1 ? c->force_interact :
       DEFAULT_force_interact;  
+  n->refuse_interact = c->refuse_interact != -1 ? c->refuse_interact :
+      DEFAULT_refuse_interact;  
   n->fail = c->fail != -1 ? c->fail :
       DEFAULT_fail; 
   n->ign_response_life = c->ign_response_life != -1 ? c->ign_response_life :
       DEFAULT_ign_response_life; 
   n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg : 
       DEFAULT_cancel_msg;
+  n->need_interact_msg = c->need_interact_msg != NULL ? c->need_interact_msg : 
+      DEFAULT_need_interact_msg;
   n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg : 
       DEFAULT_no_cookie_msg;
   n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
@@ -1463,6 +1508,8 @@ apply_config_defaults(request_rec *r,
     n->timeout_msg = DEFAULT_timeout_msg;
   if (n->cancel_msg && !strcasecmp(n->cancel_msg,"none"))
     n->cancel_msg = DEFAULT_cancel_msg;
+  if (n->need_interact_msg && !strcasecmp(n->need_interact_msg,"none"))
+    n->need_interact_msg = DEFAULT_need_interact_msg;
   if (n->no_cookie_msg && !strcasecmp(n->no_cookie_msg,"none")) 
     n->no_cookie_msg = DEFAULT_no_cookie_msg;
   if (n->logout_msg && !strcasecmp(n->logout_msg,"none"))
@@ -1553,6 +1600,9 @@ dump_config(request_rec *r,
     APACHE_LOG1(APLOG_DEBUG, "  AAForceInteract      = %d",
 		c->force_interact);
     
+    APACHE_LOG1(APLOG_DEBUG, "  AARefuseInteract     = %d",
+		c->refuse_interact);
+    
     APACHE_LOG1(APLOG_DEBUG, "  AAFail               = %d",
 		c->fail);
     
@@ -1561,6 +1611,9 @@ dump_config(request_rec *r,
     
     APACHE_LOG1(APLOG_DEBUG, "  AACancelMsg          = %s",
 		(c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
+    
+    APACHE_LOG1(APLOG_DEBUG, "  AANeedInteractMsg    = %s",
+		(c->need_interact_msg == NULL ? "NULL" : c->need_interact_msg));
     
     APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
@@ -1911,6 +1964,19 @@ decode_cookie(request_rec *r,
     }
     set_cookie(r, TESTSTRING, c);
     return HTTP_FORBIDDEN;
+  }
+
+  if (strcmp((char *)apr_table_get(cookie, "status"), "540") == 0) {
+    APACHE_LOG0(APLOG_INFO, "Authentication status = 540, "
+		"interaction required"); 
+    if (c->need_interact_msg != NULL) {
+      ap_custom_response(r, HTTP_BAD_REQUEST, c->need_interact_msg);
+    } 
+    else {
+      ap_custom_response(r, HTTP_BAD_REQUEST, interact_required(r));
+    }
+    set_cookie(r, TESTSTRING, c);
+    return HTTP_BAD_REQUEST;
   }
 
   if (strcmp((char *)apr_table_get(cookie, "status"), "200") != 0) {
@@ -2381,6 +2447,8 @@ construct_request(request_rec *r,
   
   if (c->force_interact == 1) 
     request = apr_pstrcat(r->pool, request, "&iact=yes", NULL);
+  else if (c->refuse_interact == 1) 
+    request = apr_pstrcat(r->pool, request, "&iact=no", NULL);
   
   request = apr_pstrcat
     (r->pool,
@@ -2818,6 +2886,14 @@ static const command_rec webauth_commands[] = {
 	       "either 'on' or 'off'; "
 	       "'on' suppresses 'single sign-on' at the WLS"),
   
+  AP_INIT_FLAG("AARefuseInteract", 
+	       ap_set_flag_slot, 
+	       (void *)APR_OFFSETOF
+	       (mod_ucam_webauth_cfg,refuse_interact),
+	       RSRC_CONF | OR_AUTHCFG,
+	       "either 'on' or 'off'; "
+	       "'on' asks WLS not to interact with user"),
+  
   AP_INIT_FLAG("AAFail", 
 	       ap_set_flag_slot, 
 	       (void *)APR_OFFSETOF(mod_ucam_webauth_cfg,fail),
@@ -2831,6 +2907,13 @@ static const command_rec webauth_commands[] = {
 		(mod_ucam_webauth_cfg,cancel_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'authentication cancelled'"),
+  
+  AP_INIT_TAKE1("AANeedInteractMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,need_interact_msg),
+		RSRC_CONF | OR_AUTHCFG,
+		"a custom error definition for 'interaction required'"),
   
   AP_INIT_TAKE1("AANoCookieMsg", 
 		ap_set_string_slot, 
