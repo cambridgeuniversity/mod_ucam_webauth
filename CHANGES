@@ -1,10 +1,27 @@
-1.4.2 - 2007-05-23 jw
+1.4.3 - 2010-03-16 jw
 
- Bugs fixed
+ Enhancements
+
+ . Add partial support for silently querying the authentication server
+   in an attempt to identify the currently logged-in user. 
+
+   The Ucam WebAuth protocol makes it possible to silently query the
+   authentication server to identify the currently logged-in user. If
+   this information can be obtained without interacting with the user
+   then their identity is returned. If not, either because they
+   haven't logged in to the authentication server or because they want
+   to be informed each time their identity is disclosed, then an error
+   response is returned. Partial support for this feature is now
+   provided by two new directives: AARefuseInteract and
+   AANeedInteractMsg. More extensive support for this feature would be
+   difficult to achieve without significant changes to the way the
+   module operates (and perhaps not even then).
+
+1.4.2 - 2007-05-23 jw
 
  . Fix a bug causing a segmentation violation if mod_ucam_webauth is
    used to protect an entire website including the root URL and the
-   server recieves a CONNECT request. The CONNECT method allows https:
+   server receives a CONNECT request. The CONNECT method allows https:
    requests to be relayed through proxies but this bug manifests
    even if Apache's support for proxying is disabled. Viruses and
    other malware sometimes attempt to use CONNECT requests in an

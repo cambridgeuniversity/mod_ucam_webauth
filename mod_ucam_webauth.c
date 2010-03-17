@@ -21,14 +21,14 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.72 2009-12-22 15:07:13 jw35 Exp $
+   $Id: mod_ucam_webauth.c,v 1.73 2010-03-17 14:50:23 jw35 Exp $
 
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
 
-#define VERSION "1.4.2.bjh21.2"
+#define VERSION "1.4.3"
 
 /*
 MODULE-DEFINITION-START
@@ -1954,6 +1954,8 @@ decode_cookie(request_rec *r,
      that if we come back through here again we will fall through and
      repeat the authentication */
 
+  /* Respond to user cancelled */
+
   if (strcmp((char *)apr_table_get(cookie, "status"), "410") == 0) {
     APACHE_LOG0(APLOG_INFO, "Authentication status = 410, user cancelled"); 
     if (c->cancel_msg != NULL) {
@@ -1965,6 +1967,8 @@ decode_cookie(request_rec *r,
     set_cookie(r, TESTSTRING, c);
     return HTTP_FORBIDDEN;
   }
+
+  /* Respond to "Interaction Required" */
 
   if (strcmp((char *)apr_table_get(cookie, "status"), "540") == 0) {
     APACHE_LOG0(APLOG_INFO, "Authentication status = 540, "
@@ -1978,6 +1982,8 @@ decode_cookie(request_rec *r,
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
+
+  /* Respond to any other fauilure */
 
   if (strcmp((char *)apr_table_get(cookie, "status"), "200") != 0) {
     APACHE_LOG2(APLOG_ERR, "Authentication error, status = %s, %s",
