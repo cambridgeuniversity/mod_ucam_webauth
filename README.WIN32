@@ -10,7 +10,10 @@ versions of mod_ucam_webauth for use with Apache 1.3, Apache 2.0, and
 Apache 2.2. These versions are compiled to work with the corresponding
 binary Apache distributions provide by the Apache project (see
 http://httpd.apache.org/download.cgi) - they may also work with other
-Apache builds but binary compatibility is not guaranteed.
+Apache builds but binary compatibility is not guaranteed. The Apache
+project distribution is compiled in 32-bit mode and these binary
+versions of mod_ucam-webauth are compiled to match - they are unlikely
+to work with 64-bit versions of Apache.
 
 The Windows distribution is provided as a ZIP file. Download it and
 un-zip it into a suitable directory. Copy the appropriate version of
@@ -66,4 +69,4 @@ README.Config, but note the following:
 * The necessary OpenSSL components are included in the compiled module
 
 --
-$Id: README.WIN32,v 1.10 2007-04-17 16:31:17 jw35 Exp $
+$Id: README.WIN32,v 1.11 2011-09-22 13:56:12 jw35 Exp $
