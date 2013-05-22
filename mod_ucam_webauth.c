@@ -68,6 +68,10 @@ MODULE-DEFINITION-END
 #define APACHE1_3
 #endif
 
+#if defined( AP_RELEASE_H ) && AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER >=4
+#define APACHE2_4
+#endif
+
 #ifdef APACHE1_3
 #include "util_date.h"
 #include "fnmatch.h"
@@ -1530,7 +1534,11 @@ dump_config(request_rec *r,
 
   char *msg;
 
+#ifdef APACHE2_4
+  if (r->server->log.level >= APLOG_DEBUG) {
+#else
   if (r->server->loglevel >= APLOG_DEBUG) {
+#endif
 
     APACHE_LOG0(APLOG_DEBUG, "Config dump:");
     
