@@ -2307,7 +2307,8 @@ validate_response(request_rec *r,
   /* first-hand authentication if ForceInteract */
   
   if (c->force_interact == 1 && 
-      apr_table_get(response_ticket, "auth") == "") {
+      NULL != apr_table_get(response_ticket, "auth") &&
+      strlen(apr_table_get(response_ticket, "auth")) == 0 ) {
     msg = "Non first-hand authentication under ForceInteract";
     status = "600";
     goto FINISHED;
