@@ -22,6 +22,11 @@
   %define extra_prereq    apache2-prefork
 %endif
 
+%if %(test -e /etc/debian_version && echo 1 || echo 0) == 1
+  %define dist debian
+  %define apxs %{_bindir}/apxs
+%endif
+
 %define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
