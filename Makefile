@@ -44,27 +44,27 @@ dist:
          rm -rf mod_ucam_webauth-$$ver )
 
 rpmdirs:
-	mkdir -p /home/jw35/rpmdevel/BUILD  
-	mkdir -p /home/jw35/rpmdevel/RPMS 
-	mkdir -p /home/jw35/rpmdevel/SOURCES
-	mkdir -p /home/jw35/rpmdevel/SPECS 
-	mkdir -p /home/jw35/rpmdevel/SRPMS	
+	mkdir -p ~/rpmdevel/BUILD  
+	mkdir -p ~/rpmdevel/RPMS 
+	mkdir -p ~/rpmdevel/SOURCES
+	mkdir -p ~/rpmdevel/SPECS 
+	mkdir -p ~/rpmdevel/SRPMS	
 
 rpm13: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
-	 cp mod_ucam_webauth-$$ver.tar.gz /home/jw35/rpmdevel/SOURCES)
-	cp rpm-build/README.KEYS /home/jw35/rpmdevel/SOURCES
-	cp rpm-build/mod_ucam_webauth13.spec /home/jw35/rpmdevel/SPECS
-	rpmbuild -bs --nodeps /home/jw35/rpmdevel/SPECS/mod_ucam_webauth13.spec
+	 cp mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
+	cp rpm-build/README.KEYS ~/rpmdevel/SOURCES
+	cp rpm-build/mod_ucam_webauth13.spec ~/rpmdevel/SPECS
+	rpmbuild -bs --nodeps ~/rpmdevel/SPECS/mod_ucam_webauth13.spec
 
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
-	 cp mod_ucam_webauth-$$ver.tar.gz /home/jw35/rpmdevel/SOURCES)
-	cp rpm-build/README.KEYS /home/jw35/rpmdevel/SOURCES
-	cp rpm-build/mod_ucam_webauth2.spec /home/jw35/rpmdevel/SPECS
-	rpmbuild -bs --nodeps /home/jw35/rpmdevel/SPECS/mod_ucam_webauth2.spec
+	 cp -v mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
+	cp rpm-build/README.KEYS ~/rpmdevel/SOURCES
+	cp rpm-build/mod_ucam_webauth2.spec ~/rpmdevel/SPECS
+	rpmbuild -bs --nodeps ~/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
 windows:
 	rm -f mod_ucam_webauth-`cat Windows/VERSION`.zip
