@@ -1,3 +1,15 @@
+1.4.4 - 2013-05-25 mcv21
+
+ . Add support for Apache2.4. This required a small change to the code
+   relating to logging.
+
+   It is expected that the next version of mod_ucam_webauth will no
+   longer support Apache 1.3 (which is long obsolete), and may not
+   support Apache 2.0. The Apache Software Foundation encourages users
+   to upgrade to version 2.2 or 2.4. These newer versions provide a
+   better API, which we will use in a future version of
+   mod_apache_webauth.
+
 1.4.3 - 2010-03-16 jw
 
  Enhancements

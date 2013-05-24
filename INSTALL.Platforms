@@ -16,41 +16,7 @@ raven-support@ucs.cam.ac.uk
 1. Debian/Ubuntu
 ================
 
-Apache 1
---------
-
-Apache 1.3 is available in the apache package.
-
-apxs is installed as /usr/bin/apxs
-
-Apache runs with a ServerRoot of /etc/apache/
-
-The module should be installed into /usr/lib/apache/1.3/. According to
-Debian/Ubuntu conventions, it should be loaded by creating a file
-/usr/lib/apache/1.3/500mod_ucam_webauth.info containing the line
-
-  LoadModule: ucam_webauth_module /usr/lib/apache/1.3/mod_ucam_webauth.so
-
-and then running
-
-  apache-modconf apache enable mod_ucam_webauth
-
-Alternatively, the module could be loaded with a LoadModule line in
-httpd.conf, or in a *.conf file in /etc/apache/conf.d/, or otherwise in
-a file included into httpd.conf:
-
-  LoadModule ucam_webauth_module /usr/lib/apache/1.3/mod_ucam_webauth.so
-
-The keys will by default be searched for in
-
-  /etc/apache/conf/webauth_keys/
-
-Apache logs are stored in /var/log/apache/
-
-Apache 2
---------
-
-Apache 2.0 is available in the apache2 package.
+Only Apache 2 is available, in the apache2 package.
 
 apxs is installed as /usr/bin/apxs2
 
@@ -68,7 +34,9 @@ should appear in a file in the same directory called
 ucam_webauth.conf. If this file contains a Cookie Key it should only
 be readable by root. Modules are enabled by symlinking to their .load
 and .conf files from the /etc/apache2/mods-enabled directory - the
-utility a2enmod can be used to create the symlinks.
+utility a2enmod should be used to create the symlinks.
+
+The authn_core module must be loaded for ucam_webauth to work.
 
 Alternatively, the module could be loaded with a LoadModule line in
 apache2.conf, or in a *.conf file in /etc/apache2/conf.d/, or otherwise in
