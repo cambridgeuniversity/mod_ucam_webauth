@@ -85,6 +85,9 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Tue May 28 2013 Matthew Vernon <mcv21@cam.ac.uk> - 1.4.4-1
+- Update to 1.4.4
+
 * Wed Mar 17 2010 Jon Warbrick <jw35@cam.ac.uk> - 1.4.3-1
 - Update to 1.4.3
 
