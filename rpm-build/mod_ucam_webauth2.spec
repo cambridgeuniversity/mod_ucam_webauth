@@ -31,7 +31,7 @@
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
-Version: 1.4.3
+Version: 1.4.4
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
