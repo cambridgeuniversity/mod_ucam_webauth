@@ -6,34 +6,34 @@
 
 A binary distributions of mod_ucam_webauth is available for use with
 Apache running on a windows platform. This distribution contains
-versions of mod_ucam_webauth for use with Apache 1.3, Apache 2.0, and
-Apache 2.2. These versions are compiled to work with the corresponding
-binary Apache distributions provide by the Apache project (see
-http://httpd.apache.org/download.cgi) - they may also work with other
-Apache builds but binary compatibility is not guaranteed. The Apache
-project distribution is compiled in 32-bit mode and these binary
-versions of mod_ucam-webauth are compiled to match - they are unlikely
-to work with 64-bit versions of Apache.
+versions of mod_ucam_webauth for use with Apache 2.2, and Apache 2.4,
+in both 32-bit and 64-bit versions. The 32-bit versions are compiled
+to work with the corresponding binary Apache distributions provide by
+the Apache project (see http://httpd.apache.org/download.cgi) - they
+may also work with other Apache builds but binary compatibility is not
+guaranteed. The 64-bit versions are compiled to work with the
+corresponding binary Apache distributions provided by the Apache
+Lounge (see http://www.apachelounge.com/download/win64/).
 
 The Windows distribution is provided as a ZIP file. Download it and
-un-zip it into a suitable directory. Copy the appropriate version of
-the module (from the folder Apache13, Apache20, or Apache22 for Apache
-1.3, 2.0 or 2.2 respectively) into the 'modules' directory of your
-Apache installation. For a default installation of the Apache project
-distribution the Apache installation directory will be:
+un-zip it into a suitable directory. There are two subdirectories,
+containing 32-bit and 64-bit versions ("x86" and "x64", respectively),
+each containing a module for Apache 2.2 and 2.4. Copy the appropriate
+module into the 'modules' directory of your Apache installation. For a
+default installation, the Apache installation directory will be:
 
-  C:\Program Files\Apache Group\Apache\                  [Apache 1.3]
-  C:\Program Files\Apache Group\Apache2\                 [Apache 2.0]
   C:\Program Files\Apache Software Foundation\Apache2.2\ [Apache 2.2]
+  C:\Program Files\Apache Software Foundation\Apache2.4\ [Apache 2.4]
 
-The module has been compiled using Microsoft's Visual C++ 2005
+The module has been compiled using Microsoft's Visual Studio 2010
 compiler and the compiled code requires runtime components of Visual
-C++ Libraries. A copy of the 'Microsoft Visual C++ 2005
+C++ Libraries. A copy of the 'Microsoft Visual C++ 2010
 Redistributable Package' installer is supplied in the ZIP file as
-vcredist_x86.exe. If not already installed, install these components
-by double-clicking this file. Without these components attempts to
-start a copy of Apache configured to use mod_ucam_webauth will result
-in messages similar to
+vcredist_x86.exe and vcredist_x64.exe for 32- and 64-bit versions of
+Windows respectively. If not already installed, install these
+components by double-clicking this file. Without these components
+attempts to start a copy of Apache configured to use mod_ucam_webauth
+will result in messages similar to
 
   Syntax error on line <nnn> of httpd.conf:
   Cannot load mod_ucam_webauth.so into server: 
