@@ -383,8 +383,9 @@ wls_decode(request_rec *r,
      
 {
 
-  int len, i;  
+  int len;  
   char *d, *res;
+  size_t i;
 
   APACHE_LOG0(APLOG_DEBUG, "wls_decode...");
 
