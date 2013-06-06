@@ -1987,7 +1987,7 @@ decode_cookie(request_rec *r,
 
   /* Respond to user cancelled */
 
-  if (strcmp((char *)apr_table_get(cookie, "status"), "410") == 0) {
+  if (strcmp(apr_table_get(cookie, "status"), "410") == 0) {
     APACHE_LOG0(APLOG_INFO, "Authentication status = 410, user cancelled"); 
     if (c->cancel_msg != NULL) {
       ap_custom_response(r, HTTP_FORBIDDEN, c->cancel_msg);
@@ -2001,7 +2001,7 @@ decode_cookie(request_rec *r,
 
   /* Respond to "Interaction Required" */
 
-  if (strcmp((char *)apr_table_get(cookie, "status"), "540") == 0) {
+  if (strcmp(apr_table_get(cookie, "status"), "540") == 0) {
     APACHE_LOG0(APLOG_INFO, "Authentication status = 540, "
 		"interaction required"); 
     if (c->need_interact_msg != NULL) {
@@ -2016,7 +2016,7 @@ decode_cookie(request_rec *r,
 
   /* Respond to any other fauilure */
 
-  if (strcmp((char *)apr_table_get(cookie, "status"), "200") != 0) {
+  if (strcmp(apr_table_get(cookie, "status"), "200") != 0) {
     APACHE_LOG2(APLOG_ERR, "Authentication error, status = %s, %s",
 		apr_table_get(cookie, "status"),
 		apr_table_get(cookie, "msg"));
@@ -2272,7 +2272,7 @@ validate_response(request_rec *r,
   APACHE_LOG0(APLOG_DEBUG, "validating version"); 
   if (response_ticket == NULL)
     APACHE_LOG0(APLOG_DEBUG, "response_ticket is NULL"); 
-  if (strcmp((char *)apr_table_get(response_ticket, "ver"), 
+  if (strcmp(apr_table_get(response_ticket, "ver"), 
 	     PROTOCOL_VERSION) != 0) {
     msg = apr_psprintf
       (r->pool,"Wrong protocol version (%s) in WLS response",
