@@ -1904,7 +1904,7 @@ add_hash(request_rec *r,
   APACHE_LOG1(APLOG_DEBUG, "add_hash: data = %s", data); 
 
   if (!strcasecmp(key,"none"))
-      return (char *)data;
+       return apr_pstrdup(r->pool,data);
 
   /* otherwise create the HMAC and encode it */
 
