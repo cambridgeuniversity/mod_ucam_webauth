@@ -2095,8 +2095,8 @@ decode_cookie(request_rec *r,
   r->connection->user = (char *)apr_table_get(cookie, "principal");
   r->connection->ap_auth_type = c->force_auth_type;
 #else
-  r->user = (char *)apr_table_get(cookie, "principal");
-  r->ap_auth_type = (char *) c->force_auth_type;
+  r->user = apr_pstrdup(r->pool,apr_table_get(cookie, "principal"));
+  r->ap_auth_type = c->force_auth_type;
 #endif
   
   apr_table_set(r->subprocess_env, 
