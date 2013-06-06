@@ -2241,8 +2241,8 @@ validate_response(request_rec *r,
 
 {
 
-  char *cookie_str, *new_cookie_str, *msg, *url;
-  const char *status;
+  char *cookie_str, *new_cookie_str, *msg;
+  const char *status, *url;
   int life, response_ticket_life, sig_verify_result;
   apr_table_t *cookie;
   apr_time_t issue, now;
@@ -2431,7 +2431,7 @@ validate_response(request_rec *r,
   
   /* redirect */
   
-  url = (char *)apr_table_get(response_ticket, "url"); 
+  url = apr_table_get(response_ticket, "url"); 
   APACHE_LOG1(APLOG_INFO, "Issuing redirect to original URL %s", url);
   
   apr_table_set(r->headers_out, 
