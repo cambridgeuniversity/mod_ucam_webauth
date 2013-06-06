@@ -1192,7 +1192,7 @@ no_cookie(request_rec *r,
 
   char *cookie_name = 
     ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name));
-  char *sig = (char *)ap_psignature("<hr>", r);
+  const char *sig = ap_psignature("<hr>", r);
   char *cookie_domain;
   if (c->cookie_domain != NULL) {
     cookie_domain = apr_pstrcat(r->pool,
