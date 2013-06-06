@@ -742,7 +742,7 @@ SHA1_sign(request_rec *r,
 static int 
 SHA1_sig_verify(request_rec *r, 
 		mod_ucam_webauth_cfg *c,  
-		char *data, 
+		const char *data, 
 		const char *sig) 
 
 {
@@ -1969,7 +1969,7 @@ decode_cookie(request_rec *r,
   cookie_verify = 
     SHA1_sig_verify(r, c, 
 		    cookie_check_sig_string(r, cookie), 
-		    (char *)apr_table_get(cookie, "sig"));
+		    apr_table_get(cookie, "sig"));
   
   if (cookie_verify == 0) {
     APACHE_LOG0(APLOG_ERR, "Session cookie invalid or key has changed"); 
