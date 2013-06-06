@@ -425,7 +425,7 @@ iso2_time_encode(request_rec *r,
 
 static apr_time_t 
 iso2_time_decode(request_rec *r, 
-				    char *t_iso2) 
+				 const char *t_iso2) 
 
 {
   
@@ -2032,9 +2032,9 @@ decode_cookie(request_rec *r,
 	      apr_table_get(cookie, "life"));
  
   issue = iso2_time_decode
-    (r,(char *)apr_table_get(cookie, "issue"));
+    (r,apr_table_get(cookie, "issue"));
   last = iso2_time_decode
-    (r,(char *)apr_table_get(cookie, "last"));
+    (r,apr_table_get(cookie, "last"));
   life = safer_atoi(apr_table_get(cookie, "life"));
   
   if (issue == -1) {
@@ -2299,7 +2299,7 @@ validate_response(request_rec *r,
   
   now = apr_time_now();
   issue = 
-    iso2_time_decode(r, (char *)apr_table_get(response_ticket, "issue"));
+    iso2_time_decode(r, apr_table_get(response_ticket, "issue"));
   
   if (issue < 0) {
     msg = apr_psprintf
