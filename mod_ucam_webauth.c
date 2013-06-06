@@ -1164,7 +1164,7 @@ cache_control(request_rec *r,
 
 /* --- */
 
-static char *
+static const char *
 error_message(int err) {
   switch (err) {
   case 200 : return "OK";
