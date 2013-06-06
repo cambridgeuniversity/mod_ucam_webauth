@@ -378,7 +378,7 @@ wls_encode(request_rec *r,
 
 static int
 wls_decode(request_rec *r, 
-	   char *string,
+	   const char *string,
 	   unsigned char **result)
      
 {
@@ -771,10 +771,10 @@ SHA1_sig_verify(request_rec *r,
 
 static int 
 RSA_sig_verify(request_rec *r, 
-	       char *data, 
-	       char *sig, 
-	       char *key_path, 
-	       char *key_id) 
+	       const char *data, 
+	       const char *sig, 
+	       const char *key_path, 
+	       const char *key_id) 
 
 {
 
@@ -2343,9 +2343,9 @@ validate_response(request_rec *r,
   sig_verify_result = 
     RSA_sig_verify(r, 
 		   wls_response_check_sig_string(r, response_ticket),
-		   (char *)apr_table_get(response_ticket, "sig"), 
+		   apr_table_get(response_ticket, "sig"), 
 		   c->key_dir,
-		   (char *)apr_table_get(response_ticket, "kid"));
+		   apr_table_get(response_ticket, "kid"));
   
   if (sig_verify_result == HTTP_BAD_REQUEST) {
     msg =apr_pstrdup(r->pool,"Missing or invalid signature in authentication service reply");
