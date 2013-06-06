@@ -1239,7 +1239,7 @@ auth_cancelled(request_rec *r)
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
   } else {
-    admin = "";
+    admin = apr_pstrdup(r->pool,"");
   }
 
   return apr_pstrcat
@@ -1272,7 +1272,7 @@ interact_required(request_rec *r)
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
   } else {
-    admin = "";
+    admin = apr_pstrdup(r->pool,"");
   }
 
   return apr_pstrcat
@@ -1312,12 +1312,12 @@ auth_required(request_rec *r)
   if (admin != NULL && strcmp(admin,"[no address given]") != 0) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
   } else {
-    admin = "";
+    admin = apr_pstrdup(r->pool,"");
   }
   if (user != NULL) {
     user = apr_pstrcat(r->pool, "(<tt><b>", user, "</b></tt>)", NULL);
   } else {
-    user = "";
+    user = apr_pstrdup(r->pool,"");
   }
 
   return apr_pstrcat
@@ -1474,9 +1474,9 @@ apply_config_defaults(request_rec *r,
     (mod_ucam_webauth_cfg *)apr_pcalloc(r->pool, sizeof(mod_ucam_webauth_cfg));
 
   n->auth_service = c->auth_service != NULL ? c->auth_service : 
-      DEFAULT_auth_service; 
+      apr_pstrdup(r->pool,DEFAULT_auth_service); 
   n->logout_service = c->logout_service != NULL ? c->auth_service :
-      DEFAULT_logout_service;
+      apr_pstrdup(r->pool, DEFAULT_logout_service);
   n->description = c->description != NULL ? c->description : 
       DEFAULT_description;
   n->response_timeout = c->response_timeout != -1 ? c->response_timeout : 
@@ -1490,15 +1490,15 @@ apply_config_defaults(request_rec *r,
   n->inactive_timeout = c->inactive_timeout != -1 ? c->inactive_timeout :
       DEFAULT_inactive_timeout;
   n->timeout_msg = c->timeout_msg != NULL ? c->timeout_msg :
-      DEFAULT_timeout_msg;
+      apr_pstrdup(r->pool,DEFAULT_timeout_msg);
   n->cache_control = c->cache_control != -1 ? c->cache_control :
       DEFAULT_cache_control;
   n->cookie_key = c->cookie_key != NULL ? c->cookie_key : 
       DEFAULT_cookie_key; 
   n->cookie_name = c->cookie_name != NULL ? c->cookie_name : 
-      DEFAULT_cookie_name;
+      apr_pstrdup(r->pool,DEFAULT_cookie_name);
   n->cookie_path = c->cookie_path != NULL ? c->cookie_path :
-      DEFAULT_cookie_path;
+      apr_pstrdup(r->pool,DEFAULT_cookie_path);
   n->cookie_domain = c->cookie_domain != NULL ? c->cookie_domain : 
       DEFAULT_cookie_domain;
   n->force_interact = c->force_interact != -1 ? c->force_interact :
@@ -1524,12 +1524,12 @@ apply_config_defaults(request_rec *r,
   n->header_key = c->header_key != NULL ? c->header_key : 
       DEFAULT_header_key; 
   n->force_auth_type = c->force_auth_type != NULL ? c->force_auth_type : 
-      DEFAULT_force_auth_type; 
+      apr_pstrdup(r->pool,DEFAULT_force_auth_type); 
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
   if (n->timeout_msg && !strcasecmp(n->timeout_msg,"none"))
-    n->timeout_msg = DEFAULT_timeout_msg;
+    n->timeout_msg = apr_pstrdup(r->pool,DEFAULT_timeout_msg);
   if (n->cancel_msg && !strcasecmp(n->cancel_msg,"none"))
     n->cancel_msg = DEFAULT_cancel_msg;
   if (n->need_interact_msg && !strcasecmp(n->need_interact_msg,"none"))
@@ -1552,7 +1552,7 @@ dump_config(request_rec *r,
 
 {
 
-  char *msg;
+  char *msg=NULL;
 
 #ifdef APACHE2_4
   if (r->server->log.level >= APLOG_DEBUG) {
@@ -1591,19 +1591,19 @@ dump_config(request_rec *r,
     
     switch(c->cache_control) {
     case CC_OFF:
-      msg = "off";
+      msg = apr_pstrdup(r->pool,"off");
       break;
     case CC_ON:
-      msg = "on";
+      msg = apr_pstrdup(r->pool,"on");
       break;
     case CC_PARANOID:
-      msg = "paranoid";
+      msg = apr_pstrdup(r->pool,"paranoid");
       break;
     case -1:
-      msg = "UNSET";
+      msg = apr_pstrdup(r->pool,"UNSET");
       break;
     default:
-      msg = "unknown";
+      msg = apr_pstrdup(r->pool,"unknown");
     }
     APACHE_LOG1(APLOG_DEBUG, "  AACacheControl       = %s", 
 		msg);
@@ -1652,7 +1652,7 @@ dump_config(request_rec *r,
     APACHE_LOG1(APLOG_DEBUG, "  AAAlwaysDecode       = %d",
 		c->always_decode);
 
-    msg = "";
+    if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
     if (c->headers & HDR_ISSUE)
       msg = apr_pstrcat(r->pool, msg, "Issue ", NULL);      
     if (c->headers & HDR_LAST)
