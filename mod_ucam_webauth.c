@@ -645,7 +645,7 @@ full_cookie_name(request_rec *r,
 
 static void 
 set_cookie(request_rec *r, 
-	   char *value, 
+	   const char *value, 
 	   mod_ucam_webauth_cfg *c) 
 
 {
