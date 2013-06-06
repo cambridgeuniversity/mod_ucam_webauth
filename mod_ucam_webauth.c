@@ -2742,7 +2742,7 @@ webauth_handler_logout(request_rec *r)
   mod_ucam_webauth_cfg *c;
   char *response;
 
-  char *sig = (char *)ap_psignature("<hr>", r);
+  const char *sig = ap_psignature("<hr>", r);
 
   if (strcasecmp(r->handler, "aalogout")) {
     APACHE_LOG0(APLOG_DEBUG, "logout_handler: declining");
