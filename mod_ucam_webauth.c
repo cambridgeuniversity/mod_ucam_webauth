@@ -1233,7 +1233,7 @@ auth_cancelled(request_rec *r)
 
 {
 
-  char *sig = (char *)ap_psignature("<hr>", r);
+  const char *sig = ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
@@ -1266,7 +1266,7 @@ interact_required(request_rec *r)
 
 {
 
-  char *sig = (char *)ap_psignature("<hr>", r);
+  const char *sig = ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
   if (admin != NULL) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
@@ -1297,7 +1297,7 @@ auth_required(request_rec *r)
 
 {
 
-  char *sig = (char *)ap_psignature("<hr>", r);
+  const char *sig = ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
 #ifdef APACHE1_3
   char *user = ap_escape_html(r->pool, r->connection->user);
