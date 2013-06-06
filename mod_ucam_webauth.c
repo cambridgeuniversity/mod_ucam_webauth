@@ -2027,9 +2027,9 @@ decode_cookie(request_rec *r,
   /* cookie timeout checks */
   
   APACHE_LOG3(APLOG_DEBUG, "issue = %s, last = %s, life = %s", 
-	      (char *)apr_table_get(cookie, "issue"),
-	      (char *)apr_table_get(cookie, "last"),
-	      (char *)apr_table_get(cookie, "life"));
+	      apr_table_get(cookie, "issue"),
+	      apr_table_get(cookie, "last"),
+	      apr_table_get(cookie, "life"));
  
   issue = iso2_time_decode
     (r,(char *)apr_table_get(cookie, "issue"));
@@ -2170,7 +2170,7 @@ decode_cookie(request_rec *r,
     ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
   
   APACHE_LOG2(APLOG_INFO, "Successfully decoded cookie for %s accessing %s", 
-	      (char *)apr_table_get(cookie, "principal"),r->uri);
+	      apr_table_get(cookie, "principal"),r->uri);
   
   /* Even though we may have been successfull, we return DECLINED so
      as not to prevent other phases from running */
@@ -2276,7 +2276,7 @@ validate_response(request_rec *r,
 	     PROTOCOL_VERSION) != 0) {
     msg = apr_psprintf
       (r->pool,"Wrong protocol version (%s) in WLS response",
-       (char *)apr_table_get(response_ticket, "ver"));
+       apr_table_get(response_ticket, "ver"));
     status = "600";
     goto FINISHED;
   }
@@ -2304,7 +2304,7 @@ validate_response(request_rec *r,
   if (issue < 0) {
     msg = apr_psprintf
       (r->pool,"Can't to parse issue time (%s) in WLS response",
-       (char *)apr_table_get(response_ticket, "issue"));
+       apr_table_get(response_ticket, "issue"));
     status = "600";
     goto FINISHED;
   }
@@ -2313,7 +2313,7 @@ validate_response(request_rec *r,
     msg = apr_psprintf
       (r->pool,"WLS response issued in the future "
        "(local clock incorrect?); issue time %s",
-       (char *)apr_table_get(response_ticket, "issue"));
+       apr_table_get(response_ticket, "issue"));
     status = "600";
     goto FINISHED;
   }
@@ -2323,7 +2323,7 @@ validate_response(request_rec *r,
     msg = apr_psprintf
       (r->pool,"WLS response issued too long ago "
        "(local clock incorrect?); issue time %s",
-       (char *)apr_table_get(response_ticket, "issue"));
+       apr_table_get(response_ticket, "issue"));
     status = "600";
     goto FINISHED;
   }
@@ -2669,7 +2669,7 @@ webauth_authn(request_rec *r)
 
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
     APACHE_LOG2(APLOG_INFO, "Successfully authenticated %s accessing %s", 
-       (char *)apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
+       apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
     return OK;
   }
 
