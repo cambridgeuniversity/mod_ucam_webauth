@@ -1201,7 +1201,7 @@ no_cookie(request_rec *r,
 				ap_escape_html(r->pool, c->cookie_domain),
 				"</tt>", NULL);
   } else {
-    cookie_domain = "this web server";
+    cookie_domain = apr_pstrdup(r->pool,"this web server");
   }
   
   return apr_pstrcat
