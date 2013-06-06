@@ -2242,7 +2242,8 @@ validate_response(request_rec *r,
 
 {
 
-  char *cookie_str, *new_cookie_str, *msg, *status, *url;
+  char *cookie_str, *new_cookie_str, *msg, *url;
+  const char *status, *cmsg;
   int life, response_ticket_life, sig_verify_result;
   apr_table_t *cookie;
   apr_time_t issue, now;
@@ -2264,7 +2265,7 @@ validate_response(request_rec *r,
     return HTTP_BAD_REQUEST;
   }
 
-  msg = "";
+  cmsg = "";
   status = "200";
   
   /* do all the validations  - protocol version first */
@@ -2286,12 +2287,13 @@ validate_response(request_rec *r,
   
   if (strcmp(apr_table_get(response_ticket, "status"), 
 	     "200") != 0) {
-    msg = error_message(safer_atoi(apr_table_get(response_ticket, "status")));
+    cmsg = error_message(safer_atoi(apr_table_get(response_ticket, "status")));
     if (apr_table_get(response_ticket, "msg") != NULL) {
-      msg = apr_pstrcat(r->pool, msg, 
+      msg = apr_pstrcat(r->pool, cmsg, 
 			apr_table_get(response_ticket, "msg"), NULL);
     }
-    status = (char*)apr_table_get(response_ticket, "status");
+    else msg=apr_pstrdup(r->pool,cmsg);
+    status = apr_table_get(response_ticket, "status");
     goto FINISHED;
   }
   
@@ -2333,7 +2335,7 @@ validate_response(request_rec *r,
   if (c->force_interact == 1 && 
       NULL != apr_table_get(response_ticket, "auth") &&
       strlen(apr_table_get(response_ticket, "auth")) == 0 ) {
-    msg = "Non first-hand authentication under ForceInteract";
+    msg = apr_pstrdup(r->pool,"Non first-hand authentication under ForceInteract");
     status = "600";
     goto FINISHED;
   }
@@ -2348,12 +2350,12 @@ validate_response(request_rec *r,
 		   (char *)apr_table_get(response_ticket, "kid"));
   
   if (sig_verify_result == HTTP_BAD_REQUEST) {
-    msg = "Missing or invalid signature in authentication service reply";
+    msg = apr_pstrdup(r->pool,"Missing or invalid signature in authentication service reply");
     status = "600";
     goto FINISHED;
   }
   else if (sig_verify_result != OK) {
-    msg = "Web server configuration error";
+    msg = apr_pstrdup(r->pool,"Web server configuration error");
     status = "600";
     goto FINISHED;
   } 
@@ -2379,7 +2381,7 @@ validate_response(request_rec *r,
   APACHE_LOG1(APLOG_DEBUG, "life = %d", life);
   
   if (strcmp(status,"200") == 0 && life <= 0) {
-    msg = "Requested session expiry time less that one second";
+    msg =apr_pstrdup(r->pool,"Requested session expiry time less that one second");
     status = "600";
   }
   
