@@ -76,6 +76,11 @@ MODULE-DEFINITION-END
 #define APACHE2_4
 #endif
 
+/*Facilitate per-module log-level setting in Apache 2.4*/
+#ifdef APLOG_USE_MODULE
+APLOG_USE_MODULE(ucam_webauth);
+#endif
+
 #ifdef APACHE1_3
 #include "util_date.h"
 #include "fnmatch.h"
