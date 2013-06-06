@@ -584,17 +584,17 @@ get_cgi_param(request_rec *r,
      request */
 
   const char *data = apr_table_get(r->notes, "AA_orig_args");
-  const char *pair;
+  char *pair;
 
   APACHE_LOG1(APLOG_DEBUG, "get_cgi_param, r->args = %s", data);
   
   if (data != NULL) {
     while (*data && (pair = ap_getword(r->pool, &data, '&'))) {
-      const char *name;
-      name = ap_getword(r->pool, &pair, '=');
+      char *name;
+      name = ap_getword_nc(r->pool, &pair, '=');
       
       if (strcmp(name, parm_name) == 0) {
-	return (char *)pair;
+	return pair;
       }
     }
   }
@@ -973,7 +973,7 @@ get_cookie_str(request_rec *r,
 
   const char *data = apr_table_get(r->headers_in, "Cookie");
 
-  const char *pair;
+  char *pair, *name;
 
   APACHE_LOG0(APLOG_DEBUG, "get_cookie_str...");
 
@@ -982,17 +982,16 @@ get_cookie_str(request_rec *r,
   APACHE_LOG1(APLOG_DEBUG, "cookie data = %s", data);
 
   while (*data && (pair = ap_getword(r->pool, &data, ';'))) {
-    const char *name;
     if (*data == ' ') ++data;
-    name = ap_getword(r->pool, &pair, '=');
+    name = ap_getword_nc(r->pool, &pair, '=');
     
     APACHE_LOG1(APLOG_DEBUG, "current cookie name = %s", name);
     APACHE_LOG1(APLOG_DEBUG, "current cookie data = %s", pair);
     
     if (strcmp(name, cookie_name) == 0) {
       APACHE_LOG0(APLOG_DEBUG, "found cookie match!");
-      ap_unescape_url((char*)pair);
-      return (char *)pair;
+      ap_unescape_url(pair);
+      return pair;
     }
   }
   return NULL;
