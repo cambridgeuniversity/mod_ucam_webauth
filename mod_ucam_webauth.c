@@ -573,7 +573,7 @@ wls_response_code_string(request_rec *r,
 
 static char *
 get_cgi_param(request_rec *r, 
-	      char *parm_name) 
+	      const char *parm_name) 
 
 {
 
