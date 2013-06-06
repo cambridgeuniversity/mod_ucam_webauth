@@ -46,6 +46,10 @@ MODULE-DEFINITION-END
 #include <strings.h>
 #endif
 
+#include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
+
 #define CORE_PRIVATE   /* Er, we want to prod some core data structures */
 
 #include "httpd.h"
@@ -257,6 +261,21 @@ typedef struct {
 module AP_MODULE_DECLARE_DATA ucam_webauth_module;
 
 /* Utility routines */
+
+/* --- */
+/*provide an API like atoi, returning -INT_MAX on error
+ *XXX would it be good to log what the error was?
+ */
+int safer_atoi(const char *nptr)
+{
+  long l;
+  if(NULL==nptr) return -INT_MAX;
+  errno=0;
+  l=strtol(nptr,NULL,10);
+  if(errno) return -INT_MAX;
+  if( (l > INT_MAX) || (l < INT_MIN) ) return -INT_MAX; 
+  return (int) l;
+}
 
 /* --- */
 /* return a new string that is 'from' with all url-unsafe characters
@@ -1158,6 +1177,7 @@ error_message(int err) {
   case 560 : return "Web server not authorised to use "
                     "the authentication service";
   case 570 : return "Operation declined by the authentication service";
+  case -INT_MAX : return "Error code not parseable as integer";
   }
   return "Unrecognised error code";
 
@@ -1681,7 +1701,7 @@ set_response_timeout(cmd_parms *cmd,
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
  
-  cfg->response_timeout = atoi(arg);
+  cfg->response_timeout = safer_atoi(arg);
   if (cfg->response_timeout < 0) 
     return "AAResponseTimeout: must be a positive number";
 
@@ -1700,7 +1720,7 @@ set_clock_skew(cmd_parms *cmd,
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
-  cfg->clock_skew = atoi(arg);
+  cfg->clock_skew = safer_atoi(arg);
   if (cfg->clock_skew < 0) 
     return "AAClockSkew: must be a positive number";
 
@@ -1719,7 +1739,9 @@ set_max_session_life(cmd_parms *cmd,
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
-  cfg->max_session_life = atoi(arg);
+  cfg->max_session_life = safer_atoi(arg);
+  if (cfg->max_session_life == -INT_MAX)
+    return "AAMaxSessionLife: must be a whole number, at least 300";
   if (cfg->max_session_life < 300) 
     return "AAMaxSessionLife: must be at least 300";
   return NULL;
@@ -1737,7 +1759,9 @@ set_inactive_timeout(cmd_parms *cmd,
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
-  cfg->inactive_timeout = atoi(arg);
+  cfg->inactive_timeout = safer_atoi(arg);
+  if (cfg->inactive_timeout == -INT_MAX)
+    return "AAInactiveTimeout: must be a whole number, at least 300";
   if (cfg->inactive_timeout < 300) 
     return "AAInactiveTimeout: must be at least 300";
   return NULL;
@@ -2012,7 +2036,7 @@ decode_cookie(request_rec *r,
     (r,(char *)apr_table_get(cookie, "issue"));
   last = iso2_time_decode
     (r,(char *)apr_table_get(cookie, "last"));
-  life = atoi((char *)apr_table_get(cookie, "life"));
+  life = safer_atoi(apr_table_get(cookie, "life"));
   
   if (issue == -1) {
     APACHE_LOG0(APLOG_ERR, "Session cookie issue date incorrect length"); 
@@ -2262,7 +2286,7 @@ validate_response(request_rec *r,
   
   if (strcmp(apr_table_get(response_ticket, "status"), 
 	     "200") != 0) {
-    msg = error_message(atoi(apr_table_get(response_ticket, "status")));
+    msg = error_message(safer_atoi(apr_table_get(response_ticket, "status")));
     if (apr_table_get(response_ticket, "msg") != NULL) {
       msg = apr_pstrcat(r->pool, msg, 
 			apr_table_get(response_ticket, "msg"), NULL);
@@ -2341,7 +2365,7 @@ validate_response(request_rec *r,
   /* calculate session expiry */
   
   life = c->max_session_life;
-  response_ticket_life = atoi(apr_table_get(response_ticket, "life"));
+  response_ticket_life = safer_atoi(apr_table_get(response_ticket, "life"));
 
   if (c->ign_response_life == 1) {
     APACHE_LOG2(APLOG_DEBUG, "Ignoring WLS ticket_life = %d, using life = %d",
