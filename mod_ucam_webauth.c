@@ -2657,7 +2657,7 @@ webauth_authn(request_rec *r)
   if (rc == OK) {
     APACHE_LOG0(APLOG_INFO, "Found a WLS response");
     if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
-      APACHE_LOG0(APLOG_INFO, "Alredy authenticated - redirecting");
+      APACHE_LOG0(APLOG_INFO, "Already authenticated - redirecting");
       apr_table_set(r->headers_out, 
 		    "Location", 
 		    apr_table_get(response, "url"));
