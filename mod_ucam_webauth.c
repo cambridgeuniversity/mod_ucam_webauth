@@ -81,6 +81,18 @@ MODULE-DEFINITION-END
 APLOG_USE_MODULE(ucam_webauth);
 #endif
 
+/*The apache authors are idiots - the following is in httpd.h:
+ *  /** strtoul does not exist on sunos4. */
+/** #ifdef strtoul
+ ** #undef strtoul
+ ** #endif
+ ** #define strtoul strtoul_is_not_a_portable_function_use_strtol_instead
+ *
+ * Never mind that strtoul is in C89 and C99! Anyhow, #undef'ing strtoul
+ * stops the apache idiocy from taking effect
+*/
+#undef strtoul
+
 #ifdef APACHE1_3
 #include "util_date.h"
 #include "fnmatch.h"
@@ -95,7 +107,7 @@ APLOG_USE_MODULE(ucam_webauth);
 #include "apr_uri.h"
 #endif
 
-#define PROTOCOL_VERSION "1"
+#define PROTOCOL_VERSION "3"
 #define AUTH_TYPE1 "webauth"
 #define AUTH_TYPE2 "ucam-webauth"
 #define TESTSTRING "Not-authenticated"
@@ -113,8 +125,14 @@ APLOG_USE_MODULE(ucam_webauth);
 #define HDR_PRINCIPAL  32
 #define HDR_AUTH       64
 #define HDR_SSO       128
+#define HDR_PTAGS     256
+#define HDR_UNSET UINT_MAX
 #define HDR_ALL       (HDR_NONE | HDR_ISSUE | HDR_LAST | HDR_LIFE \
-    | HDR_TIMEOUT | HDR_ID | HDR_PRINCIPAL | HDR_AUTH | HDR_SSO)
+    | HDR_TIMEOUT | HDR_ID | HDR_PRINCIPAL | HDR_AUTH | HDR_SSO | HDR_PTAGS)
+
+#define PTAGS_NONE      0
+#define PTAGS_CURRENT   1
+#define PTAGS_UNSET UINT_MAX
 
 /* default parameters */
 
@@ -146,6 +164,7 @@ APLOG_USE_MODULE(ucam_webauth);
 #define DEFAULT_headers            HDR_NONE
 #define DEFAULT_header_key         NULL
 #define DEFAULT_force_auth_type    "Ucam-WebAuth"
+#define DEFAULT_required_ptags     PTAGS_CURRENT
 
 /* module configuration structure */
 
@@ -173,9 +192,10 @@ typedef struct {
   char *no_cookie_msg;
   char *logout_msg;
   int   always_decode;
-  int   headers;
+  unsigned int   headers;
   char *header_key;
   char *force_auth_type;
+  unsigned int required_ptags;
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
@@ -280,6 +300,43 @@ int safer_atoi(const char *nptr)
   if(errno) return -INT_MAX;
   if( (l > INT_MAX) || (l < INT_MIN) ) return -INT_MAX; 
   return (int) l;
+}
+
+/*As safer_atoi, but read into an unsigned int
+ *returns UINT_MAX on error and sets errno
+ *errno==0 and return UINT_MAX would mean that was the supplied value
+ */
+unsigned int safer_atoui(const char *nptr)
+{
+  unsigned long l;
+  errno=0;
+  if(NULL==nptr){ 
+    errno=EINVAL;
+    return UINT_MAX;
+  }
+  l=strtoul(nptr,NULL,10);
+  if(errno) return UINT_MAX;
+  if(l>UINT_MAX){
+    errno=ERANGE;
+    return UINT_MAX;
+  }
+  return (unsigned int) l;
+}
+
+/*Parse a possibly-empty comma-separated list of ptags
+ *if argument is NULL or empty, return PTAGS_NONE
+ */
+static unsigned int parse_ptags(request_rec *r,const char *data)
+{
+  unsigned int ans=PTAGS_NONE;
+  char *pair;
+  if (data != NULL)
+    while (*data && (pair = ap_getword(r->pool,&data,','))) 
+      if (!strcasecmp(pair,"Current"))
+	ans|=PTAGS_CURRENT;
+      else
+	APACHE_LOG1(APLOG_WARNING,"Ignoring unknown ptags value %s",pair); 
+  return ans;
 }
 
 /* --- */
@@ -858,20 +915,38 @@ cookie_check_sig_string(request_rec *r,
      
 {
   
-  return apr_pstrcat
-    (r->pool,
-     escape_sig(r->pool,apr_table_get(cookie, "ver")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "status")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "msg")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "issue")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "last")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "life")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "id")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "principal")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
-     escape_sig(r->pool,apr_table_get(cookie, "params")), 
-     NULL);
+  if( (safer_atoi(apr_table_get(cookie,"ver"))) >= 3 )
+    return apr_pstrcat
+      (r->pool,
+       escape_sig(r->pool,apr_table_get(cookie, "ver")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "status")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "msg")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "issue")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "last")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "life")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "id")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "principal")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "ptags")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "params")), 
+       NULL);
+
+  else
+    return apr_pstrcat
+      (r->pool,
+       escape_sig(r->pool,apr_table_get(cookie, "ver")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "status")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "msg")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "issue")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "last")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "life")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "id")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "principal")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
+       escape_sig(r->pool,apr_table_get(cookie, "params")), 
+       NULL);
   
 }
 
@@ -881,20 +956,38 @@ static char *
 wls_response_check_sig_string(request_rec *r, 
 			      apr_table_t *wls_response) {
 
-  return apr_pstrcat
-    (r->pool,
-     escape_sig(r->pool,apr_table_get(wls_response, "ver")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "status")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "msg")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "issue")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "id")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "url")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "principal")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
-     escape_sig(r->pool,apr_table_get(wls_response, "params")), 
-     NULL);
+  if( (safer_atoi(apr_table_get(wls_response,"ver"))) >= 3 )
+      return apr_pstrcat
+	(r->pool,
+	 escape_sig(r->pool,apr_table_get(wls_response, "ver")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "status")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "msg")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "issue")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "id")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "url")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "principal")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "ptags")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
+	 escape_sig(r->pool,apr_table_get(wls_response, "params")), 
+	 NULL);
+
+  else
+    return apr_pstrcat
+      (r->pool,
+       escape_sig(r->pool,apr_table_get(wls_response, "ver")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "status")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "msg")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "issue")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "id")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "url")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "principal")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
+       escape_sig(r->pool,apr_table_get(wls_response, "params")), 
+       NULL);
 
 }
 
@@ -909,12 +1002,14 @@ unwrap_wls_token(request_rec *r,
   const char *pair;
   char *word;
   apr_table_t *wls_token;
+  int ver_in_wls;
   pair = token_str;
   wls_token = apr_table_make(r->pool, 11);
   
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"ver",word);
+  ver_in_wls = safer_atoi(word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
@@ -939,6 +1034,12 @@ unwrap_wls_token(request_rec *r,
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"principal",word);
+
+  if(ver_in_wls >=3){ /*Protocol V3 has an additional "ptags" field here*/
+      word = ap_getword_nulls(r->pool, &pair, '!');
+      ap_unescape_url(word);  
+      apr_table_set(wls_token,"ptags",word);
+  }
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
@@ -1015,13 +1116,15 @@ make_cookie_table(request_rec *r,
   const char *pair;
   char *word;
   apr_table_t *cookie;
+  int ver_in_cookie;
   pair = cookie_str;
-  cookie = apr_table_make(r->pool, 11);
+  cookie = apr_table_make(r->pool, 12);
   
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "ver", word);
-  
+  ver_in_cookie = safer_atoi(word);
+
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "status", word);
@@ -1049,6 +1152,12 @@ make_cookie_table(request_rec *r,
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "principal", word);
+
+  if(ver_in_cookie >= 3){
+      word = ap_getword_nulls(r->pool, &pair, '!');
+      ap_unescape_url(word);
+      apr_table_set(cookie, "ptags", word);
+  }
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
@@ -1386,9 +1495,10 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->no_cookie_msg = NULL;
   cfg->logout_msg = NULL;
   cfg->always_decode = -1;
-  cfg->headers = -1;
+  cfg->headers = HDR_UNSET;
   cfg->header_key = NULL;  
   cfg->force_auth_type = NULL;
+  cfg->required_ptags = PTAGS_UNSET;
   return (void *)cfg;
 
 }
@@ -1455,12 +1565,14 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->logout_msg : base->logout_msg;
   merged->always_decode = new->always_decode != -1 ? 
     new->always_decode : base->always_decode;
-  merged->headers = new->headers != -1 ? 
+  merged->headers = new->headers != HDR_UNSET ? 
     new->headers : base->headers;
   merged->header_key = new->header_key != NULL ? 
     new->header_key : base->header_key;
   merged->force_auth_type = new->force_auth_type != NULL ? 
     new->force_auth_type : base->force_auth_type;
+  merged->required_ptags = new->required_ptags != PTAGS_UNSET ? 
+    new->required_ptags : base->required_ptags;
 
   return (void *)merged;
 
@@ -1524,12 +1636,14 @@ apply_config_defaults(request_rec *r,
       DEFAULT_logout_msg;
   n->always_decode = c->always_decode != -1 ? c->always_decode :
       DEFAULT_always_decode;
-  n->headers = c->headers != -1 ? c->headers :
+  n->headers = c->headers != HDR_UNSET ? c->headers :
       DEFAULT_headers;
   n->header_key = c->header_key != NULL ? c->header_key : 
       DEFAULT_header_key; 
   n->force_auth_type = c->force_auth_type != NULL ? c->force_auth_type : 
       apr_pstrdup(r->pool,DEFAULT_force_auth_type); 
+  n->required_ptags = c->required_ptags != PTAGS_UNSET ? c->required_ptags :
+      DEFAULT_required_ptags;
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
@@ -1560,7 +1674,7 @@ dump_config(request_rec *r,
   char *msg=NULL;
 
 #ifdef APACHE2_4
-  if (r->server->log.level >= APLOG_DEBUG) {
+  if (r->log->level >= APLOG_DEBUG) {
 #else
   if (r->server->loglevel >= APLOG_DEBUG) {
 #endif
@@ -1674,7 +1788,15 @@ dump_config(request_rec *r,
       msg = apr_pstrcat(r->pool, msg, "Auth ", NULL); 
     if (c->headers & HDR_SSO)
       msg = apr_pstrcat(r->pool, msg, "SSO", NULL);
+    if (c->headers & HDR_PTAGS)
+      msg = apr_pstrcat(r->pool, msg, "Ptags", NULL);
     APACHE_LOG1(APLOG_DEBUG, "  AAHeaders            = %s",
+		msg);
+
+    if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
+    if (c->required_ptags & PTAGS_CURRENT)
+      msg = apr_pstrcat(r->pool, msg, "Current", NULL);
+    APACHE_LOG1(APLOG_DEBUG, "  AARequiredPtags      = %s",
 		msg);
 
     if (c->header_key == NULL) {
@@ -1872,6 +1994,9 @@ set_headers(cmd_parms *cmd,
     else if (!strcasecmp(word, "SSO")) {
       cfg->headers |= HDR_SSO;
     }
+    else if (!strcasecmp(word, "Ptags")) {
+      cfg->headers |= HDR_PTAGS;
+    }
     else if (!strcasecmp(word, "All")) {
       cfg->headers = HDR_ALL;
     }
@@ -1881,13 +2006,47 @@ set_headers(cmd_parms *cmd,
     else {
       return "AAHeaders: unrecognised keyword - "
 	"expecting one or more of 'Issue', 'Last', 'Life', 'Timeout', "
-	"'ID', 'Principal', 'Auth', 'SSO', 'All', or 'None'";
+	"'ID', 'Principal', 'Auth', 'SSO', 'Ptags', 'All', or 'None'";
     }
   }
   
   return NULL;
   
 }
+
+/* --- */
+
+static const char *
+set_required_ptags(cmd_parms *cmd,
+		   void *mconfig,
+		   const char *arg)
+
+{
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+
+  char *word;
+
+  cfg->required_ptags = PTAGS_NONE;
+
+  while (arg[0]) {
+
+    word = ap_getword_conf(cmd->pool, &arg);
+
+    if (!strcasecmp(word, "Current")) {
+      cfg->required_ptags |= PTAGS_CURRENT;
+    } 
+    else if (!strcasecmp(word, "none")) {
+      cfg->required_ptags = PTAGS_NONE;
+    }
+    else {
+      return "AARequiredPtags: unrecognised ptag - "
+	"expecting 'Current' or 'None'";
+    }
+  }
+
+  return NULL;
+}
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -1938,7 +2097,7 @@ decode_cookie(request_rec *r,
 {
 
   char *cookie_str, *new_cookie_str, *hkey;
-  int life, cookie_verify;
+  int life, cookie_verify, ver_in_cookie;
   apr_table_t *cookie;
   apr_time_t issue, last, now;
 
@@ -1983,6 +2142,8 @@ decode_cookie(request_rec *r,
   }
 
   APACHE_LOG0(APLOG_INFO, "Session cookie signature valid"); 
+
+  ver_in_cookie = safer_atoi(apr_table_get(cookie, "ver"));
       
   /* check cookie status */
 
@@ -2020,7 +2181,15 @@ decode_cookie(request_rec *r,
     return HTTP_BAD_REQUEST;
   }
 
-  /* Respond to any other fauilure */
+  /* Respond to our internal code for ptags mismatch */
+  if (!strcmp(apr_table_get(cookie, "status"), "601")) {
+    APACHE_LOG0
+      (APLOG_ERR, "cookie status 601 => ptags mismatch => forbidden");
+    set_cookie(r, TESTSTRING, c);
+    return HTTP_FORBIDDEN;
+  }
+
+  /* Respond to any other failure */
 
   if (strcmp(apr_table_get(cookie, "status"), "200") != 0) {
     APACHE_LOG2(APLOG_ERR, "Authentication error, status = %s, %s",
@@ -2030,6 +2199,19 @@ decode_cookie(request_rec *r,
     return HTTP_BAD_REQUEST;
   }
   
+  /* V3 only - if AARequired_Ptags is set, check that the necessary
+   * ptags are set
+   */
+  if (ver_in_cookie >= 3)
+    /*checks for bits set in required_ptags not set in the cookie's ptags*/
+    if( c->required_ptags & ~parse_ptags(r,(apr_table_get(cookie, "ptags"))) ){
+      APACHE_LOG2(APLOG_ERR, "Ptags mismatch, set=%s, required=%u",
+		  apr_table_get(cookie, "ptags"),
+		  c->required_ptags);
+      set_cookie(r, TESTSTRING, c);
+      return HTTP_FORBIDDEN;
+    }
+
   /* cookie timeout checks */
   
   APACHE_LOG3(APLOG_DEBUG, "issue = %s, last = %s, life = %s", 
@@ -2129,6 +2311,11 @@ decode_cookie(request_rec *r,
   apr_table_set(r->subprocess_env, 
 		"AASSO", 
 		apr_table_get(cookie, "sso"));
+  if (ver_in_cookie >= 3)
+    apr_table_set(r->subprocess_env,
+		  "AAPTAGS",
+		  apr_table_get(cookie, "ptags"));
+
 
   /* Add additional headers */
 
@@ -2164,6 +2351,9 @@ decode_cookie(request_rec *r,
     if (c->headers & HDR_SSO)
       apr_table_set(r->headers_in, "X-AASSO", 
 		    add_hash(r,apr_table_get(cookie, "sso"),hkey));
+    if ((ver_in_cookie >=3) && (c->headers & HDR_PTAGS))
+      apr_table_set(r->headers_in, "X-AAPtags", 
+		    add_hash(r,apr_table_get(cookie, "ptags"),hkey));
 
   }
   
@@ -2203,7 +2393,7 @@ decode_response(request_rec *r,
 
   /* See if we had a WLS-Response CGI parameter installed in our notes
      table by post_read_request. If we are a sub-request (r->main !=
-     NULL) then user the corresponsing main request */
+     NULL) then use the corresponding main request */
 
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
   
@@ -2218,7 +2408,7 @@ decode_response(request_rec *r,
   response_ticket = unwrap_wls_token(r, token_str);
     
   /* check that the URL in the token is plausible - note that if we
-     are in a sub-request it's the URL from the coresponding main
+     are in a sub-request it's the URL from the corresponding main
      request that we need */  
   
   this_url = get_url(r->main ? r->main : r);
@@ -2249,7 +2439,7 @@ validate_response(request_rec *r,
 
   char *cookie_str, *new_cookie_str, *msg;
   const char *status, *url;
-  int life, response_ticket_life, sig_verify_result;
+  int life, response_ticket_life, sig_verify_result, ver_in_response;
   apr_table_t *cookie;
   apr_time_t issue, now;
 
@@ -2278,8 +2468,10 @@ validate_response(request_rec *r,
   APACHE_LOG0(APLOG_DEBUG, "validating version"); 
   if (response_ticket == NULL)
     APACHE_LOG0(APLOG_DEBUG, "response_ticket is NULL"); 
-  if (strcmp(apr_table_get(response_ticket, "ver"), 
-	     PROTOCOL_VERSION) != 0) {
+
+  ver_in_response = safer_atoi(apr_table_get(response_ticket,"ver"));
+  if( (ver_in_response < 1) || 
+      (ver_in_response > safer_atoi(PROTOCOL_VERSION)) ) {
     msg = apr_psprintf
       (r->pool,"Wrong protocol version (%s) in WLS response",
        apr_table_get(response_ticket, "ver"));
@@ -2309,7 +2501,7 @@ validate_response(request_rec *r,
   
   if (issue < 0) {
     msg = apr_psprintf
-      (r->pool,"Can't to parse issue time (%s) in WLS response",
+      (r->pool,"Can't parse issue time (%s) in WLS response",
        apr_table_get(response_ticket, "issue"));
     status = "600";
     goto FINISHED;
@@ -2344,6 +2536,23 @@ validate_response(request_rec *r,
     goto FINISHED;
   }
   
+  /* Protocol V3 only - check if the returned ptags are OK
+   * ( a & ~b ) is bits in "a" that aren't in "b"
+   * we want that to be 0 (i.e. there can be ptags in the cookie that
+   * are not required, but not the other way round).
+   * If this is non-zero, then there's a problem
+   */
+  if (ver_in_response >= 3)
+    if( c->required_ptags & 
+	~ parse_ptags(r,apr_table_get(response_ticket,"ptags"))) {
+      APACHE_LOG2(APLOG_ERR, "Ptags mismatch, set=%s, required=%u",
+		  apr_table_get(response_ticket,"ptags"),
+		  c->required_ptags);
+      msg = apr_pstrdup(r->pool,"Required ptags not found");
+      status = "601";
+      goto FINISHED;
+    }
+
   /* signature valid */
   
   sig_verify_result = 
@@ -2406,7 +2615,7 @@ validate_response(request_rec *r,
 
   if (NULL==msg) msg=apr_pstrdup(r->pool,"");
   
-  cookie = (apr_table_t *)apr_table_make(r->pool, 11);
+  cookie = (apr_table_t *)apr_table_make(r->pool, 12);
   
   apr_table_set(cookie, "ver", 
 		apr_table_get(response_ticket, "ver"));
@@ -2424,6 +2633,9 @@ validate_response(request_rec *r,
 		apr_table_get(response_ticket, "id"));
   apr_table_set(cookie, "principal", 
 		apr_table_get(response_ticket, "principal"));
+  if( ver_in_response >= 3)
+    apr_table_set(cookie, "ptags", 
+		  apr_table_get(response_ticket, "ptags"));
   apr_table_set(cookie, "auth", 
 		apr_table_get(response_ticket, "auth"));
   apr_table_set(cookie, "sso", 
@@ -3009,6 +3221,12 @@ static const command_rec webauth_commands[] = {
 		(mod_ucam_webauth_cfg,force_auth_type), 
 		RSRC_CONF | OR_AUTHCFG,
 		"override the returned authentication type"),
+
+  AP_INIT_RAW_ARGS("AARequiredPtags", 
+		   set_required_ptags, 
+		   NULL,
+		   RSRC_CONF | OR_AUTHCFG,
+		   "a list of required ptags for authentication to succeed"),
   
   {NULL}
 
