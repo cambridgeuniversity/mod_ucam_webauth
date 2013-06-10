@@ -1016,57 +1016,57 @@ make_cookie_table(request_rec *r,
   char *word;
   apr_table_t *cookie;
   pair = cookie_str;
-  cookie = (apr_table_t *)apr_table_make(r->pool, 11);
+  cookie = apr_table_make(r->pool, 11);
   
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "ver", word);
   
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "status", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "msg", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "issue", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "last", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "life", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "id", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "principal", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "auth", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "sso", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "params", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "key", word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "sig", word);
 
