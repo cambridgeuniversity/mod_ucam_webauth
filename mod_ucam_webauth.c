@@ -910,57 +910,57 @@ unwrap_wls_token(request_rec *r,
   char *word;
   apr_table_t *wls_token;
   pair = token_str;
-  wls_token = (apr_table_t *)apr_table_make(r->pool, 11);
+  wls_token = apr_table_make(r->pool, 11);
   
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"ver",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"status",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"msg",word); 
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"issue",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"id",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"url",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"principal",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);  
   apr_table_set(wls_token,"auth",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"sso",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"life",word);
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"params",word); 
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"kid",word); 
 
-  word = (char *)ap_getword_nulls(r->pool, &pair, '!');
+  word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"sig",word); 
   
