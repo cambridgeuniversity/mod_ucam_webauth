@@ -159,6 +159,7 @@ APLOG_USE_MODULE(ucam_webauth);
 #define DEFAULT_cancel_msg         NULL
 #define DEFAULT_need_interact_msg  NULL
 #define DEFAULT_no_cookie_msg      NULL
+#define DEFAULT_ptags_incorrect_msg NULL
 #define DEFAULT_logout_msg         NULL
 #define DEFAULT_always_decode      0
 #define DEFAULT_headers            HDR_NONE
@@ -190,6 +191,7 @@ typedef struct {
   char *cancel_msg;
   char *need_interact_msg;
   char *no_cookie_msg;
+  char *ptags_incorrect_msg;
   char *logout_msg;
   int   always_decode;
   unsigned int   headers;
@@ -1376,6 +1378,34 @@ auth_cancelled(request_rec *r)
 
 /* --- */
 
+static char *
+ptags_incorrect(request_rec *r)
+{
+  const char *sig = ap_psignature("<hr>", r);
+  char *admin = ap_escape_html(r->pool, r->server->server_admin);
+  if (admin != NULL) {
+    admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
+  } else {
+    admin = apr_pstrdup(r->pool,"");
+  }
+
+  return apr_pstrcat
+    (r->pool,
+     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
+     "<html><head><title>Error - incorrect user type</title></head>"
+     "<body><h1>Error - incorrect user type</h1>"
+     "<p>You were successfully authenticated, but your user class "
+     "is not allowed access to this resource.</p>"
+     "<p>Typically, this is because you are no longer a current student "
+     "or member of staff, and this resource is only available to current "
+     "students and members of staff.</p>"
+     "<p>If you believe this to be incorrect, you should contact the "
+     "administrator of this site,", admin, " to correct the problem.",
+     sig, "</body></html>", NULL);
+}
+
+/* --- */
+
 static char*
 interact_required(request_rec *r) 
 
@@ -1493,6 +1523,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->cancel_msg = NULL;
   cfg->need_interact_msg = NULL;
   cfg->no_cookie_msg = NULL;
+  cfg->ptags_incorrect_msg = NULL;
   cfg->logout_msg = NULL;
   cfg->always_decode = -1;
   cfg->headers = HDR_UNSET;
@@ -1561,6 +1592,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->need_interact_msg : base->need_interact_msg;
   merged->no_cookie_msg = new->no_cookie_msg != NULL ? 
     new->no_cookie_msg : base->no_cookie_msg;
+  merged->ptags_incorrect_msg = new->ptags_incorrect_msg != NULL ? 
+    new->ptags_incorrect_msg : base->ptags_incorrect_msg;
   merged->logout_msg = new->logout_msg != NULL ? 
     new->logout_msg : base->logout_msg;
   merged->always_decode = new->always_decode != -1 ? 
@@ -1632,6 +1665,8 @@ apply_config_defaults(request_rec *r,
       DEFAULT_need_interact_msg;
   n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg : 
       DEFAULT_no_cookie_msg;
+  n->ptags_incorrect_msg = c->ptags_incorrect_msg != NULL ? c->ptags_incorrect_msg :
+      DEFAULT_ptags_incorrect_msg;
   n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
       DEFAULT_logout_msg;
   n->always_decode = c->always_decode != -1 ? c->always_decode :
@@ -1655,6 +1690,8 @@ apply_config_defaults(request_rec *r,
     n->need_interact_msg = DEFAULT_need_interact_msg;
   if (n->no_cookie_msg && !strcasecmp(n->no_cookie_msg,"none")) 
     n->no_cookie_msg = DEFAULT_no_cookie_msg;
+  if (n->ptags_incorrect_msg && !strcasecmp(n->ptags_incorrect_msg,"none")) 
+    n->ptags_incorrect_msg = DEFAULT_ptags_incorrect_msg;
   if (n->logout_msg && !strcasecmp(n->logout_msg,"none"))
     n->logout_msg = DEFAULT_logout_msg;
 
@@ -1764,6 +1801,9 @@ dump_config(request_rec *r,
     
     APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
+
+    APACHE_LOG1(APLOG_DEBUG, "  AAPtagsIncorrectMsg        = %s",
+		(c->ptags_incorrect_msg == NULL ? "NULL" : c->ptags_incorrect_msg));
     
     APACHE_LOG1(APLOG_DEBUG, "  AALogoutMsg          = %s",
 		(c->logout_msg == NULL ? "NULL" : c->logout_msg));
@@ -2185,6 +2225,10 @@ decode_cookie(request_rec *r,
   if (!strcmp(apr_table_get(cookie, "status"), "601")) {
     APACHE_LOG0
       (APLOG_ERR, "cookie status 601 => ptags mismatch => forbidden");
+    if (c->ptags_incorrect_msg != NULL) 
+      ap_custom_response(r,HTTP_FORBIDDEN, c->ptags_incorrect_msg);
+    else
+      ap_custom_response(r,HTTP_FORBIDDEN,ptags_incorrect(r));
     set_cookie(r, TESTSTRING, c);
     return HTTP_FORBIDDEN;
   }
@@ -2208,6 +2252,10 @@ decode_cookie(request_rec *r,
       APACHE_LOG2(APLOG_ERR, "Ptags mismatch, set=%s, required=%u",
 		  apr_table_get(cookie, "ptags"),
 		  c->required_ptags);
+      if (c->ptags_incorrect_msg != NULL) 
+	ap_custom_response(r,HTTP_FORBIDDEN, c->ptags_incorrect_msg);
+      else
+	ap_custom_response(r,HTTP_FORBIDDEN,ptags_incorrect(r));
       set_cookie(r, TESTSTRING, c);
       return HTTP_FORBIDDEN;
     }
@@ -3180,6 +3228,13 @@ static const command_rec webauth_commands[] = {
 		(mod_ucam_webauth_cfg,no_cookie_msg), 
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'no cookie'"),
+
+  AP_INIT_TAKE1("AAPtagsIncorrectMsg", 
+		ap_set_string_slot, 
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,ptags_incorrect_msg),
+		RSRC_CONF | OR_AUTHCFG,
+		"a custom error definition for 'required ptags not found'"),
   
   AP_INIT_TAKE1("AALogoutMsg", 
 		ap_set_string_slot, 
