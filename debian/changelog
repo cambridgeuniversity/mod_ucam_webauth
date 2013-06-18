@@ -1,0 +1,5 @@
+libapache2-mod-ucam-webauth (2.0.0) unstable; urgency=low
+
+  * Initial packaging
+
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Tue, 18 Jun 2013 11:53:47 +0100

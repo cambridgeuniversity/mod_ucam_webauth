@@ -1,0 +1,15 @@
+Source: libapache2-mod-ucam-webauth
+Section: httpd
+Priority: extra
+Maintainer: UCS Raven Support <raven-support@ucs.cam.ac.uk>
+Uploaders: Matthew Vernon <mcv21@cam.ac.uk>
+Build-Depends: debhelper (>=9.0), libssl-dev, apache2-prefork-dev
+Standards-Version: 3.9.4
+Homepage: http://raven.cam.ac.uk/project/apache/
+
+Package: libapache2-mod-ucam-webauth
+Architecture: any
+Depends: apache2-mpm-prefork | apache2-mpm-itk, apache2.2-common, ${shlibs:Depends}, ${misc:Depends}
+Description: University of Cambridge Web Authentication module for Apache 2
+ mod_ucam_webauth provides an interface to the University of Cambridge Web
+ Authentication system for Apache.
