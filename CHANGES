@@ -1,3 +1,19 @@
+2.0.0 - 2013-06-18 mcv21
+
+ . Add support for Ucam WebAuth protocol version 3
+
+   Protocol version 3 includes support for "ptags"; these are a set of
+   tags that may apply to a user. The only ptag in use at the moment
+   is "Current", which means that the authenticated user is a current
+   student or member of staff. The default behaviour is to require
+   this ptag to be set, which is the same behaviour as was seen with
+   version 2 of the protocol (for which the server will only
+   authenticate current staff and students). If you might want to
+   allow users without the "Current" ptag, please see README.Config
+   for more details.
+
+ . Multiple C code fixes (const-correctness, error handling, etc.)
+
 1.4.4 - 2013-05-25 mcv21
 
  . Add support for Apache2.4. This required a small change to the code

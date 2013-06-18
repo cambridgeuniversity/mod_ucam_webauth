@@ -28,7 +28,7 @@
 
 */
 
-#define VERSION "1.4.4"
+#define VERSION "2.0.0"
 
 /*
 MODULE-DEFINITION-START
