@@ -18,6 +18,12 @@ raven-support@ucs.cam.ac.uk
 
 Only Apache 2 is available, in the apache2 package.
 
+The binary .deb package (either the provided one for wheezy/amd64 or
+one compiled from the source package) will install the module
+correctly; you can enable it with the command "a2enmod
+ucam_webauth". It will still require configuration to meet your needs,
+however.
+
 apxs is installed as /usr/bin/apxs2
 
 Apache runs with a ServerRoot of /etc/apache2/

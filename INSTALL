@@ -8,7 +8,8 @@
      2. Building and installing the module
         2.1  Building and installing using APXS
         2.2  Building and installing RPMs
-        2.3  Static Linking
+	2.3  Installing from .deb
+        2.4  Static Linking
 
      3. Operating requirements
 
@@ -120,7 +121,32 @@ to work with a new system. If you find you need to do this, please
 inform raven-support@ucs.cam.ac.uk so that any changes can be included
 in future versions.
 
-2.3  Static Linking
+2.4 Installing from .deb
+------------------------
+
+A binary .deb for "wheezy" (the current stable Debian release) on the
+amd64 architecture is available; if this is suitable for your system,
+you can install it thus:
+
+dpkg -i libapache-mod-ucam-webauth_<ver>_amd64.deb
+
+This binary package is also expected to work on the "precise",
+"quantal", and "raring" Ubuntu releases.
+
+Otherwise, you can build a binary .deb yourself; to do so, download
+libapache2-mod-ucam-webauth_<ver>.dsc and
+libapache2-mod-ucam-webauth_<ver>.tar.gz, unpack the source archive:
+
+dpkg-source -x libapache-mod-ucam-webauth_<ver>.dsc
+
+And build a binary .deb:
+
+cd libapache2-mode-ucam-webauth-<ver>
+dpkg-buildpackage -us -uc
+
+You can then install the resulting (unsigned) .deb as above.
+
+2.4  Static Linking
 -------------------
 
 Apache can be built with all modules linked into the main program - so
