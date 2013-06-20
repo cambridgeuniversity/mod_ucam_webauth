@@ -3,7 +3,7 @@ Section: httpd
 Priority: extra
 Maintainer: UCS Raven Support <raven-support@ucs.cam.ac.uk>
 Uploaders: Matthew Vernon <mcv21@cam.ac.uk>
-Build-Depends: debhelper (>=9.0), libssl-dev, apache2-prefork-dev
+Build-Depends: debhelper (>=7.0.50~), libssl-dev, apache2-prefork-dev
 Standards-Version: 3.9.4
 Homepage: http://raven.cam.ac.uk/project/apache/
 
