@@ -43,8 +43,8 @@ even if mod_ucam_webauth.so is in fact present.
 
 Once these steps are completed, configure Apache to use
 mod_ucam_webauth as described in sections 3 and 4 ('Operating
-requirements' and 'Initial configuration') of INSTALL, and in
-README.Config, but note the following:
+requirements' and 'Initial configuration') of INSTALL.txt, and in
+README_Config.txt, but note the following:
 
 * The 'apxs' tool is not available. For a default installation of the
   Apache project distribution the RSA public keys should by default be
@@ -55,8 +55,8 @@ README.Config, but note the following:
   name of the key file, and that this may be hidden if Windows is
   configured to hide known file name suffixes.
 
-* If time synchronisation is required can be configured from Start ->
-  Settings -> Control Panel -> Date and Time -> Internet 
+* If time synchronisation is required, it can be configured from Start
+  -> Settings -> Control Panel -> Date and Time -> Internet
 
 * For a default installation of the Apache project distribution, the
   default configuration file is called 'httpd.conf' and will be found
@@ -66,7 +66,7 @@ README.Config, but note the following:
   error log file will be found in a file called 'error.log' in the
   'logs' directory within the Apache installation directory.
    
-* The necessary OpenSSL components are included in the compiled module
+* The necessary OpenSSL components are included in the compiled module.
 
 --
 $Id: README.WIN32,v 1.11 2011-09-22 13:56:12 jw35 Exp $
