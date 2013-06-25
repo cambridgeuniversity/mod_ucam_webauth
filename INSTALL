@@ -1,5 +1,5 @@
      ===============================================================
-     University of Cambridge Web Authentication System (UcamWebauth)
+     University of Cambridge Web Authentication System (UcamWebAuth)
        Apache Authentication Agent (mod_ucam_webauth) Installation
      ===============================================================
 
@@ -18,7 +18,7 @@
 Note that a pre-compiled binary version of the module is available for
 use on Microsoft Windows. Windows users should see README.WIN32 and
 then read sections 3 'Operating requirements' and 4 'Initial
-Configuration' below.
+configuration' below.
 
 1. Build requirements
 =====================
@@ -38,18 +38,17 @@ Configuration' below.
 
 * OpenSSL
 
-  The module uses the OpenSSL library. Again this comes as part of
-  most Unix/Linux distributions, and again it may be necessary to
-  install an additional package, perhaps called openssl-devel for
+  The module uses the OpenSSL library. Again, this comes as part of
+  most Unix/Linux distributions, and it may be necessary to install an
+  additional package, perhaps called openssl-devel or libssl-dev, for
   access to the tools needed to build the module.
 
 * C compiler
 
-  The module is written in C and all installation options involve
-  compiling it from source so a C compiler is needed. Most Unix and
-  Linux distributions install a C compiler by default. MacOS users
-  should see INSTALL.Platforms for instructions on installing a C
-  compiler and related tools.
+  The module is written in C, so building the module requires a C
+  compiler. Most Unix and Linux distributions install a C compiler by
+  default. MacOS users should see INSTALL.Platforms for instructions
+  on installing a C compiler and related tools.
 
 
 2. Building and installing the module
@@ -62,9 +61,12 @@ Apache is normally built so that new modules can be built as 'shared
 objects' and plugged-in to Apache without having to rebuild the whole
 program. Apache provides a tool, called apxs, to manage this
 process. Providing your copy of Apache supports this, and most do,
-then it's the easiest way to build the module.
+then it's the easiest way to build the module. If, however, you run a
+RPM or .deb based linux distribution, then using the appropriate
+package will be more straightforward (see sections 2.2 & 2.3 below for
+details).
 
-You can check if you copy of Apache supports this feature by running
+You can check if your copy of Apache supports this feature by running
 it with the '-l' command line option - if mod_so.c is shown
 as one of the modules loaded then shared object support is available.
 
@@ -81,8 +83,8 @@ then issue the following command as root:
 
 If your copy of the OpenSSL library isn't in a standard place it may
 be necessary to modify the '-lcrypto' option. apxs may not be on
-root's default path and may be renamed, e.g. to apxs2, on some
-platforms - see INSTALL.Platforms for some further details. apxs and
+root's default path and may be renamed (e.g. to apxs2) on some
+platforms - see INSTALL.Platforms for further details. apxs and
 related files are sometimes provided by a httpd-devel, apache-devel,
 or apache2-devel package which will need to be installed.
 
@@ -92,8 +94,8 @@ or apache2-devel package which will need to be installed.
 
 The module is distributed as a pair of 'Source RPMs', one for Apache
 1.3 and one for Apache 2.0/2.1/2.2/2.4. On RPM-based Linux systems it
-is straight forward to use one of these to build a binary RPM which
-can then be installed as for any other package. This is particularly
+is straightforward to use one of these to build a binary RPM which
+can then be installed like any other package. This is particularly
 useful if you need to install the module on a number of similar
 systems. This approach will only work with copies of Apache that
 include shared object support (see above). This is almost always the
@@ -115,26 +117,31 @@ can be installed by issuing, e.g., the command
 
 Linux distributions vary somewhat in how they package Apache-related
 software so the source RPMs are unlikely to install on every possible
-system. Even with only a little experience of modifying RPMs it should
-be easy enough to install the source RPM and modify the '.spec' file
-to work with a new system. If you find you need to do this, please
-inform raven-support@ucs.cam.ac.uk so that any changes can be included
-in future versions.
+system. With a little experience of modifying RPMs it should be easy
+enough to install the source RPM and modify the '.spec' file to work
+with a new system. If you find you need to do this, please inform
+raven-support@ucs.cam.ac.uk so that any changes can be included in
+future versions.
 
 2.4 Installing from .deb
 ------------------------
 
-A binary .deb for "wheezy" (the current stable Debian release) on the
-amd64 architecture is available; if this is suitable for your system,
-you can install it thus:
+Binary .debs are available for Debian and Ubuntu. The Debian .debs
+should be suitable for releases from "wheezy" (the current stable
+release) onwards, whilst the Ubuntu .debs should be suitable for
+releases from "lucid" (10.04.4 LTS) onwards. They are available for
+i386 (32-bit) and amd64 (64-bit) archiectures. The four .debs have the
+following filenames:
 
-dpkg -i libapache-mod-ucam-webauth_<ver>_amd64.deb
+libapache2-mod-ucam-webauth_<ver>_amd64.deb        [Debian, 64-bit]
+libapache2-mod-ucam-webauth_<ver>_i386.deb         [Debian, 32-bit]
+libapache2-mod-ucam-webauth_<ver>ubuntu_amd64.deb  [Ubuntu, 64-bit]
+libapache2-mod-ucam-webauth_<ver>ubuntu_i386.deb   [Ubuntu, 32-bit]
 
-This binary package is also expected to work on the "precise",
-"quantal", and "raring" Ubuntu releases.
+Install the appropriate .deb using dpkg -i.
 
-Otherwise, you can build a binary .deb yourself; to do so, download
-libapache2-mod-ucam-webauth_<ver>.dsc and
+Alternatively, you can build a binary .deb yourself; to do so,
+download libapache2-mod-ucam-webauth_<ver>.dsc and
 libapache2-mod-ucam-webauth_<ver>.tar.gz, unpack the source archive:
 
 dpkg-source -x libapache-mod-ucam-webauth_<ver>.dsc
@@ -149,8 +156,8 @@ You can then install the resulting (unsigned) .deb as above.
 2.4  Static Linking
 -------------------
 
-Apache can be built with all modules linked into the main program - so
-called 'static linking'. To add mod_ucam_webauth to such an
+Apache can be built with all its modules linked into the main program
+- so-called 'static linking'. To add mod_ucam_webauth to such an
 installation it is necessary to copy the module into the unpacked
 Apache source tree and then to rebuild Apache.
 
@@ -189,29 +196,30 @@ Apache server. It should be listed as mod_ucam_webauth.c.
 
 * RSA Public Keys
 
-  UcamWebauth uses RSA public key cryptography to verify that
+  UcamWebAuth uses RSA public key cryptography to verify that
   authentication responses are sent only by the trusted authentication
   server. The module needs access to the relevant RSA public
   keys. Within the University of Cambridge, the keys used by the Raven
   service are available from https://raven.cam.ac.uk/project/keys/
 
   By default the module expects to find keys in a directory called
-  conf/webauth_keys/ within Apache's server's 'ServerRoot'
-  directory. INSTALL.Platforms documents server root for some
-  systems. If all else fails, trying to use the module with no keys
-  installed will result in an error message in the server's error log
-  which includes the expected path to the keys. The key file location
-  can also be set using the AAKeyDir directive (see README.Config).
+  conf/webauth_keys/ within the Apache server's 'ServerRoot'
+  directory. INSTALL.Platforms documents the default ServerRoot for
+  some systems. If all else fails, trying to use the module with no
+  keys installed will result in an error message in the server's error
+  log which includes the expected path to the keys. The key file
+  location can also be set using the AAKeyDir directive (see
+  README.Config).
 
-  The names of the key files should not be changed - beware that they
-  have no filename suffix but that some browsers may add .txt or
+  The names of the key files should not be changed - be aware that
+  they have no filename suffix but that some browsers may add .txt or
   similar when downloading them.
 
 * Timekeeping
 
   The protocol used to communicate between the module and the
   authentication server requires that both have access to accurate
-  time values. UcamWebauth servers use NTP (Network Time Protocol) to
+  time values. UcamWebAuth servers use NTP (Network Time Protocol) to
   set their clocks. Providing the server using the module has a clock
   synchronised by NTP or something similar then the default values for
   the time-related parameters in the module should be fine.
@@ -227,7 +235,7 @@ Apache server. It should be listed as mod_ucam_webauth.c.
 4. Initial configuration
 ========================
 
-If the module has been built as a dynamic shared objects then it must
+If the module has been built as a dynamic shared object then it must
 first be loaded into Apache. Your distribution may have its own way of
 managing modules (see INSTALL.Platforms) but a default Apache
 installation would require a 'LoadModule' directive such as:
@@ -235,8 +243,8 @@ installation would require a 'LoadModule' directive such as:
   LoadModule ucam_webauth_module modules/mod_ucam_webauth.so
 
 in the Apache configuration file, replacing
-'modules/mod_ucam_webauth.so' if necessary with the path to the the
-file containing the module, relative to ServerRoot if it doesn't start
+'modules/mod_ucam_webauth.so' if necessary with the path to the file
+containing the module, relative to ServerRoot if it doesn't start
 '/'. This is not necessary if the module has been statically linked
 into the httpd program.
 
@@ -251,7 +259,7 @@ will also be required somewhere. mod_ucam_webauth does not depend on
 load order.
 
 The minimum configuration required to restrict access to resources in
-a particular directory to users with a Ucam-WebAuth login is, e.g.
+a particular directory to users with a UcamWebAuth login is, e.g.:
 
   AACookieKey "some random string"
   <Directory "/path/to/protected/directory">
@@ -262,8 +270,8 @@ a particular directory to users with a Ucam-WebAuth login is, e.g.
 The AACookieKey directive is required. It provides data used to sign
 and verify the session cookie, providing detection of any
 tampering. See README.Config for further important information about
-this. See standard Apache documentation for other ways to use the
-'Require' directive to restrict access to identified individuals.
+this. See the Apache documentation for other ways to use the 'Require'
+directive to restrict access to identified individuals.
 
 In this example the protected resources is selected with a <Directory>
 directive; resources specified by <Location> or <Files> directives can

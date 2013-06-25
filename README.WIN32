@@ -1,12 +1,12 @@
      ===============================================================
-     University of Cambridge Web Authentication System (UcamWebauth)
+     University of Cambridge Web Authentication System (UcamWebAuth)
                Using mod_ucam_webauth with Windows Apache
      ===============================================================
 
 
 A binary distributions of mod_ucam_webauth is available for use with
-Apache running on a windows platform. This distribution contains
-versions of mod_ucam_webauth for use with Apache 2.2, and Apache 2.4,
+Apache running on a Windows platform. This distribution contains
+versions of mod_ucam_webauth for use with Apache 2.2 and Apache 2.4,
 in both 32-bit and 64-bit versions. The 32-bit versions are compiled
 to work with the corresponding binary Apache distributions provide by
 the Apache project (see http://httpd.apache.org/download.cgi) - they
@@ -31,9 +31,9 @@ C++ Libraries. A copy of the 'Microsoft Visual C++ 2010
 Redistributable Package' installer is supplied in the ZIP file as
 vcredist_x86.exe and vcredist_x64.exe for 32- and 64-bit versions of
 Windows respectively. If not already installed, install these
-components by double-clicking this file. Without these components
-attempts to start a copy of Apache configured to use mod_ucam_webauth
-will result in messages similar to
+components by double-clicking the relevant file. Without these
+components attempts to start a copy of Apache configured to use
+mod_ucam_webauth will result in messages similar to
 
   Syntax error on line <nnn> of httpd.conf:
   Cannot load mod_ucam_webauth.so into server: 
@@ -46,10 +46,12 @@ mod_ucam_webauth as described in sections 3 and 4 ('Operating
 requirements' and 'Initial configuration') of INSTALL.txt, and in
 README_Config.txt, but note the following:
 
-* The 'apxs' tool is not available. For a default installation of the
-  Apache project distribution the RSA public keys should by default be
-  stored in a directory called 'webauth_keys' within the 'conf'
-  directory in the Apache installation directory.
+* The 'apxs' tool is not available. 
+
+* For a default installation of the Apache project distribution the
+  RSA public keys should, unless configured otherwise, be stored in a
+  directory called 'webauth_keys' within the 'conf' directory in the
+  Apache installation directory.
 
 * Beware that Internet Explorer _will_ add '.txt' onto the end of the
   name of the key file, and that this may be hidden if Windows is
@@ -59,7 +61,7 @@ README_Config.txt, but note the following:
   -> Settings -> Control Panel -> Date and Time -> Internet
 
 * For a default installation of the Apache project distribution, the
-  default configuration file is called 'httpd.conf' and will be found
+  standard configuration file is called 'httpd.conf' and will be found
   in the 'conf' directory within the Apache installation directory.
 
 * For a default installation of the Apache project distribution the
