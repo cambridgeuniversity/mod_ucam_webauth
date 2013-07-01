@@ -1400,7 +1400,7 @@ ptags_incorrect(request_rec *r)
      "or member of staff, and this resource is only available to current "
      "students and members of staff.</p>"
      "<p>If you believe this to be incorrect, you should contact the "
-     "administrator of this site,", admin, " to correct the problem.",
+     "administrator of this site ", admin, " to correct the problem.",
      sig, "</body></html>", NULL);
 }
 
