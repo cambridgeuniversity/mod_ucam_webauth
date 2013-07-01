@@ -81,15 +81,15 @@ MODULE-DEFINITION-END
 APLOG_USE_MODULE(ucam_webauth);
 #endif
 
-/*The apache authors are idiots - the following is in httpd.h:
- *  /** strtoul does not exist on sunos4. */
-/** #ifdef strtoul
+/*The apache authors are irksome - the following is in httpd.h:
+ *  ** strtoul does not exist on sunos4. **
+ ** #ifdef strtoul
  ** #undef strtoul
  ** #endif
  ** #define strtoul strtoul_is_not_a_portable_function_use_strtol_instead
  *
  * Never mind that strtoul is in C89 and C99! Anyhow, #undef'ing strtoul
- * stops the apache idiocy from taking effect
+ * stops the apache muckup from taking effect
 */
 #undef strtoul
 
