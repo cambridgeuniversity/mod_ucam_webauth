@@ -49,6 +49,7 @@ MODULE-DEFINITION-END
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #define CORE_PRIVATE   /* Er, we want to prod some core data structures */
 
@@ -79,6 +80,13 @@ MODULE-DEFINITION-END
 /*Facilitate per-module log-level setting in Apache 2.4*/
 #ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(ucam_webauth);
+#endif
+
+/* If we're not using GNU C, elide __attribute__ */
+#if __GNUC__
+#define muw_attribute(x) __attribute__(x)
+#else
+#define muw_attribute(x)
 #endif
 
 /*The apache authors are irksome - the following is in httpd.h:
@@ -281,6 +289,20 @@ typedef struct {
 #endif
 
 /* ---------------------------------------------------------------------- */
+
+/* Declare a couple of functions that are needed before they are defined*/
+
+/*Dump configuration*/
+static void 
+dump_config(request_rec *r, apr_pool_t *p,
+	    mod_ucam_webauth_cfg *c);
+
+/*Output debug log one of r and p must be NULL, the other non-NULL*/
+static void
+log_p_or_rerror(request_rec *r, apr_pool_t *p,
+		const char *fmt, ...) muw_attribute((format(printf,3,4)));
+
+
 
 /* Standard forward declaration of the module structure since
    _something_ is bound to need it before it's defined at the end */
@@ -1547,8 +1569,13 @@ webauth_merge_dir_config(apr_pool_t *p,
   mod_ucam_webauth_cfg *merged = 
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg)); 
 
+  log_p_or_rerror(NULL,p,"Merging configs. Base then new follow");
+
   mod_ucam_webauth_cfg *base = (mod_ucam_webauth_cfg *)bconf;
   mod_ucam_webauth_cfg *new  = (mod_ucam_webauth_cfg *)nconf;
+
+  dump_config(NULL,p,base);
+  dump_config(NULL,p,new);
 
   merged->auth_service = new->auth_service != NULL ? 
     new->auth_service : base->auth_service;
@@ -1606,6 +1633,9 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->force_auth_type : base->force_auth_type;
   merged->required_ptags = new->required_ptags != PTAGS_UNSET ? 
     new->required_ptags : base->required_ptags;
+
+  log_p_or_rerror(NULL,p,"Merge result:");
+  dump_config(NULL,p,merged);
 
   return (void *)merged;
 
@@ -1699,155 +1729,182 @@ apply_config_defaults(request_rec *r,
 
 }
 
+/*Output to rerror if we have a request_rec or perror otherwise*/
+muw_attribute((format(printf,3,4))) static void
+log_p_or_rerror(request_rec *r, apr_pool_t *p,
+		const char *fmt, ...)
+{
+  va_list ap;
+  char errstr[MAX_STRING_LEN];
+
+  va_start(ap,fmt);
+  apr_vsnprintf(errstr,MAX_STRING_LEN,fmt,ap);
+  va_end(ap);
+
+  if(r==NULL && p!=NULL)
+    ap_log_perror(APLOG_MARK,APLOG_DEBUG,0,p,errstr);
+  else if (p==NULL && r!=NULL)
+    ap_log_rerror(APLOG_MARK,APLOG_DEBUG,0,r,errstr);
+  else if(p!=NULL && r!=NULL)
+    ap_log_rerror(APLOG_MARK,APLOG_ERR,0,r,"Both pool and request arguments non-NULL");
+  /*If both r and p are NULL, we're doomed, but have no way to log this*/
+}
+
 /* --- */
 /* dump a config structure */
 
 static void 
-dump_config(request_rec *r,
+dump_config(request_rec *r, apr_pool_t *p,
            mod_ucam_webauth_cfg *c)
 
 {
-
+  apr_pool_t *pool;
   char *msg=NULL;
 
+  if(p) pool=p;
+  else if(r) pool=r->pool;
+  /*if both p and r are NULL, we're doomed and cannot log anything*/
+  else abort();
+
+
 #ifdef APACHE2_4
-  if (r->log->level >= APLOG_DEBUG) {
+  if (r==NULL || (r!=NULL && r->log->level >= APLOG_DEBUG) ) {
 #else
-  if (r->server->loglevel >= APLOG_DEBUG) {
+  if (r==NULL || (r!=NULL && r->server->loglevel >= APLOG_DEBUG) ){
 #endif
 
-    APACHE_LOG0(APLOG_DEBUG, "Config dump:");
-    
-    APACHE_LOG1(APLOG_DEBUG, "  AAAuthService        = %s",
+    log_p_or_rerror(r,p,"Config dump:");
+
+    log_p_or_rerror(r,p,"  AAAuthService        = %s",
 		(c->auth_service == NULL ? "NULL" : c->auth_service));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AALogoutService      = %s",
+    log_p_or_rerror(r,p,"  AALogoutService      = %s",
 		(c->logout_service == NULL ? "NULL" : c->logout_service));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AADescription        = %s",
+    log_p_or_rerror(r,p,"  AADescription        = %s",
 		(c->description == NULL ? "NULL" : c->description));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAResponseTimeout    = %d",
+    log_p_or_rerror(r,p,"  AAResponseTimeout    = %d",
 		c->response_timeout);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAClockSkew          = %d",
+    log_p_or_rerror(r,p,"  AAClockSkew          = %d",
 		c->clock_skew);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAKeyDir             = %s",
+    log_p_or_rerror(r,p,"  AAKeyDir             = %s",
 		(c->key_dir == NULL ? "NULL" : c->key_dir));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAMaxSessionLife     = %d",
+    log_p_or_rerror(r,p,"  AAMaxSessionLife     = %d",
 		c->max_session_life);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAInactiveTimeout    = %d",
+    log_p_or_rerror(r,p,"  AAInactiveTimeout    = %d",
 		c->inactive_timeout);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AATimeoutMsg         = %s",
+    log_p_or_rerror(r,p,"  AATimeoutMsg         = %s",
 		(c->timeout_msg == NULL ? "NULL" : c->timeout_msg));
     
     switch(c->cache_control) {
     case CC_OFF:
-      msg = apr_pstrdup(r->pool,"off");
+      msg = apr_pstrdup(pool,"off");
       break;
     case CC_ON:
-      msg = apr_pstrdup(r->pool,"on");
+      msg = apr_pstrdup(pool,"on");
       break;
     case CC_PARANOID:
-      msg = apr_pstrdup(r->pool,"paranoid");
+      msg = apr_pstrdup(pool,"paranoid");
       break;
     case -1:
-      msg = apr_pstrdup(r->pool,"UNSET");
+      msg = apr_pstrdup(pool,"UNSET");
       break;
     default:
-      msg = apr_pstrdup(r->pool,"unknown");
+      msg = apr_pstrdup(pool,"unknown");
     }
-    APACHE_LOG1(APLOG_DEBUG, "  AACacheControl       = %s", 
+    log_p_or_rerror(r,p,"  AACacheControl       = %s", 
 		msg);
     
     if (c->cookie_key == NULL) {
-      APACHE_LOG0(APLOG_DEBUG, "  AACookieKey          = NULL");
+      log_p_or_rerror(r,p,"  AACookieKey          = NULL");
     } else {
-      APACHE_LOG2(APLOG_DEBUG, 
+      log_p_or_rerror(r,p,
 	    "  AACookieKey          = %-.4s... (%lu characters total)", 
 		  c->cookie_key, (unsigned long)strlen(c->cookie_key));
     }
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookieName         = %s",
+    log_p_or_rerror(r,p,"  AACookieName         = %s",
 		(c->cookie_name == NULL ? "NULL" : c->cookie_name));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookiePath         = %s",
+    log_p_or_rerror(r,p,"  AACookiePath         = %s",
 		(c->cookie_path == NULL ? "NULL" : c->cookie_path));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACookieDomain       = %s",
+    log_p_or_rerror(r,p,"  AACookieDomain       = %s",
 		(c->cookie_domain == NULL ? "NULL" : c->cookie_domain));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAForceInteract      = %d",
+    log_p_or_rerror(r,p,"  AAForceInteract      = %d",
 		c->force_interact);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AARefuseInteract     = %d",
+    log_p_or_rerror(r,p,"  AARefuseInteract     = %d",
 		c->refuse_interact);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAFail               = %d",
+    log_p_or_rerror(r,p,"  AAFail               = %d",
 		c->fail);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAIgnoreResponseLife = %d",
+    log_p_or_rerror(r,p,"  AAIgnoreResponseLife = %d",
 		c->ign_response_life);
     
-    APACHE_LOG1(APLOG_DEBUG, "  AACancelMsg          = %s",
+    log_p_or_rerror(r,p,"  AACancelMsg          = %s",
 		(c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AANeedInteractMsg    = %s",
+    log_p_or_rerror(r,p,"  AANeedInteractMsg    = %s",
 		(c->need_interact_msg == NULL ? "NULL" : c->need_interact_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg        = %s",
+    log_p_or_rerror(r,p,"  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
 
-    APACHE_LOG1(APLOG_DEBUG, "  AAPtagsIncorrectMsg  = %s",
+    log_p_or_rerror(r,p,"  AAPtagsIncorrectMsg  = %s",
 		(c->ptags_incorrect_msg == NULL ? "NULL" : c->ptags_incorrect_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AALogoutMsg          = %s",
+    log_p_or_rerror(r,p,"  AALogoutMsg          = %s",
 		(c->logout_msg == NULL ? "NULL" : c->logout_msg));
     
-    APACHE_LOG1(APLOG_DEBUG, "  AAAlwaysDecode       = %d",
+    log_p_or_rerror(r,p,"  AAAlwaysDecode       = %d",
 		c->always_decode);
 
     if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
     if (c->headers & HDR_ISSUE)
-      msg = apr_pstrcat(r->pool, msg, "Issue ", NULL);      
+      msg = apr_pstrcat(pool, msg, "Issue ", NULL);      
     if (c->headers & HDR_LAST)
-      msg = apr_pstrcat(r->pool, msg, "Last ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Last ", NULL); 
     if (c->headers & HDR_LIFE)
-      msg = apr_pstrcat(r->pool, msg, "Life ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Life ", NULL); 
     if (c->headers & HDR_TIMEOUT)
-      msg = apr_pstrcat(r->pool, msg, "Timeout ", NULL);
+      msg = apr_pstrcat(pool, msg, "Timeout ", NULL);
     if (c->headers & HDR_ID)
-      msg = apr_pstrcat(r->pool, msg, "ID ", NULL); 
+      msg = apr_pstrcat(pool, msg, "ID ", NULL); 
     if (c->headers & HDR_PRINCIPAL)
-      msg = apr_pstrcat(r->pool, msg, "Principal ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Principal ", NULL); 
     if (c->headers & HDR_AUTH)
-      msg = apr_pstrcat(r->pool, msg, "Auth ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Auth ", NULL); 
     if (c->headers & HDR_SSO)
-      msg = apr_pstrcat(r->pool, msg, "SSO", NULL);
+      msg = apr_pstrcat(pool, msg, "SSO", NULL);
     if (c->headers & HDR_PTAGS)
-      msg = apr_pstrcat(r->pool, msg, "Ptags", NULL);
-    APACHE_LOG1(APLOG_DEBUG, "  AAHeaders            = %s",
+      msg = apr_pstrcat(pool, msg, "Ptags", NULL);
+    log_p_or_rerror(r,p,"  AAHeaders            = %s",
 		msg);
 
     if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
     if (c->required_ptags & PTAGS_CURRENT)
-      msg = apr_pstrcat(r->pool, msg, "Current", NULL);
-    APACHE_LOG1(APLOG_DEBUG, "  AARequiredPtags      = %s",
+      msg = apr_pstrcat(pool, msg, "Current", NULL);
+    log_p_or_rerror(r,p,"  AARequiredPtags      = %s",
 		msg);
 
     if (c->header_key == NULL) {
-      APACHE_LOG0(APLOG_DEBUG, "  AAHeaderKey          = NULL");
+      log_p_or_rerror(r,p,"  AAHeaderKey          = NULL");
     } else {
-      APACHE_LOG2(APLOG_DEBUG, 
+      log_p_or_rerror(r,p,
 	    "  AAHeaderKey          = %-.4s... (%lu characters total)", 
 		  c->header_key, (unsigned long)strlen(c->header_key));
     }
 
-    APACHE_LOG1(APLOG_DEBUG, "  AAForceAuthType      = %s",
+    log_p_or_rerror(r,p,"  AAForceAuthType      = %s",
 		(c->force_auth_type == NULL ? "NULL" : c->force_auth_type));
 
   }
@@ -2895,7 +2952,7 @@ webauth_authn(request_rec *r)
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
 
-  dump_config(r,c);
+  dump_config(r,NULL,c);
   
   cache_control(r,c->cache_control);
 
@@ -2985,7 +3042,7 @@ webauth_fixup(request_rec *r)
     (APLOG_INFO, "** mod_ucam_webauth (%s) fixup handler started for %s", 
      VERSION, r->uri);
 
-  dump_config(r,c);
+  dump_config(r,NULL,c);
   
   /* Discard the result of decoding - either it worked or it didn't */
   (void)decode_cookie(r,c);
@@ -3022,7 +3079,7 @@ webauth_handler_logout(request_rec *r)
   c = (mod_ucam_webauth_cfg *) 
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
-  dump_config(r,c);  
+  dump_config(r,NULL,c);  
   
   cache_control(r,c->cache_control);
 
