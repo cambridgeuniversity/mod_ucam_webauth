@@ -1748,9 +1748,9 @@ log_p_or_rerror(request_rec *r, apr_pool_t *p,
   va_end(ap);
 
   if(r==NULL && p!=NULL)
-    ap_log_perror(APLOG_MARK,APLOG_WARNING,0,p,errstr);
+    ap_log_perror(APLOG_MARK,APLOG_WARNING,0,p,"%s",errstr);
   else if (p==NULL && r!=NULL)
-    ap_log_rerror(APLOG_MARK,APLOG_DEBUG,0,r,errstr);
+    ap_log_rerror(APLOG_MARK,APLOG_DEBUG,0,r,"%s",errstr);
   else if(p!=NULL && r!=NULL)
     ap_log_rerror(APLOG_MARK,APLOG_ERR,0,r,"Both pool and request arguments non-NULL");
   /*If both r and p are NULL, we're doomed, but have no way to log this*/
