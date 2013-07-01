@@ -1522,6 +1522,12 @@ webauth_create_dir_config(apr_pool_t *p,
   
   mod_ucam_webauth_cfg *cfg;
 
+  /*debug*/
+  if(path)
+    log_p_or_rerror(NULL,p,"Creating config for %s",path);
+  else
+    log_p_or_rerror(NULL,p,"Creating config for [null path]");
+
   cfg = 
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg));
   cfg->auth_service = NULL;
@@ -1887,14 +1893,21 @@ dump_config(request_rec *r, apr_pool_t *p,
       msg = apr_pstrcat(pool, msg, "SSO", NULL);
     if (c->headers & HDR_PTAGS)
       msg = apr_pstrcat(pool, msg, "Ptags", NULL);
+    if (c->headers & HDR_UNSET)
+      msg = apr_pstrcat(pool, msg, "[UNSET]", NULL);
     log_p_or_rerror(r,p,"  AAHeaders            = %s",
 		msg);
 
     if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
     if (c->required_ptags & PTAGS_CURRENT)
       msg = apr_pstrcat(pool, msg, "Current", NULL);
+    if (c->required_ptags & PTAGS_UNSET)
+      msg = apr_pstrcat(pool, msg, "[UNSET]", NULL);
+    if (c->required_ptags == PTAGS_NONE)
+      msg = apr_pstrcat(pool, msg, "None", NULL);
     log_p_or_rerror(r,p,"  AARequiredPtags      = %s",
 		msg);
+    log_p_or_rerror(r,p,"  AARequiredPtags      = %ud", c->required_ptags);
 
     if (c->header_key == NULL) {
       log_p_or_rerror(r,p,"  AAHeaderKey          = NULL");
