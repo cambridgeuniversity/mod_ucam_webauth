@@ -1907,7 +1907,7 @@ dump_config(request_rec *r, apr_pool_t *p,
       msg = apr_pstrcat(pool, msg, "None", NULL);
     log_p_or_rerror(r,p,"  AARequiredPtags      = %s",
 		msg);
-    log_p_or_rerror(r,p,"  AARequiredPtags      = %ud", c->required_ptags);
+    log_p_or_rerror(r,p,"  AARequiredPtags      = %u", c->required_ptags);
 
     if (c->header_key == NULL) {
       log_p_or_rerror(r,p,"  AAHeaderKey          = NULL");
