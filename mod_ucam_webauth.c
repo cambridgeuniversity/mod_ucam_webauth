@@ -1802,7 +1802,7 @@ dump_config(request_rec *r,
     APACHE_LOG1(APLOG_DEBUG, "  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
 
-    APACHE_LOG1(APLOG_DEBUG, "  AAPtagsIncorrectMsg        = %s",
+    APACHE_LOG1(APLOG_DEBUG, "  AAPtagsIncorrectMsg  = %s",
 		(c->ptags_incorrect_msg == NULL ? "NULL" : c->ptags_incorrect_msg));
     
     APACHE_LOG1(APLOG_DEBUG, "  AALogoutMsg          = %s",
