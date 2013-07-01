@@ -134,13 +134,13 @@ APLOG_USE_MODULE(ucam_webauth);
 #define HDR_AUTH       64
 #define HDR_SSO       128
 #define HDR_PTAGS     256
-#define HDR_UNSET UINT_MAX
+#define HDR_UNSET    1<<15 /*C99 requires integers to be at least this large*/
 #define HDR_ALL       (HDR_NONE | HDR_ISSUE | HDR_LAST | HDR_LIFE \
     | HDR_TIMEOUT | HDR_ID | HDR_PRINCIPAL | HDR_AUTH | HDR_SSO | HDR_PTAGS)
 
 #define PTAGS_NONE      0
 #define PTAGS_CURRENT   1
-#define PTAGS_UNSET UINT_MAX
+#define PTAGS_UNSET 1<<15
 
 /* default parameters */
 
