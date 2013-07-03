@@ -26,13 +26,13 @@ configuration' below.
 * Apache
 
   The module is only of any use when used with a copy of Apache,
-  version 1.3, 2.0, 2.1, 2.2, or 2.4 (it may or may not work with
+  version 2.0, 2.1, 2.2, or 2.4 (it may or may not work with
   later versions). Apache comes as part of most Unix/Linux
   distributions, though it may be necessary to install an additional
   package, perhaps called httpd-devel, apache-devel, or apache2-devel
   for access to the tools needed to build the module.
 
-  It is expected that support for Apache versions 1.3, 2.0, and 2.1
+  It is expected that support for Apache versions 2.0, and 2.1
   will be dropped in a forthcoming release; the Apache Software
   Foundation encourages users to upgrade to version 2.2 or 2.4.
 
@@ -92,31 +92,30 @@ or apache2-devel package which will need to be installed.
 2.2 Building and installing RPMs
 --------------------------------
 
-The module is distributed as a pair of 'Source RPMs', one for Apache
-1.3 and one for Apache 2.0/2.1/2.2/2.4. On RPM-based Linux systems it
-is straightforward to use one of these to build a binary RPM which
-can then be installed like any other package. This is particularly
-useful if you need to install the module on a number of similar
-systems. This approach will only work with copies of Apache that
-include shared object support (see above). This is almost always the
-case with RPM-based distributions.
+The module is distributed as a 'Source RPM', for Apache
+2.0/2.1/2.2/2.4. On RPM-based Linux systems it is straightforward to
+use this to build a binary RPM which can then be installed like any
+other package. This is particularly useful if you need to install the
+module on a number of similar systems. This approach will only work
+with copies of Apache that include shared object support (see
+above). This is almost always the case with RPM-based distributions.
 
 To build an RPM, download the appropriate Source RPM, cd to the
 directory containing it, and then as root issue the command
 
-  rpmbuild --rebuild mod_ucam_webauth<n>-<ver>.src.rpm         
+  rpmbuild --rebuild mod_ucam_webauth2-<ver>.src.rpm         
 
 Near the end of the resulting output will be a line identifying the
 binary RPM that was built, such as
 
-  Wrote: /usr/src/redhat/RPMS/i386/mod_ucam_webauth<n>-<ver>.i386.rpm
+  Wrote: /usr/src/redhat/RPMS/i386/mod_ucam_webauth2-<ver>.i386.rpm
 
 can be installed by issuing, e.g., the command
 
-  rpm -Uvh /usr/src/redhat/RPMS/i386/mod_ucam_webauth<n>-<ver>.i386.rpm
+  rpm -Uvh /usr/src/redhat/RPMS/i386/mod_ucam_webauth2-<ver>.i386.rpm
 
 Linux distributions vary somewhat in how they package Apache-related
-software so the source RPMs are unlikely to install on every possible
+software so the source RPM is unlikely to install on every possible
 system. With a little experience of modifying RPMs it should be easy
 enough to install the source RPM and modify the '.spec' file to work
 with a new system. If you find you need to do this, please inform
@@ -162,16 +161,9 @@ installation it is necessary to copy the module into the unpacked
 Apache source tree and then to rebuild Apache.
 
 Change into the Apache build directory and copy mod_ucam_webauth.c
-from an unpacked tar distribution to src/modules/extra (for Apache
-1.3) or modules/aaa (for Apache 2.0/2.1/2.2/2.4). Run the configure
+from an unpacked tar distribution to modules/aaa. Run the configure
 script with the options as specified below in addition to any other
 options you wish to set.
-
-For an Apache 1.3 installation:
-
-    ./configure --prefix=<PREFIX> \
-    --activate-module=src/modules/extra/mod_ucam_webauth.c \
-    --enable-module=ucam_webauth
 
 For an Apache 2 installation:
 
@@ -247,16 +239,6 @@ in the Apache configuration file, replacing
 containing the module, relative to ServerRoot if it doesn't start
 '/'. This is not necessary if the module has been statically linked
 into the httpd program.
-
-Under Apache 1.3 some configuration files use 'ClearModuleList'
-followed by 'AddModule' directives to ensure that modules are used in
-the right order - if mod_ucam_webauth is loaded before
-'ClearModuleList' then
-
-  AddModule mod_ucam_webauth.c
-
-will also be required somewhere. mod_ucam_webauth does not depend on
-load order.
 
 The minimum configuration required to restrict access to resources in
 a particular directory to users with a UcamWebAuth login is, e.g.:

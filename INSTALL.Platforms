@@ -56,40 +56,18 @@ The keys will by default be searched for in
 Apache logs are stored in /var/log/apache2/
 
 
-2. MacOS (10.3, 10.4, possibly others)
+2. MacOS (10.5 and later)
 ======================================
 
-Only Apache 1.3 is available.
+Only Apache 2 is available.
+
+The recommended process is to download the installer package
+ModUcamWebauth-<ver>.pkg.zip and install that.
 
 See also
 https://wiki.csx.cam.ac.uk/raven/Installing_the_Apache_authentication_module_under_MacOS_X
 
-A C compiler and related build tools are not a standard part of a
-MaxOS install. They are available as part of the Xcode tools which can
-be installed from your distribution CDs or from
-http://developer.apple.com/tools/download/
-
-apxs is installed as /usr/sbin/apxs
-
-Apache appears to run with a ServerRoot of /usr/
-
-The module should be installed into /usr/libexec/httpd/. It should be
-loaded with a LoadModule line in httpd.conf or otherwise in a file
-included into httpd.conf:
-
-  LoadModule ucam_webauth_module libexec/httpd/mod_ucam_webauth.so
-
-The keys will by default be searched for in
-
-  /usr/conf/webauth_keys/
-
-Apache logs are stored at /private/var/log/httpd/
-
-Apache on OS 10 server uses Apple's own authentication module,
-mod_auth_apple, in place of the standard Apache module, mod_auth. In
-OS version 10.4.6 (and probably in subsequent versions) mod_auth_apple
-is incompatible with mod_ucam_webauth. Instructions for working around
-this problem appear in the wiki document noted above.
+for more details.
 
 
 3. Red Hat, Fedora
@@ -117,35 +95,6 @@ Apache logs are stored in /var/log/httpd/
 
 4. SuSE Linux
 =============
-
-Apache 1.3
-----------
-
-Apache 1.3 is provided by the httpd package.
-
-Note that Apache 1.3 is only available in versions of SLES up to and
-including 9.0, and in some OES versions of SuSE Linux.
-
-apxs is installed as /usr/sbin/apxs
-
-Apache runs with a ServerRoot of /srv/www/
-
-The module should be installed into /usr/lib/apache/. It should be
-loaded with a LoadModule line in httpd.conf or otherwise in a file
-included into httpd.conf:
-
-  LoadModule ucam_webauth_module /usr/lib/apache/mod_ucam_webauth.so
-
-The keys will by default be searched for in
-
-  /srv/www/conf/webauth_keys/
-
-It might be better to use the AAKeyDir directive to relocate this to
-something like /etc/httpd/webauth_keys/. The RPMs will by default
-create /etc/httpd/webauth_keys/ and make /srv/www/conf/webauth_keys a
-symlink to it.
-
-Apache logs are stored in /var/log/httpd/
 
 Apache 2
 --------

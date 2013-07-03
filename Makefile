@@ -6,7 +6,7 @@
 #   the used tools
 
 APXS=/usr/sbin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
-SUFFIX=so              # Use 'make .... SUFFIX=la for Apache 2
+SUFFIX=la              # Use 'make .... SUFFIX=so for Apache 1
 
 #   additional user defines, includes, libraries and options
 #DEF=-Dmy_define=my_value
@@ -49,14 +49,6 @@ rpmdirs:
 	mkdir -p ~/rpmdevel/SOURCES
 	mkdir -p ~/rpmdevel/SPECS 
 	mkdir -p ~/rpmdevel/SRPMS	
-
-rpm13: dist rpmdirs
-	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
-	 sed -e s/\"//g | cut -d' ' -f3`; \
-	 cp mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
-	cp rpm-build/README.KEYS ~/rpmdevel/SOURCES
-	cp rpm-build/mod_ucam_webauth13.spec ~/rpmdevel/SPECS
-	rpmbuild -bs --nodeps ~/rpmdevel/SPECS/mod_ucam_webauth13.spec
 
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
