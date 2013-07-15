@@ -1575,10 +1575,10 @@ webauth_merge_dir_config(apr_pool_t *p,
   mod_ucam_webauth_cfg *merged = 
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg)); 
 
-  log_p_or_rerror(NULL,p,"Merging configs. Base then new follow");
-
   mod_ucam_webauth_cfg *base = (mod_ucam_webauth_cfg *)bconf;
   mod_ucam_webauth_cfg *new  = (mod_ucam_webauth_cfg *)nconf;
+
+  log_p_or_rerror(NULL,p,"Merging configs. Base then new follow");
 
   dump_config(NULL,p,base);
   dump_config(NULL,p,new);
