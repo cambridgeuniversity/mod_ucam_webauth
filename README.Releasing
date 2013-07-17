@@ -1,0 +1,182 @@
+		   Mod_ucam_webauth Release Process
+                   ********************************
+
+1. Introduction
+===============
+
+Releasing a new version of mod_ucam_webauth is a slightly fiddly
+process, mostly due to the range of different build types we need to
+release at approximately the same time. This document should describe
+all the necessary steps. If not, this is a bug, so please report it!
+raven-support@ucs.cam.ac.uk would love to hear from you :-)
+
+Before starting this process, you should have committed and tested
+your new code, and updated all the documentation (CHANGES, INSTALL,
+INSTALL.Platforms, README, README.Config, README.WIN32).
+
+In outline, the things that need doing are:
+
+*  Get a Windows build done
+**  Create a .zip for Windows users
+*  Get an OSX build done
+*  Build .debs
+**  Check these are installable
+*  Build .srpm
+*  Update UCS Wiki regarding OSX build
+*  Update HTML and text pages
+*  Move files around
+*  Announce release
+
+As you create each release object, put them together in a single
+directory. 
+
+The Windows and OSX builds require other people to do things, so it's
+worth getting them started fairly early in the process. Preferably
+once you've fixed all the bugs, though...
+
+2. Clone the webspace repository
+================================
+
+The mod_ucam_webauth website is kept in a git repository in the UCS
+git service (see https://git.csx.cam.ac.uk/i/ for details). Once your
+ssh public key is in the system (the above URL will tell you who are
+the admins who can do this for you), you can get a copy thus:
+
+git clone ucs@git.csx.cam.ac.uk:raven/apache
+
+If you've cloned a copy previously, then git pull will update your
+version. 
+
+3. Windows Build
+================
+
+Currently, these are done by Robert King (rdk13) of the Desktop
+Services Group. Supply him with the source tarball ("make dist") and
+ask nicely...
+
+He will return a .zip file that contains a series of .so files (32-
+and 64-bit for Apache 2.2 and 2.4). You need to add several things to
+this: 
+
+i) vcredist_x86.exe and vcredist_x64.exe. These are specific to a
+particular version of Visual Studio. The ones shipped with 2.0.0
+correspond to the 2010 version - if the build version changes you'll
+have to get new ones (downloadable from Microsoft), otherwise you can
+just copy the ones from the previous release
+
+ii) documentation. You need to change the filenames to end with .txt
+(and turn intermediate .s into _s). The following bash runes will save
+you a little typing (modify /tmp/muwnew/mod_ucam_webauth to suit)
+
+for i in CHANGES COPYING INSTALL README ; do cp "$i" "/tmp/muwnew/mod_ucam_webauth/$i.txt" ; done
+for i in INSTALL.Platforms README.Config README.WIN32 ; do cp "$i" "/tmp/muwnew/mod_ucam_webauth/${i/./_}.txt"; done
+
+Then zip your directory up, and that's the Windows build done.
+
+4. MacOS Build
+==============
+
+Currently, these are done by James Nairn (jwrn3) of Macintosh
+Support. Supply him with a source tarball ("make dist") and ask
+nicely... 
+
+The resulting .pkg.zip is ready to ship as-is, but it's worth making
+sure the wiki links to the new version, and asking James to check it's
+still accurate generally.
+
+5. Debian/Ubuntu Builds
+=======================
+
+If you've not built .debs before, feel free to ask Matthew Vernon
+(mcv21) for help. With a bit of luck, you just need to update the
+debian/changelog and then run some builds. The format of the changelog
+is described here:
+
+http://www.debian.org/doc/debian-policy/ch-source.html#s-dpkgchangelog
+
+It's fairly straightforward. You then build a source package by
+running: 
+debuild -S -us -uc 
+(-S source-only, u{s,c} do not sign)
+
+You then need to use this source package (a .dsc and .tar.gz) to build
+a series of binary packages. For this, sbuild is your friend:
+
+sbuild -vd wheezy --arch=i386 libapache2-mod-ucam-webauth_2.0.0.dsc
+
+sbuild -vd wheezy libapache2-mod-ucam-webauth_2.0.0.dsc
+
+sbuild --append-to-version='ubuntu' -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
+
+sbuild --append-to-version='ubuntu' --arch=i386 -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
+
+For setting up the chroots for these builds, see sbuild-createchroot. 
+
+Once you've got these, it's worth checking that they're installable
+against the supported Debian and Ubuntu releases. The debdepcheck.sh
+does this for you; run it in the directory that you've put your new
+.debs in. It assumes that you've mounted the Platforms NFS server at
+/nfs-uxsup. It takes a couple of minutes to run.
+
+6. RPM build
+============
+
+This is as simple as running "make rpm2". You'll need to fish the
+.src.rpm out of ~/rpmdevel/SRPMS.
+
+7. Checksum
+===========
+
+In the directory that contains all your release files, run the
+checksums.sh script from the mod_ucam_webauth webspace git
+repository. You will need access to a suitable GPG key to sign this
+file. The resulting checksums.txt needs to be copied into the m_u_w
+webspace git repository (over-writing the old version) and committed
+into git.
+
+8. Update m_u_w webspace
+========================
+
+The mod_ucam_webauth webspace is stored in git. So when renaming
+files, use:
+git mv
+
+In particular, all the old releases should be git mv'd to the relevant
+OLD subdirectory.
+
+Copy your new release files into place and add them with git add;
+over-write the old documentation pages with your new versions (and
+then use git add to tell git they've changed).
+
+If necessary, edit the .html files; again, use git add to note they've
+changed. 
+
+Use git commit to commit your changes.
+
+9. Propagate your changes
+=========================
+
+You're now ready to propagate your changes :-)
+
+The script pushrelease.sh does this for you. It checks you've not got
+changes you haven't committed into git, then pushes your changes to
+the UCS git server, logs into each of filby and gillingham as root,
+updates their copy (using git pull), then runs bes-configsave. This
+means that you need:
+
+i) the root password for filby and gillingham
+ii) a suitable account to supply when running bes-configsave from
+filby and gillingham.
+
+Bes-configsave is quite slow, so this can take a while to run. Note
+that if it encounters an error, the script will exit.
+
+10. Announce the release
+========================
+
+Send email to cs-raven-announce@lists.cam.ac.uk - refer to old
+announcements for an idea of the general style.
+
+
+                          ******************
+			  That's all, folks!
