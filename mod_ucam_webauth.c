@@ -2555,7 +2555,7 @@ validate_response(request_rec *r,
 
 {
 
-  char *cookie_str, *new_cookie_str, *msg;
+  char *cookie_str, *new_cookie_str, *msg, kid;
   const char *status, *url;
   int life, response_ticket_life, sig_verify_result, ver_in_response;
   apr_table_t *cookie;
@@ -2668,6 +2668,14 @@ validate_response(request_rec *r,
 		  c->required_ptags);
       msg = apr_pstrdup(r->pool,"Required ptags not found");
       status = "601";
+      goto FINISHED;
+    }
+
+  /* kid (key_id) must be filename suffix */
+  kid =apr_table_get(response_ticket, "kid");
+  if (strchr(kid, '/') {
+      msg = apr_psprintf(r->pool,"WLS response contains invalid key ID (contains '/') %s", kid);
+      status = "600";
       goto FINISHED;
     }
 
