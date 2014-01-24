@@ -2567,8 +2567,8 @@ validate_response(request_rec *r,
 
 {
 
-  char *cookie_str, *new_cookie_str, *msg, *kid;
-  const char *status, *url;
+  char *cookie_str, *new_cookie_str, *msg; 
+  const char *status, *url, *kid;
   int life, response_ticket_life, sig_verify_result, ver_in_response;
   apr_table_t *cookie;
   apr_time_t issue, now;
