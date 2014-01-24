@@ -1,10 +1,17 @@
-2.0.1 - 2014-XX-XX XXXX
+2.0.1 - 2014-01-09 mcv21
 
  . Set HttpOnly attribute in cookies
 
    This tells browsers to only expose this cookie during an http(s)
    request, and not, for example, to javascript code. This helps to
    reduce the possibility of cross-site scripting attacks.
+
+ . Add the AACookieForceSecure directive
+
+   Mod_ucam_webauth sets the "secure" attribute in the session cookie
+   when it is invoked over https. Under some specialised
+   circumstances, you may wish to force it to set this attribute when
+   invoked over http. This directive lets you do so.
 
 2.0.0 - 2013-06-18 mcv21
 
