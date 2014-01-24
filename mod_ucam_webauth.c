@@ -28,7 +28,7 @@
 
 */
 
-#define VERSION "2.0.0"
+#define VERSION "2.0.1"
 
 /*
 MODULE-DEFINITION-START
@@ -763,6 +763,8 @@ set_cookie(request_rec *r,
 			 c->cookie_domain, NULL);
   }
   
+  cookie = apr_pstrcat(r->pool, cookie, "; HttpOnly", NULL);
+
   if (using_https(r)) {
     cookie = apr_pstrcat(r->pool, cookie, "; secure", NULL);
   }

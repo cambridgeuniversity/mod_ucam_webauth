@@ -1,3 +1,11 @@
+2.0.1 - 2014-XX-XX XXXX
+
+ . Set HttpOnly attribute in cookies
+
+   This tells browsers to only expose this cookie during an http(s)
+   request, and not, for example, to javascript code. This helps to
+   reduce the possibility of cross-site scripting attacks.
+
 2.0.0 - 2013-06-18 mcv21
 
  . Add support for Ucam WebAuth protocol version 3
