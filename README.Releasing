@@ -128,11 +128,11 @@ This is as simple as running "make rpm2". You'll need to fish the
 ===========
 
 In the directory that contains all your release files, run the
-checksums.sh script from the mod_ucam_webauth webspace git
-repository. You will need access to a suitable GPG key to sign this
-file. The resulting checksums.txt needs to be copied into the m_u_w
-webspace git repository (over-writing the old version) and committed
-into git.
+checksums.sh script from the mod_ucam_webauth webspace git repository;
+the version number in that script will need incrementing. You will
+need access to a suitable GPG key to sign this file. The resulting
+checksums.txt needs to be copied into the m_u_w webspace git
+repository (over-writing the old version) and committed into git.
 
 8. Update m_u_w webspace
 ========================
