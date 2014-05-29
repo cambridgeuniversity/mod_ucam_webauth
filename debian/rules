@@ -3,10 +3,10 @@
 export DH_ALWAYS_EXCLUDE=MANIFEST:rpm-build:Windows:testing:mod_ucam_none.c
 
 %:
-	dh $@
+	dh $@ --with apache2
 
 override_dh_auto_build:
 	dh_auto_build -- APXS=apxs2
 
 override_dh_auto_install:
-	dh_auto_install -- APXS=apxs2 SUFFIX=la OPT=-SLIBEXECDIR=$(CURDIR)/debian/libapache2-mod-ucam-webauth/usr/lib/apache2/modules
+	dh_auto_install -- APXS=apxs2 SUFFIX=la OPT=-SLIBEXECDIR=$(CURDIR)

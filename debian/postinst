@@ -1,8 +1,0 @@
-#!/bin/sh -e
-
-if [ "$1" = configure ] ; then
-    # only restart if mod_ucam_webauth is enabled
-    if [ -e /etc/apache2/mods-enabled/ucam_webauth.load ] ; then
-        invoke-rc.d apache2 restart
-    fi
-fi
