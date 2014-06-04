@@ -2436,6 +2436,9 @@ decode_cookie(request_rec *r,
 		"AAPrincipal", 
 		apr_table_get(cookie, "principal"));
   apr_table_set(r->subprocess_env, 
+		"AAPRINCIPAL", 
+		apr_table_get(cookie, "principal"));
+  apr_table_set(r->subprocess_env, 
 		"AAAUTH", 
 		apr_table_get(cookie, "auth"));
   apr_table_set(r->subprocess_env, 
