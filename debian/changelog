@@ -1,8 +1,15 @@
-libapache2-mod-ucam-webauth (2.0.1~apache24) unstable; urgency=low
+libapache2-mod-ucam-webauth (2.0.1.1apache24) unstable; urgency=low
 
   * Modify packaging to work with apache2.4
 
- -- Matthew Vernon <matthew@debian.org>  Thu, 29 May 2014 16:42:07 +0100
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Wed, 04 Jun 2014 12:07:41 +0100
+
+libapache2-mod-ucam-webauth (2.0.1.1) unstable; urgency=low
+
+  * Set AAPRINCIPAL as well as AAPrincipal
+  * Note that Raven sets "current" not "Current"
+
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Wed, 04 Jun 2014 11:52:31 +0100
 
 libapache2-mod-ucam-webauth (2.0.1) unstable; urgency=low
 
