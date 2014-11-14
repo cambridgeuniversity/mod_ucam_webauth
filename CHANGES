@@ -1,3 +1,11 @@
+2.0.1.1 - 2014-11-11 mcv21
+
+ . Set AAPRINCIPAL as well as AAPrincipal (to match documentation)
+
+ . Correct documentation to note that Raven sets "current" not "Current"
+
+ . Ubuntu and Debian packaging for Apache 2.4 support
+
 2.0.1 - 2014-01-09 mcv21
 
  . Set HttpOnly attribute in cookies

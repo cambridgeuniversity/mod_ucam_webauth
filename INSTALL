@@ -129,19 +129,26 @@ Binary .debs are available for Debian and Ubuntu. The Debian .debs
 should be suitable for releases from "wheezy" (the current stable
 release) onwards, whilst the Ubuntu .debs should be suitable for
 releases from "lucid" (10.04.4 LTS) onwards. They are available for
-i386 (32-bit) and amd64 (64-bit) archiectures. The four .debs have the
-following filenames:
+i386 (32-bit) and amd64 (64-bit) archiectures. Debian "jessie" and
+Ubuntu "trusty" (14.04 LTS) come with Apache 2.4, which requires
+different packaging; so versions built for these releases are now also
+provided. The eight .debs have the following filenames:
 
-libapache2-mod-ucam-webauth_<ver>_amd64.deb        [Debian, 64-bit]
-libapache2-mod-ucam-webauth_<ver>_i386.deb         [Debian, 32-bit]
-libapache2-mod-ucam-webauth_<ver>ubuntu_amd64.deb  [Ubuntu, 64-bit]
-libapache2-mod-ucam-webauth_<ver>ubuntu_i386.deb   [Ubuntu, 32-bit]
+libapache2-mod-ucam-webauth_<ver>_amd64.deb               [Debian, 64-bit]
+libapache2-mod-ucam-webauth_<ver>_i386.deb                [Debian, 32-bit]
+libapache2-mod-ucam-webauth_<ver>_apache24_amd64.deb      [Apache2.4, 64-bit]
+libapache2-mod-ucam-webauth_<ver>_apache24_i386.deb  	  [Apache2.4, 32-bit]
+libapache2-mod-ucam-webauth_<ver>ubuntu_amd64.deb         [Ubuntu, 64-bit]
+libapache2-mod-ucam-webauth_<ver>ubuntu_i386.deb          [Ubuntu, 32-bit]
+libapache2-mod-ucam-webauth_<ver>apache24ubuntu_amd64.deb [Apache2.4, 64-bit]
+libapache2-mod-ucam-webauth_<ver>apache24ubuntu_i386.deb  [Apache2.4, 32-bit]
 
 Install the appropriate .deb using dpkg -i.
 
 Alternatively, you can build a binary .deb yourself; to do so,
 download libapache2-mod-ucam-webauth_<ver>.dsc and
-libapache2-mod-ucam-webauth_<ver>.tar.gz, unpack the source archive:
+libapache2-mod-ucam-webauth_<ver>.tar.gz, (or the apache24 versions)
+unpack the source archive:
 
 dpkg-source -x libapache-mod-ucam-webauth_<ver>.dsc
 

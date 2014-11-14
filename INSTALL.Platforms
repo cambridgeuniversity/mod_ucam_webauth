@@ -16,12 +16,13 @@ raven-support@ucs.cam.ac.uk
 1. Debian/Ubuntu
 ================
 
-Only Apache 2.2 is available, via the apache2 metapackage. Installing
-from a .deb file (see INSTALL for more details on how to obtain/build
-an appropriate .deb for your system) will install the module
-correctly; you can enable it with the command "a2enmod
-ucam_webauth". It will still require configuration to meet your needs,
-however.
+In versions below Ubuntu 14.04 "trusty" and Debian 8 "jessie", only
+Apache 2.2 is available. From those releases onwards, only Apache 2.4
+is available. Installing the appropriate .deb file (see INSTALL for
+more details on how to obtain/build an appropriate .deb for your
+system) will install the module correctly; you can enable it with the
+command "a2enmod ucam_webauth". It will still require configuration to
+meet your needs, however.
 
 apxs is installed as /usr/bin/apxs2
 
