@@ -85,6 +85,9 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Fri Nov 14 2014 Matthew Vernon <mcv21@cam.a.cuk> -2.0.1.1-1
+- Update to 2.0.1.1
+
 * Thu Jan 09 2014 Matthew Vernon <mcv21@cam.ac.uk> -2.0.1-1
 - Update to 2.0.1
 
