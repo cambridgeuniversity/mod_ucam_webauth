@@ -1,8 +1,16 @@
-libapache2-mod-ucam-webauth (2.0.1.1apache24) unstable; urgency=low
+libapache2-mod-ucam-webauth (2.0.2apache24) unstable; urgency=medium
 
   * Modify packaging to work with apache2.4
 
- -- Matthew Vernon <mcv21@cam.ac.uk>  Wed, 04 Jun 2014 12:07:41 +0100
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Wed, 11 Mar 2015 11:21:05 +0000
+
+libapache2-mod-ucam-webauth (2.0.2) unstable; urgency=medium
+
+  * Validate kid field according to new, tighter, specification in the
+    protocol (to avoid path-traversal problems). Thanks to gr348 for the
+    bug report.
+
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Tue, 10 Mar 2015 17:00:12 +0000
 
 libapache2-mod-ucam-webauth (2.0.1.1) unstable; urgency=low
 
