@@ -2558,6 +2558,28 @@ decode_response(request_rec *r,
 
 }
 
+/* Check kid is valid.
+ * Revision of the protocol now requires:
+ * no more than 8 characters long, only digits 0-9
+ * and must not begin with a 0
+ *
+ * return 1 if valid, 0 otherwise
+ */
+static int is_valid_kid(request_rec *r,const char *s)
+{
+  size_t l;
+  l=strlen(s);
+  if (l>8 || l==0) {
+    APACHE_LOG0(APLOG_ERR, "kid incorrect length (MUST be 1-8 digits)");
+    return 0;
+  }
+  if (strspn(s, "0123456789") !=l || s[0] == '0'){
+    APACHE_LOG0(APLOG_ERR, "invalid character in kid");
+    return 0;
+  }
+  return 1;
+}
+
 /* --- */
 
 static int
@@ -2685,8 +2707,8 @@ validate_response(request_rec *r,
 
   /* kid (key_id) must be filename suffix */
   kid =apr_table_get(response_ticket, "kid");
-  if (strchr(kid, '/')) {
-      msg = apr_psprintf(r->pool,"WLS response contains invalid key ID (contains '/') %s", kid);
+  if (!is_valid_kid(r,kid)){
+      msg = apr_psprintf(r->pool,"WLS response contains invalid key ID");
       status = "600";
       goto FINISHED;
     }
