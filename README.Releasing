@@ -44,7 +44,7 @@ git service (see https://git.csx.cam.ac.uk/i/ for details). Once your
 ssh public key is in the system (the above URL will tell you who are
 the admins who can do this for you), you can get a copy thus:
 
-git clone ucs@git.csx.cam.ac.uk:raven/apache
+git clone ucs@git.csx.cam.ac.uk:raven/projectwebsite
 
 If you've cloned a copy previously, then git pull will update your
 version. 
