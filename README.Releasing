@@ -14,6 +14,8 @@ Before starting this process, you should have committed and tested
 your new code, and updated all the documentation (CHANGES, INSTALL,
 INSTALL.Platforms, README, README.Config, README.WIN32).
 
+Also, Remember to bump VERSION in mod_ucam_webauth.c!
+
 In outline, the things that need doing are:
 
 *  Get a Windows build done
