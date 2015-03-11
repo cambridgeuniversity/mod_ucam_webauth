@@ -1,3 +1,14 @@
+2.0.2 - 2015-03-11 mcv21
+
+ . Restrict kid to be 1-8 digits, not beginning with a 0.
+
+   gr348 reported a directory-traversal vulnerability in
+   mod_ucam_webauth, since thile the code removes '/' from the 'kid'
+   field, it does not remove any other path-separator characters
+   (e.g. '\' on Windows). In the light of this, the specification of
+   the 'kid' field in the ucamwebauth protocol has been tightened up,
+   and mod_ucam_webauth now enforces this new, stricter definition.
+
 2.0.1.1 - 2014-11-11 mcv21
 
  . Set AAPRINCIPAL as well as AAPrincipal (to match documentation)
