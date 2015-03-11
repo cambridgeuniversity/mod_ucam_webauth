@@ -112,6 +112,8 @@ sbuild --append-to-version='ubuntu' -vd lucid libapache2-mod-ucam-webauth_2.0.0.
 
 sbuild --append-to-version='ubuntu' --arch=i386 -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
 
+Similarly "jessie" and "trusty" for the apache24 packages.
+
 For setting up the chroots for these builds, see sbuild-createchroot. 
 
 Once you've got these, it's worth checking that they're installable
