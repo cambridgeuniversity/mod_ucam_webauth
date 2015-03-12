@@ -164,11 +164,11 @@ You're now ready to propagate your changes :-)
 
 The script pushrelease.sh does this for you. It checks you've not got
 changes you haven't committed into git, then pushes your changes to
-the UCS git server, logs into each of filby and gillingham as root,
+the UCS git server, logs into each of lily and malthouse as root,
 updates their copy (using git pull), then runs bes-configsave. This
 means that you need:
 
-i) the root password for filby and gillingham
+i) the root password for lily and malthouse
 ii) a suitable account to supply when running bes-configsave from
 filby and gillingham.
 
