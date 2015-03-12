@@ -25,7 +25,7 @@ default installation, the Apache installation directory will be:
   C:\Program Files\Apache Software Foundation\Apache2.2\ [Apache 2.2]
   C:\Program Files\Apache Software Foundation\Apache2.4\ [Apache 2.4]
 
-The module has been compiled using Microsoft's Visual Studio 2010
+The module has been compiled using Microsoft's Visual Studio 2013
 compiler and the compiled code requires runtime components of Visual
 C++ Libraries. A copy of the 'Microsoft Visual C++ 2010
 Redistributable Package' installer is supplied in the ZIP file as
