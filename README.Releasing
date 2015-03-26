@@ -108,9 +108,9 @@ sbuild -vd wheezy --arch=i386 libapache2-mod-ucam-webauth_2.0.0.dsc
 
 sbuild -vd wheezy libapache2-mod-ucam-webauth_2.0.0.dsc
 
-sbuild --append-to-version='ubuntu' -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
+sbuild --append-to-version='~ubuntu' -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
 
-sbuild --append-to-version='ubuntu' --arch=i386 -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
+sbuild --append-to-version='~ubuntu' --arch=i386 -vd lucid libapache2-mod-ucam-webauth_2.0.0.dsc
 
 Similarly "jessie" and "trusty" for the apache24 packages.
 
