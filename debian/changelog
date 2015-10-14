@@ -1,8 +1,14 @@
-libapache2-mod-ucam-webauth (2.0.2apache24) unstable; urgency=medium
+libapache2-mod-ucam-webauth (2.0.3apache24) unstable; urgency=low
 
   * Modify packaging to work with apache2.4
 
- -- Matthew Vernon <mcv21@cam.ac.uk>  Wed, 11 Mar 2015 11:21:05 +0000
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Thu, 26 Mar 2015 18:52:50 +0000
+
+libapache2-mod-ucam-webauth (2.0.3) unstable; urgency=low
+
+  * Bump version number (so we can change the ubuntu versioning scheme
+
+ -- Matthew Vernon <mcv21@cam.ac.uk>  Thu, 26 Mar 2015 18:52:12 +0000
 
 libapache2-mod-ucam-webauth (2.0.2) unstable; urgency=medium
 
