@@ -57,13 +57,21 @@ The keys will by default be searched for in
 Apache logs are stored in /var/log/apache2/
 
 
-2. MacOS (10.5 and later)
-======================================
+2. MacOS (10.5 to 10.10 ONLY)
+=============================
 
 Only Apache 2 is available.
 
-The recommended process is to download the installer package
-ModUcamWebauth-<ver>.pkg.zip and install that.
+The recommended process is to download the installer package relevant
+to your version of MacOS. For versions 10.6 (Snow Leopard) through
+10.9 (Mavericks), this will be called
+mod_ucam_webauth_<ver>_10.6-10.9.dmg, and for version 10.10
+(Yosemite), this will be called mod_ucam_webauth_<ver>_10.10.dmg.
+
+Apple removed the OpenSSL library from MacOS 10.11 (El Capitan)
+onward. Since the Apache authentication module depends on OpenSSL for
+some of its function this means that the module can't easily be used
+with the supplied copy of Apache from 10.11 onward.
 
 See also
 https://wiki.csx.cam.ac.uk/raven/Installing_the_Apache_authentication_module_under_MacOS_X
