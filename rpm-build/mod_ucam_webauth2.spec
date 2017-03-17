@@ -58,10 +58,7 @@ mod_ucam_webauth2 provides an interface to the University of
 Cambridge Web Authentication system for Apache v2 servers.
 
 %prep
-echo "starting block: prep"
-exit -1
 %setup -n mod_ucam_webauth-%{version}
-echo "finished macro:setup"
 
 %build
 make APXS=%{apxs}
