@@ -5,7 +5,7 @@
 
 #   the used tools
 
-APXS=/usr/sbin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
+APXS=/usr/bin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
 SUFFIX=la              # Use 'make .... SUFFIX=so for Apache 1
 
 #   additional user defines, includes, libraries and options
@@ -53,10 +53,12 @@ rpmdirs:
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
-	 cp -v mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES)
-	cp rpm-build/README.KEYS ~/rpmdevel/SOURCES
-	cp rpm-build/mod_ucam_webauth2.spec ~/rpmdevel/SPECS
-	rpmbuild -bs --nodeps ~/rpmdevel/SPECS/mod_ucam_webauth2.spec
+	cp -v mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES/)
+	cp -v rpm-build/README.KEYS ~/rpmdevel/SOURCES
+	cp -v rpm-build/mod_ucam_webauth2.spec ~/rpmdevel/SPECS
+	rpmbuild --define "_topdir $(HOME)/rpmdevel/" -bs --nodeps /home/infosysansible/rpmdevel/SPECS/mod_ucam_webauth2.spec
+
+
 
 windows:
 	rm -f mod_ucam_webauth-`cat Windows/VERSION`.zip

@@ -18,7 +18,7 @@
   %define apache2_package apache2
   %define apache2_devel   apache2-devel
   %define apxs            %{_sbindir}/apxs2
-  %define keysdir         /etc/apache2/webauth_keys
+  %define keysdir         /etc/httpd/conf/webauth_keys
   %define extra_prereq    apache2-prefork
 %endif
 
@@ -27,11 +27,21 @@
   %define apxs %{_bindir}/apxs
 %endif
 
+%if %(test -e /etc/redhat-release && echo 1 || echo 0) == 1
+  %define dist redhat
+  %define apache2_package httpd
+  %define apache2_devel   httpd-devel
+  %define apxs            %{_bindir}/apxs
+  %define keysdir         /etc/httpd/conf/webauth_keys
+%endif
+
+
+
 %define apache_libexecdir %(%{apxs} -q LIBEXECDIR)
 
 Summary: University of Cambridge Web Authentication system agent for Apache 2
 Name: mod_ucam_webauth2
-Version: 2.0.2
+Version: 2.0.3
 Release: 1
 Group: System Environment/Daemons
 Vendor: University of Cambridge Computing Service
@@ -40,15 +50,18 @@ Source: mod_ucam_webauth-%{version}.tar.gz
 Source1: README.KEYS
 License: GPL
 BuildRoot: %{_tmppath}/%{name}-root
-BuildPrereq: %{apache2_devel}, openssl-devel, %{extra_prereq}
-Requires: %{apache2_package}, openssl
+#BuildPrereq: %{apache2_devel}, openssl-devel, %{extra_prereq}
+Requires: %{apache2_package}, openssl, openssl-devel, %{extra_prereq}
 
 %description
 mod_ucam_webauth2 provides an interface to the University of
 Cambridge Web Authentication system for Apache v2 servers.
 
 %prep
+echo "starting block: prep"
+exit -1
 %setup -n mod_ucam_webauth-%{version}
+echo "finished macro:setup"
 
 %build
 make APXS=%{apxs}
@@ -68,6 +81,13 @@ if [ ! -e /srv/www/conf/webauth_keys ]; then
   ln -s %{keysdir} /srv/www/conf/webauth_keys
 fi
 %endif
+%if %{dist} == "redhat"
+if [ ! -e /etc/httpd/conf/webauth_keys ]; then
+  mkdir -p /etc/httpd/conf/webauth_keys
+  ln -s %{keysdir} /etc/httpd/conf/webauth_keys
+fi
+%endif
+
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
@@ -85,6 +105,12 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
+* Thu Mar 16 2017 Stephen Lovell <sml47@cam.ac.uk> -2.0.2
+- Update to 2.0.3
+- Addtion of dist check for redhat 
+
+- Fixed changelog entry for Mar 30 2004 to be Tue not Thu
+
 * Wed Mar 11 2015 Matthew Vernon <mcv21@cam.ac.uk> -2.0.2-1
 - Update to 2.0.2
 
@@ -177,7 +203,7 @@ fi
 - Update to 0.44
 - Changes source to .tar.gz file
 
-* Thu Mar 30 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.42
+* Tue Mar 30 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.42
 - Updated for 0.42 - fix GMT/Localtime bug
 
 * Mon Mar 22 2004 Jon Warbrick <jw35@cam.ac.uk> - 0.41
