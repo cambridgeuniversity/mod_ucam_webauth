@@ -75,6 +75,9 @@ MODULE-DEFINITION-END
 
 #if defined( AP_RELEASE_H ) && AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER >=4
 #define APACHE2_4
+#if AP_SERVER_MINORVERSION_NUMBER > 4 || AP_SERVER_PATCHLEVEL_NUMBER >= 13
+#define APACHE2_4_13
+#endif
 #endif
 
 /*Facilitate per-module log-level setting in Apache 2.4*/
@@ -637,17 +640,32 @@ wls_response_code_string(request_rec *r,
   core_dir_config *conf;
   char *result;
   int idx;
+#ifdef APACHE2_4_13
+  ap_expr_info_t *expr;
+#endif
   
   APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: status = %d", status);
 
   conf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
 						 &core_module);
+  /* conf = ap_get_core_module_config(r->per_dir_config); */
   idx = ap_index_of_response(status);
 
-  if (conf->response_code_strings == NULL) {
-    result = NULL;
-  } else {
+  if (conf->response_code_strings) {
+    /* Apache before 2.4.13 stored ErrorDocument in array of strings */
     result = conf->response_code_strings[idx];
+#ifdef APACHE2_4_13
+  } else if (conf->response_code_exprs) {
+    /* Apache 2.4.13 and later use a hash table instead */
+    expr = apr_hash_get(conf->response_code_exprs, &idx, sizeof(idx));
+    if (expr == NULL) {
+      result = NULL;
+    } else {
+      result = "[expression]";
+    }
+#endif
+  } else {
+    result = NULL;
   }
 
   APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: result = %s", 
