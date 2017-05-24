@@ -1,6 +1,6 @@
-/* 
+/*
 
-   This file is part of the University of Cambridge Web Authentication 
+   This file is part of the University of Cambridge Web Authentication
    System Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
@@ -15,13 +15,13 @@
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Lesser General Public License for more details.
-  
+
    You should have received a copy of the GNU Lesser General Public
    License along with this toolkit; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
+   Author: Robin Brady-Roche <rbr268@cam.ac.uk> and
            Jon Warbrick <jw35@cam.ac.uk>
 
 */
@@ -296,7 +296,7 @@ typedef struct {
 /* Declare a couple of functions that are needed before they are defined*/
 
 /*Dump configuration*/
-static void 
+static void
 dump_config(request_rec *r, apr_pool_t *p,
 	    mod_ucam_webauth_cfg *c);
 
@@ -325,7 +325,7 @@ int safer_atoi(const char *nptr)
   errno=0;
   l=strtol(nptr,NULL,10);
   if(errno) return -INT_MAX;
-  if( (l > INT_MAX) || (l < INT_MIN) ) return -INT_MAX; 
+  if( (l > INT_MAX) || (l < INT_MIN) ) return -INT_MAX;
   return (int) l;
 }
 
@@ -337,7 +337,7 @@ unsigned int safer_atoui(const char *nptr)
 {
   unsigned long l;
   errno=0;
-  if(NULL==nptr){ 
+  if(NULL==nptr){
     errno=EINVAL;
     return UINT_MAX;
   }
@@ -358,11 +358,11 @@ static unsigned int parse_ptags(request_rec *r,const char *data)
   unsigned int ans=PTAGS_NONE;
   char *pair;
   if (data != NULL)
-    while (*data && (pair = ap_getword(r->pool,&data,','))) 
+    while (*data && (pair = ap_getword(r->pool,&data,',')))
       if (!strcasecmp(pair,"Current"))
 	ans|=PTAGS_CURRENT;
       else
-	APACHE_LOG1(APLOG_WARNING,"Ignoring unknown ptags value %s",pair); 
+	APACHE_LOG1(APLOG_WARNING,"Ignoring unknown ptags value %s",pair);
   return ans;
 }
 
@@ -385,12 +385,12 @@ escape_url(apr_pool_t *p,
 
   char *to = (char*)apr_pcalloc(p,(strlen(from)*3)+1);
   char *ptr;
-  
+
   ptr = to;
 
   while (*from != '\0') {
     if (strchr(safechars,*from)) {
-      *(ptr++) = *from; 
+      *(ptr++) = *from;
     }
     else {
       sprintf(ptr, "%%%02x", (int)*from);
@@ -413,7 +413,7 @@ escape_sig(apr_pool_t *p,
 
   char *to = (char*)apr_pcalloc(p,(strlen(from)*3)+1);
   char *ptr;
-  
+
   ptr = to;
 
   while (*from != '\0') {
@@ -422,7 +422,7 @@ escape_sig(apr_pool_t *p,
       ptr+=3;
     }
     else {
-      *(ptr++) = *from; 
+      *(ptr++) = *from;
     }
     ++from;
   }
@@ -440,9 +440,9 @@ escape_sig(apr_pool_t *p,
    indication) which is what these do. So do it by hand... */
 
 static char *
-wls_encode(request_rec *r, 
+wls_encode(request_rec *r,
 	   unsigned char *data,
-           int len) 
+           int len)
 
 {
 
@@ -451,13 +451,13 @@ wls_encode(request_rec *r,
   char *result = (char*)apr_palloc(r->pool, 1+apr_base64_encode_len(len));
   rlen = apr_base64_encode(result,(const char*)data,len);
   result[rlen] = '\0';
-  
+
   for (i = 0; i < rlen; i++) {
     if (result[i] == '+') result[i] = '-';
     else if (result[i] == '/') result[i] = '.';
     else if (result[i] == '=') result[i] = '_';
   }
-  
+
   return result;
 
 }
@@ -466,13 +466,13 @@ wls_encode(request_rec *r,
 /* modified base64 decoding */
 
 static int
-wls_decode(request_rec *r, 
+wls_decode(request_rec *r,
 	   const char *string,
 	   unsigned char **result)
-     
+
 {
 
-  int len;  
+  int len;
   char *d, *res;
   size_t i;
 
@@ -500,11 +500,11 @@ wls_decode(request_rec *r,
 /* ISO 2 datetime encoding */
 
 static char *
-iso2_time_encode(request_rec *r, 
-		 apr_time_t t) 
+iso2_time_encode(request_rec *r,
+		 apr_time_t t)
 
 {
-  
+
   APACHE_LOG0(APLOG_DEBUG, "ISO 2 time encoding...");
   return ap_ht_time(r->pool, t, "%Y%m%dT%H%M%SZ", 1);
 
@@ -513,12 +513,12 @@ iso2_time_encode(request_rec *r,
 /* --- */
 /* ISO 2 datetime decoding */
 
-static apr_time_t 
-iso2_time_decode(request_rec *r, 
-				 const char *t_iso2) 
+static apr_time_t
+iso2_time_decode(request_rec *r,
+				 const char *t_iso2)
 
 {
-  
+
   char *t_http = (char*)apr_palloc(r->pool, 27);
 
   APACHE_LOG0(APLOG_DEBUG, "iso2_time_decode...");
@@ -535,7 +535,7 @@ iso2_time_decode(request_rec *r,
     switch (t_iso2[5]) {
     case '1':
       t_http[5] = 'J';
-      t_http[6] = 'a'; 
+      t_http[6] = 'a';
       t_http[7] = 'n';
       break;
     case '2':
@@ -621,7 +621,7 @@ iso2_time_decode(request_rec *r,
   t_http[26] = '\0';
 
   APACHE_LOG1(APLOG_DEBUG, "HTTP date = %s", t_http);
-  
+
   return apr_date_parse_http(t_http);
 
 }
@@ -631,7 +631,7 @@ iso2_time_decode(request_rec *r,
 /* 'Borrowed' from the Apache source, informed by the mod_perl sources */
 
 static char *
-wls_response_code_string(request_rec *r, 
+wls_response_code_string(request_rec *r,
 			 int status)
 
 {
@@ -641,7 +641,7 @@ wls_response_code_string(request_rec *r,
 #ifdef APACHE2_4_13
   ap_expr_info_t *expr;
 #endif
-  
+
   APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: status = %d", status);
 
   conf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
@@ -666,19 +666,19 @@ wls_response_code_string(request_rec *r,
     result = NULL;
   }
 
-  APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: result = %s", 
-		   (result == NULL ? "NULL" : result));  
+  APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: result = %s",
+		   (result == NULL ? "NULL" : result));
 
   return result;
 
 }
- 
+
 /* --- */
 /* get CGI parameter */
 
 static char *
-get_cgi_param(request_rec *r, 
-	      const char *parm_name) 
+get_cgi_param(request_rec *r,
+	      const char *parm_name)
 
 {
 
@@ -692,12 +692,12 @@ get_cgi_param(request_rec *r,
   char *pair;
 
   APACHE_LOG1(APLOG_DEBUG, "get_cgi_param, r->args = %s", data);
-  
+
   if (data != NULL) {
     while (*data && (pair = ap_getword(r->pool, &data, '&'))) {
       char *name;
       name = ap_getword_nc(r->pool, &pair, '=');
-      
+
       if (strcmp(name, parm_name) == 0) {
 	return pair;
       }
@@ -709,13 +709,13 @@ get_cgi_param(request_rec *r,
 
 /* --- */
 
-static int 
-using_https(request_rec *r) 
+static int
+using_https(request_rec *r)
 
 {
 
-  return (apr_fnmatch("https*", 
-			 ap_construct_url(r->pool, r->unparsed_uri, r), 
+  return (apr_fnmatch("https*",
+			 ap_construct_url(r->pool, r->unparsed_uri, r),
 			 0) != APR_FNM_NOMATCH);
 
 }
@@ -723,16 +723,16 @@ using_https(request_rec *r)
 /* --- */
 
 static char *
-full_cookie_name(request_rec *r, 
-		 char *cookie_name) 
+full_cookie_name(request_rec *r,
+		 char *cookie_name)
 
 {
 
   char *name = (char *)apr_pstrdup(r->pool, cookie_name);
   int https = using_https(r);
   int port = r->server->port;
-  
-  if (port > 0 && 
+
+  if (port > 0 &&
       ((https && port != 443) || (!https && port != 80))) {
     name = apr_psprintf(r->pool,"%s-%d",name,port);
   }
@@ -748,10 +748,10 @@ full_cookie_name(request_rec *r,
 /* --- */
 /* set cookie */
 
-static void 
-set_cookie(request_rec *r, 
-	   const char *value, 
-	   mod_ucam_webauth_cfg *c) 
+static void
+set_cookie(request_rec *r,
+	   const char *value,
+	   mod_ucam_webauth_cfg *c)
 
 {
 
@@ -761,39 +761,39 @@ set_cookie(request_rec *r,
      the past */
 
   if (value == NULL) {
-    cookie = apr_pstrcat(r->pool, 
+    cookie = apr_pstrcat(r->pool,
 			 full_cookie_name(r, c->cookie_name),
 			 "= ; path=",
-			 c->cookie_path, 
+			 c->cookie_path,
 			 "; expires=Thu, 21-Oct-1982 00:00:00 GMT", NULL);
   } else {
-    cookie = apr_pstrcat(r->pool, 
-			 full_cookie_name(r, c->cookie_name), 
+    cookie = apr_pstrcat(r->pool,
+			 full_cookie_name(r, c->cookie_name),
 			 "=", escape_url(r->pool,value),
-			 "; path=", 
+			 "; path=",
 			 c->cookie_path, NULL);
   }
-  
+
   if (c->cookie_domain != NULL) {
-    cookie = apr_pstrcat(r->pool, 
-			 cookie, 
-			 "; domain=", 
+    cookie = apr_pstrcat(r->pool,
+			 cookie,
+			 "; domain=",
 			 c->cookie_domain, NULL);
   }
-  
+
   cookie = apr_pstrcat(r->pool, cookie, "; HttpOnly", NULL);
 
   if (using_https(r) || c->cookie_force_secure) {
     cookie = apr_pstrcat(r->pool, cookie, "; secure", NULL);
   }
-  
+
   APACHE_LOG1(APLOG_DEBUG, "set_cookie: str = %s", cookie);
-  
+
   /* We want this cookie set for error- and non-error responses, hence
      add it to err_headers_out */
-  
+
   apr_table_add(r->err_headers_out, "Set-Cookie", cookie);
-  
+
 }
 
 /* --- */
@@ -821,19 +821,19 @@ log_openssl_errors(request_rec *r,
 /* SHA1 sign */
 
 static char *
-SHA1_sign(request_rec *r, 
-	  mod_ucam_webauth_cfg *c,  
-	  char *data) 
+SHA1_sign(request_rec *r,
+	  mod_ucam_webauth_cfg *c,
+	  char *data)
 
 {
 
-  unsigned char *new_sig = 
+  unsigned char *new_sig =
     (unsigned char *)apr_pcalloc(r->pool, EVP_MAX_MD_SIZE + 1);
   unsigned int sig_len;
 
   APACHE_LOG1(APLOG_DEBUG, "making sig with data = %s", data);
 
-  HMAC(EVP_sha1(), c->cookie_key, strlen(c->cookie_key), 
+  HMAC(EVP_sha1(), c->cookie_key, strlen(c->cookie_key),
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
   new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
@@ -846,22 +846,22 @@ SHA1_sign(request_rec *r,
 /* --- */
 /* SHA1 verify */
 
-static int 
-SHA1_sig_verify(request_rec *r, 
-		mod_ucam_webauth_cfg *c,  
-		const char *data, 
-		const char *sig) 
+static int
+SHA1_sig_verify(request_rec *r,
+		mod_ucam_webauth_cfg *c,
+		const char *data,
+		const char *sig)
 
 {
 
-  unsigned char *new_sig = 
+  unsigned char *new_sig =
     (unsigned char *)apr_pcalloc(r->pool, EVP_MAX_MD_SIZE + 1);
   unsigned int sig_len;
 
   APACHE_LOG1(APLOG_DEBUG, "verifying sig: %s", sig);
   APACHE_LOG1(APLOG_DEBUG, "on data: %s", data);
 
-  HMAC(EVP_sha1(), c->cookie_key, strlen(c->cookie_key), 
+  HMAC(EVP_sha1(), c->cookie_key, strlen(c->cookie_key),
        (const unsigned char *)data, strlen(data), new_sig, &sig_len);
   new_sig = (unsigned char*)wls_encode(r, new_sig, sig_len);
 
@@ -876,12 +876,12 @@ SHA1_sig_verify(request_rec *r,
 /* --- */
 /* RSA verify */
 
-static int 
-RSA_sig_verify(request_rec *r, 
-	       const char *data, 
-	       const char *sig, 
-	       const char *key_path, 
-	       const char *key_id) 
+static int
+RSA_sig_verify(request_rec *r,
+	       const char *data,
+	       const char *sig,
+	       const char *key_path,
+	       const char *key_id)
 
 {
 
@@ -896,17 +896,17 @@ RSA_sig_verify(request_rec *r,
   APACHE_LOG0(APLOG_DEBUG, "RSA_sig_verify...");
   APACHE_LOG1(APLOG_DEBUG, "key_path: %s", key_path);
 
-  key_full_path = 
-    ap_make_full_path(r->pool, 
-		      key_path, 
+  key_full_path =
+    ap_make_full_path(r->pool,
+		      key_path,
 		      apr_pstrcat(r->pool, "pubkey", key_id, NULL));
 
   SHA1((const unsigned char *)data, strlen(data), (unsigned char *)digest);
-  
+
   key_file = (FILE *)fopen(key_full_path, "r");
 
   if (key_file == NULL) {
-    APACHE_LOG2(APLOG_CRIT, "Error opening public key file %s: %s", 
+    APACHE_LOG2(APLOG_CRIT, "Error opening public key file %s: %s",
 		     key_full_path, strerror(errno));
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -914,7 +914,7 @@ RSA_sig_verify(request_rec *r,
   public_key = (RSA *)PEM_read_RSAPublicKey(key_file, NULL, NULL, NULL);
 
   fclose(key_file);
- 
+
   if (public_key == NULL) {
     APACHE_LOG1
       (APLOG_CRIT, "Error reading public key from %s "
@@ -925,28 +925,28 @@ RSA_sig_verify(request_rec *r,
 
   sig_length = wls_decode(r, sig, &decoded_sig);
 
-  APACHE_LOG1(APLOG_DEBUG, "digest length = %lu", 
+  APACHE_LOG1(APLOG_DEBUG, "digest length = %lu",
               (unsigned long)strlen(digest));
   APACHE_LOG1(APLOG_DEBUG, "sig length = %d", sig_length);
 
-  result = RSA_verify(NID_sha1, 
-		      (unsigned char *)digest, 
-		      20, 
-		      decoded_sig, 
-		      sig_length, 
+  result = RSA_verify(NID_sha1,
+		      (unsigned char *)digest,
+		      20,
+		      decoded_sig,
+		      sig_length,
 		      public_key);
 
   APACHE_LOG1(APLOG_DEBUG, "RSA verify result = %d", result);
 
   if (result != 1) {
-    APACHE_LOG0(APLOG_CRIT, 
+    APACHE_LOG0(APLOG_CRIT,
 		"Error validating WLS response signature "
 		"(aditional information may follow)");
     log_openssl_errors(r,APLOG_CRIT);
   }
 
   RSA_free(public_key);
-  
+
   return (result == 1 ? OK : HTTP_BAD_REQUEST);
 
 }
@@ -954,11 +954,11 @@ RSA_sig_verify(request_rec *r,
 /* --- */
 
 static char *
-cookie_check_sig_string(request_rec *r, 
-			apr_table_t *cookie) 
-     
+cookie_check_sig_string(request_rec *r,
+			apr_table_t *cookie)
+
 {
-  
+
   if( (safer_atoi(apr_table_get(cookie,"ver"))) >= 3 )
     return apr_pstrcat
       (r->pool,
@@ -973,7 +973,7 @@ cookie_check_sig_string(request_rec *r,
        escape_sig(r->pool,apr_table_get(cookie, "ptags")), "!",
        escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
        escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
-       escape_sig(r->pool,apr_table_get(cookie, "params")), 
+       escape_sig(r->pool,apr_table_get(cookie, "params")),
        NULL);
 
   else
@@ -989,15 +989,15 @@ cookie_check_sig_string(request_rec *r,
        escape_sig(r->pool,apr_table_get(cookie, "principal")), "!",
        escape_sig(r->pool,apr_table_get(cookie, "auth")), "!",
        escape_sig(r->pool,apr_table_get(cookie, "sso")), "!",
-       escape_sig(r->pool,apr_table_get(cookie, "params")), 
+       escape_sig(r->pool,apr_table_get(cookie, "params")),
        NULL);
-  
+
 }
 
 /* --- */
 
 static char *
-wls_response_check_sig_string(request_rec *r, 
+wls_response_check_sig_string(request_rec *r,
 			      apr_table_t *wls_response) {
 
   if( (safer_atoi(apr_table_get(wls_response,"ver"))) >= 3 )
@@ -1014,7 +1014,7 @@ wls_response_check_sig_string(request_rec *r,
 	 escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
 	 escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
 	 escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
-	 escape_sig(r->pool,apr_table_get(wls_response, "params")), 
+	 escape_sig(r->pool,apr_table_get(wls_response, "params")),
 	 NULL);
 
   else
@@ -1030,7 +1030,7 @@ wls_response_check_sig_string(request_rec *r,
        escape_sig(r->pool,apr_table_get(wls_response, "auth")), "!",
        escape_sig(r->pool,apr_table_get(wls_response, "sso")), "!",
        escape_sig(r->pool,apr_table_get(wls_response, "life")), "!",
-       escape_sig(r->pool,apr_table_get(wls_response, "params")), 
+       escape_sig(r->pool,apr_table_get(wls_response, "params")),
        NULL);
 
 }
@@ -1038,18 +1038,18 @@ wls_response_check_sig_string(request_rec *r,
 /* --- */
 
 static apr_table_t *
-unwrap_wls_token(request_rec *r, 
-		 char *token_str) 
-     
+unwrap_wls_token(request_rec *r,
+		 char *token_str)
+
 {
-  
+
   const char *pair;
   char *word;
   apr_table_t *wls_token;
   int ver_in_wls;
   pair = token_str;
   wls_token = apr_table_make(r->pool, 11);
-  
+
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(wls_token,"ver",word);
@@ -1060,33 +1060,33 @@ unwrap_wls_token(request_rec *r,
   apr_table_set(wls_token,"status",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
-  apr_table_set(wls_token,"msg",word); 
+  ap_unescape_url(word);
+  apr_table_set(wls_token,"msg",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
+  ap_unescape_url(word);
   apr_table_set(wls_token,"issue",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
+  ap_unescape_url(word);
   apr_table_set(wls_token,"id",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
+  ap_unescape_url(word);
   apr_table_set(wls_token,"url",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
+  ap_unescape_url(word);
   apr_table_set(wls_token,"principal",word);
 
   if(ver_in_wls >=3){ /*Protocol V3 has an additional "ptags" field here*/
       word = ap_getword_nulls(r->pool, &pair, '!');
-      ap_unescape_url(word);  
+      ap_unescape_url(word);
       apr_table_set(wls_token,"ptags",word);
   }
 
   word = ap_getword_nulls(r->pool, &pair, '!');
-  ap_unescape_url(word);  
+  ap_unescape_url(word);
   apr_table_set(wls_token,"auth",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
@@ -1099,16 +1099,16 @@ unwrap_wls_token(request_rec *r,
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
-  apr_table_set(wls_token,"params",word); 
+  apr_table_set(wls_token,"params",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
-  apr_table_set(wls_token,"kid",word); 
+  apr_table_set(wls_token,"kid",word);
 
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
-  apr_table_set(wls_token,"sig",word); 
-  
+  apr_table_set(wls_token,"sig",word);
+
   return wls_token;
 
 }
@@ -1117,8 +1117,8 @@ unwrap_wls_token(request_rec *r,
 /* find the session cookie string from the request headers */
 
 static char *
-get_cookie_str(request_rec *r, 
-	       char *cookie_name) 
+get_cookie_str(request_rec *r,
+	       char *cookie_name)
 
 {
 
@@ -1135,10 +1135,10 @@ get_cookie_str(request_rec *r,
   while (*data && (pair = ap_getword(r->pool, &data, ';'))) {
     if (*data == ' ') ++data;
     name = ap_getword_nc(r->pool, &pair, '=');
-    
+
     APACHE_LOG1(APLOG_DEBUG, "current cookie name = %s", name);
     APACHE_LOG1(APLOG_DEBUG, "current cookie data = %s", pair);
-    
+
     if (strcmp(name, cookie_name) == 0) {
       APACHE_LOG0(APLOG_DEBUG, "found cookie match!");
       ap_unescape_url(pair);
@@ -1152,8 +1152,8 @@ get_cookie_str(request_rec *r,
 /* unwrap the session cookie into a table */
 
 static apr_table_t *
-make_cookie_table(request_rec *r, 
-		  char *cookie_str) 
+make_cookie_table(request_rec *r,
+		  char *cookie_str)
 
 {
 
@@ -1163,7 +1163,7 @@ make_cookie_table(request_rec *r,
   int ver_in_cookie;
   pair = cookie_str;
   cookie = apr_table_make(r->pool, 12);
-  
+
   word = ap_getword_nulls(r->pool, &pair, '!');
   ap_unescape_url(word);
   apr_table_set(cookie, "ver", word);
@@ -1247,10 +1247,10 @@ make_cookie_str(request_rec *r,
      "!1!",
      SHA1_sign(r, c, cookie_str),
      NULL);
-  
+
   cookie_str = escape_url(r->pool, cookie_str);
 
-  APACHE_LOG1(APLOG_DEBUG, "make_cookie_str: result = %s", cookie_str); 
+  APACHE_LOG1(APLOG_DEBUG, "make_cookie_str: result = %s", cookie_str);
   return cookie_str;
 
 }
@@ -1258,13 +1258,13 @@ make_cookie_str(request_rec *r,
 /* --- */
 
 static char *
-get_url(request_rec *r) 
+get_url(request_rec *r)
 
 {
 
   /* This is rumoured not to work, perhaps in Apache 2, perhaps
      depending on the presence (or otherwise) of ServerName and/or
-     Port and/or Listen directive. Needs testing. */ 
+     Port and/or Listen directive. Needs testing. */
 
   char *url, *result;
   apr_uri_t uri;
@@ -1302,20 +1302,20 @@ cache_control(request_rec *r,
 
   if (option == CC_ON) {
     r->no_cache = 1;
-    apr_table_add(r->headers_out, "Cache-Control", 
+    apr_table_add(r->headers_out, "Cache-Control",
 		     "no-cache");
     apr_table_add(r->headers_out, "Pragma", "no-cache");
   } else if (option == CC_PARANOID) {
     r->no_cache = 1;
-    apr_table_add(r->headers_out, "Cache-Control", 
+    apr_table_add(r->headers_out, "Cache-Control",
 		     "no-store, no-cache, max-age=0, must-revalidate");
     apr_table_add(r->headers_out, "Pragma", "no-cache");
     apr_table_unset(r->headers_in, "If-Modified-Since");
   }
 
 }
-    
-    
+
+
 /* ---------------------------------------------------------------------- */
 
 /* Error messages, custom error pages */
@@ -1344,12 +1344,12 @@ error_message(int err) {
 /* --- */
 
 static char *
-no_cookie(request_rec *r, 
-	  mod_ucam_webauth_cfg *c) 
+no_cookie(request_rec *r,
+	  mod_ucam_webauth_cfg *c)
 
 {
 
-  char *cookie_name = 
+  char *cookie_name =
     ap_escape_html(r->pool, full_cookie_name(r, c->cookie_name));
   const char *sig = ap_psignature("<hr>", r);
   char *cookie_domain;
@@ -1361,7 +1361,7 @@ no_cookie(request_rec *r,
   } else {
     cookie_domain = apr_pstrdup(r->pool,"this web server");
   }
-  
+
   return apr_pstrcat
     (r->pool,
      "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
@@ -1379,7 +1379,7 @@ no_cookie(request_rec *r,
      "protected resource you should bookmark the page you arrive "
      "at immediately after authenticating.<p>This cookie will be "
      "deleted when you quit your web browser. It contains your "
-     "identity and other information used to manage authentication.", 
+     "identity and other information used to manage authentication.",
      sig, "</body></html>", NULL);
 
 }
@@ -1388,7 +1388,7 @@ no_cookie(request_rec *r,
 /* --- */
 
 static char *
-auth_cancelled(request_rec *r) 
+auth_cancelled(request_rec *r)
 
 {
 
@@ -1449,7 +1449,7 @@ ptags_incorrect(request_rec *r)
 /* --- */
 
 static char*
-interact_required(request_rec *r) 
+interact_required(request_rec *r)
 
 {
 
@@ -1480,7 +1480,7 @@ interact_required(request_rec *r)
 /* --- */
 
 static char *
-auth_required(request_rec *r) 
+auth_required(request_rec *r)
 
 {
 
@@ -1493,7 +1493,7 @@ auth_required(request_rec *r)
 #endif
 
   /* Apache core seems to default ServerAdmin to the unhelpful "[no
-     address given]" */ 
+     address given]" */
 
   if (admin != NULL && strcmp(admin,"[no address given]") != 0) {
     admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
@@ -1514,7 +1514,7 @@ auth_required(request_rec *r)
      "<p>Access to the web page or other resource you are trying to "
      "obtain is restricted. The identity that you have established ", user,
      " is not currently allowed access. Please contact the "
-     "administrator of the web server that provides the page ", 
+     "administrator of the web server that provides the page ",
       admin, " for further information.",
      sig,
      "\n\n"
@@ -1535,11 +1535,11 @@ auth_required(request_rec *r)
 /* create per-directory config */
 
 static void *
-webauth_create_dir_config(apr_pool_t *p, 
-			  char *path) 
-     
+webauth_create_dir_config(apr_pool_t *p,
+			  char *path)
+
 {
-  
+
   mod_ucam_webauth_cfg *cfg;
 
   /*debug*/
@@ -1548,7 +1548,7 @@ webauth_create_dir_config(apr_pool_t *p,
   else
     log_p_or_rerror(NULL,p,"Creating config for [null path]");
 
-  cfg = 
+  cfg =
     (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg));
   cfg->auth_service = NULL;
   cfg->logout_service = NULL;
@@ -1576,7 +1576,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->logout_msg = NULL;
   cfg->always_decode = -1;
   cfg->headers = HDR_UNSET;
-  cfg->header_key = NULL;  
+  cfg->header_key = NULL;
   cfg->force_auth_type = NULL;
   cfg->required_ptags = PTAGS_UNSET;
   return (void *)cfg;
@@ -1587,14 +1587,14 @@ webauth_create_dir_config(apr_pool_t *p,
 /* merge per-directory config */
 
 static void *
-webauth_merge_dir_config(apr_pool_t *p, 
+webauth_merge_dir_config(apr_pool_t *p,
 			 void *bconf,
 			 void *nconf)
-     
+
 {
 
-  mod_ucam_webauth_cfg *merged = 
-    (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg)); 
+  mod_ucam_webauth_cfg *merged =
+    (mod_ucam_webauth_cfg *)apr_pcalloc(p, sizeof(mod_ucam_webauth_cfg));
 
   mod_ucam_webauth_cfg *base = (mod_ucam_webauth_cfg *)bconf;
   mod_ucam_webauth_cfg *new  = (mod_ucam_webauth_cfg *)nconf;
@@ -1604,63 +1604,63 @@ webauth_merge_dir_config(apr_pool_t *p,
   dump_config(NULL,p,base);
   dump_config(NULL,p,new);
 
-  merged->auth_service = new->auth_service != NULL ? 
+  merged->auth_service = new->auth_service != NULL ?
     new->auth_service : base->auth_service;
-  merged->logout_service = new->logout_service != NULL ? 
+  merged->logout_service = new->logout_service != NULL ?
     new->logout_service : base->logout_service;
-  merged->description = new->description != NULL ? 
+  merged->description = new->description != NULL ?
     new->description : base->description;
-  merged->response_timeout = new->response_timeout != -1 ? 
+  merged->response_timeout = new->response_timeout != -1 ?
     new->response_timeout : base->response_timeout;
-  merged->inactive_timeout = new->inactive_timeout != -1 ? 
+  merged->inactive_timeout = new->inactive_timeout != -1 ?
     new->inactive_timeout : base->inactive_timeout;
-  merged->clock_skew = new->clock_skew != -1 ? 
+  merged->clock_skew = new->clock_skew != -1 ?
     new->clock_skew : base->clock_skew;
-  merged->key_dir = new->key_dir != NULL ? 
+  merged->key_dir = new->key_dir != NULL ?
     new->key_dir : base->key_dir;
-  merged->max_session_life = new->max_session_life != -1 ? 
+  merged->max_session_life = new->max_session_life != -1 ?
     new->max_session_life : base->max_session_life;
-  merged->timeout_msg = new->timeout_msg != NULL ? 
+  merged->timeout_msg = new->timeout_msg != NULL ?
     new->timeout_msg : base->timeout_msg;
-  merged->cache_control = new->cache_control != -1 ? 
+  merged->cache_control = new->cache_control != -1 ?
     new->cache_control : base->cache_control;
-  merged->cookie_key = new->cookie_key != NULL ? 
+  merged->cookie_key = new->cookie_key != NULL ?
     new->cookie_key : base->cookie_key;
-  merged->cookie_name = new->cookie_name != NULL ? 
+  merged->cookie_name = new->cookie_name != NULL ?
     new->cookie_name : base->cookie_name;
-  merged->cookie_path = new->cookie_path != NULL ? 
+  merged->cookie_path = new->cookie_path != NULL ?
     new->cookie_path : base->cookie_path;
-  merged->cookie_domain = new->cookie_domain != NULL ? 
+  merged->cookie_domain = new->cookie_domain != NULL ?
     new->cookie_domain : base->cookie_domain;
   merged->cookie_force_secure = new->cookie_force_secure != -1 ?
     new->cookie_force_secure : base->cookie_force_secure;
-  merged->force_interact = new->force_interact != -1 ? 
+  merged->force_interact = new->force_interact != -1 ?
     new->force_interact : base->force_interact;
-  merged->refuse_interact = new->refuse_interact != -1 ? 
+  merged->refuse_interact = new->refuse_interact != -1 ?
     new->refuse_interact : base->refuse_interact;
-  merged->fail = new->fail != -1 ? 
+  merged->fail = new->fail != -1 ?
     new->fail : base->fail;
-  merged->ign_response_life = new->ign_response_life != -1 ? 
+  merged->ign_response_life = new->ign_response_life != -1 ?
     new->ign_response_life : base->ign_response_life;
-  merged->cancel_msg = new->cancel_msg != NULL ? 
+  merged->cancel_msg = new->cancel_msg != NULL ?
     new->cancel_msg : base->cancel_msg;
-  merged->need_interact_msg = new->need_interact_msg != NULL ? 
+  merged->need_interact_msg = new->need_interact_msg != NULL ?
     new->need_interact_msg : base->need_interact_msg;
-  merged->no_cookie_msg = new->no_cookie_msg != NULL ? 
+  merged->no_cookie_msg = new->no_cookie_msg != NULL ?
     new->no_cookie_msg : base->no_cookie_msg;
-  merged->ptags_incorrect_msg = new->ptags_incorrect_msg != NULL ? 
+  merged->ptags_incorrect_msg = new->ptags_incorrect_msg != NULL ?
     new->ptags_incorrect_msg : base->ptags_incorrect_msg;
-  merged->logout_msg = new->logout_msg != NULL ? 
+  merged->logout_msg = new->logout_msg != NULL ?
     new->logout_msg : base->logout_msg;
-  merged->always_decode = new->always_decode != -1 ? 
+  merged->always_decode = new->always_decode != -1 ?
     new->always_decode : base->always_decode;
-  merged->headers = new->headers != HDR_UNSET ? 
+  merged->headers = new->headers != HDR_UNSET ?
     new->headers : base->headers;
-  merged->header_key = new->header_key != NULL ? 
+  merged->header_key = new->header_key != NULL ?
     new->header_key : base->header_key;
-  merged->force_auth_type = new->force_auth_type != NULL ? 
+  merged->force_auth_type = new->force_auth_type != NULL ?
     new->force_auth_type : base->force_auth_type;
-  merged->required_ptags = new->required_ptags != PTAGS_UNSET ? 
+  merged->required_ptags = new->required_ptags != PTAGS_UNSET ?
     new->required_ptags : base->required_ptags;
 
   log_p_or_rerror(NULL,p,"Merge result:");
@@ -1668,27 +1668,27 @@ webauth_merge_dir_config(apr_pool_t *p,
 
   return (void *)merged;
 
-} 
+}
 
 /* --- */
 /* apply the defaults to a merged config structure */
 
 static mod_ucam_webauth_cfg *
-apply_config_defaults(request_rec *r, 
+apply_config_defaults(request_rec *r,
                       mod_ucam_webauth_cfg *c)
 
 {
-    
-  mod_ucam_webauth_cfg *n = 
+
+  mod_ucam_webauth_cfg *n =
     (mod_ucam_webauth_cfg *)apr_pcalloc(r->pool, sizeof(mod_ucam_webauth_cfg));
 
-  n->auth_service = c->auth_service != NULL ? c->auth_service : 
-      apr_pstrdup(r->pool,DEFAULT_auth_service); 
+  n->auth_service = c->auth_service != NULL ? c->auth_service :
+      apr_pstrdup(r->pool,DEFAULT_auth_service);
   n->logout_service = c->logout_service != NULL ? c->auth_service :
       apr_pstrdup(r->pool, DEFAULT_logout_service);
-  n->description = c->description != NULL ? c->description : 
+  n->description = c->description != NULL ? c->description :
       DEFAULT_description;
-  n->response_timeout = c->response_timeout != -1 ? c->response_timeout : 
+  n->response_timeout = c->response_timeout != -1 ? c->response_timeout :
       DEFAULT_response_timeout;
   n->clock_skew = c->clock_skew != -1 ? c->clock_skew :
       DEFAULT_clock_skew;
@@ -1702,42 +1702,42 @@ apply_config_defaults(request_rec *r,
       apr_pstrdup(r->pool,DEFAULT_timeout_msg);
   n->cache_control = c->cache_control != -1 ? c->cache_control :
       DEFAULT_cache_control;
-  n->cookie_key = c->cookie_key != NULL ? c->cookie_key : 
-      DEFAULT_cookie_key; 
-  n->cookie_name = c->cookie_name != NULL ? c->cookie_name : 
+  n->cookie_key = c->cookie_key != NULL ? c->cookie_key :
+      DEFAULT_cookie_key;
+  n->cookie_name = c->cookie_name != NULL ? c->cookie_name :
       apr_pstrdup(r->pool,DEFAULT_cookie_name);
   n->cookie_path = c->cookie_path != NULL ? c->cookie_path :
       apr_pstrdup(r->pool,DEFAULT_cookie_path);
-  n->cookie_domain = c->cookie_domain != NULL ? c->cookie_domain : 
+  n->cookie_domain = c->cookie_domain != NULL ? c->cookie_domain :
       DEFAULT_cookie_domain;
   n->cookie_force_secure = c->cookie_force_secure != -1 ? c->cookie_force_secure :
     DEFAULT_cookie_force_secure;
   n->force_interact = c->force_interact != -1 ? c->force_interact :
-      DEFAULT_force_interact;  
+      DEFAULT_force_interact;
   n->refuse_interact = c->refuse_interact != -1 ? c->refuse_interact :
-      DEFAULT_refuse_interact;  
+      DEFAULT_refuse_interact;
   n->fail = c->fail != -1 ? c->fail :
-      DEFAULT_fail; 
+      DEFAULT_fail;
   n->ign_response_life = c->ign_response_life != -1 ? c->ign_response_life :
-      DEFAULT_ign_response_life; 
-  n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg : 
+      DEFAULT_ign_response_life;
+  n->cancel_msg = c->cancel_msg != NULL ? c->cancel_msg :
       DEFAULT_cancel_msg;
-  n->need_interact_msg = c->need_interact_msg != NULL ? c->need_interact_msg : 
+  n->need_interact_msg = c->need_interact_msg != NULL ? c->need_interact_msg :
       DEFAULT_need_interact_msg;
-  n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg : 
+  n->no_cookie_msg = c->no_cookie_msg != NULL ? c->no_cookie_msg :
       DEFAULT_no_cookie_msg;
   n->ptags_incorrect_msg = c->ptags_incorrect_msg != NULL ? c->ptags_incorrect_msg :
       DEFAULT_ptags_incorrect_msg;
-  n->logout_msg = c->logout_msg != NULL ? c->logout_msg : 
+  n->logout_msg = c->logout_msg != NULL ? c->logout_msg :
       DEFAULT_logout_msg;
   n->always_decode = c->always_decode != -1 ? c->always_decode :
       DEFAULT_always_decode;
   n->headers = c->headers != HDR_UNSET ? c->headers :
       DEFAULT_headers;
-  n->header_key = c->header_key != NULL ? c->header_key : 
-      DEFAULT_header_key; 
-  n->force_auth_type = c->force_auth_type != NULL ? c->force_auth_type : 
-      apr_pstrdup(r->pool,DEFAULT_force_auth_type); 
+  n->header_key = c->header_key != NULL ? c->header_key :
+      DEFAULT_header_key;
+  n->force_auth_type = c->force_auth_type != NULL ? c->force_auth_type :
+      apr_pstrdup(r->pool,DEFAULT_force_auth_type);
   n->required_ptags = c->required_ptags != PTAGS_UNSET ? c->required_ptags :
       DEFAULT_required_ptags;
 
@@ -1749,9 +1749,9 @@ apply_config_defaults(request_rec *r,
     n->cancel_msg = DEFAULT_cancel_msg;
   if (n->need_interact_msg && !strcasecmp(n->need_interact_msg,"none"))
     n->need_interact_msg = DEFAULT_need_interact_msg;
-  if (n->no_cookie_msg && !strcasecmp(n->no_cookie_msg,"none")) 
+  if (n->no_cookie_msg && !strcasecmp(n->no_cookie_msg,"none"))
     n->no_cookie_msg = DEFAULT_no_cookie_msg;
-  if (n->ptags_incorrect_msg && !strcasecmp(n->ptags_incorrect_msg,"none")) 
+  if (n->ptags_incorrect_msg && !strcasecmp(n->ptags_incorrect_msg,"none"))
     n->ptags_incorrect_msg = DEFAULT_ptags_incorrect_msg;
   if (n->logout_msg && !strcasecmp(n->logout_msg,"none"))
     n->logout_msg = DEFAULT_logout_msg;
@@ -1784,7 +1784,7 @@ log_p_or_rerror(request_rec *r, apr_pool_t *p,
 /* --- */
 /* dump a config structure */
 
-static void 
+static void
 dump_config(request_rec *r, apr_pool_t *p,
            mod_ucam_webauth_cfg *c)
 
@@ -1808,31 +1808,31 @@ dump_config(request_rec *r, apr_pool_t *p,
 
     log_p_or_rerror(r,p,"  AAAuthService        = %s",
 		(c->auth_service == NULL ? "NULL" : c->auth_service));
-    
+
     log_p_or_rerror(r,p,"  AALogoutService      = %s",
 		(c->logout_service == NULL ? "NULL" : c->logout_service));
-    
+
     log_p_or_rerror(r,p,"  AADescription        = %s",
 		(c->description == NULL ? "NULL" : c->description));
-    
+
     log_p_or_rerror(r,p,"  AAResponseTimeout    = %d",
 		c->response_timeout);
-    
+
     log_p_or_rerror(r,p,"  AAClockSkew          = %d",
 		c->clock_skew);
-    
+
     log_p_or_rerror(r,p,"  AAKeyDir             = %s",
 		(c->key_dir == NULL ? "NULL" : c->key_dir));
-    
+
     log_p_or_rerror(r,p,"  AAMaxSessionLife     = %d",
 		c->max_session_life);
-    
+
     log_p_or_rerror(r,p,"  AAInactiveTimeout    = %d",
 		c->inactive_timeout);
-    
+
     log_p_or_rerror(r,p,"  AATimeoutMsg         = %s",
 		(c->timeout_msg == NULL ? "NULL" : c->timeout_msg));
-    
+
     switch(c->cache_control) {
     case CC_OFF:
       msg = apr_pstrdup(pool,"off");
@@ -1849,74 +1849,74 @@ dump_config(request_rec *r, apr_pool_t *p,
     default:
       msg = apr_pstrdup(pool,"unknown");
     }
-    log_p_or_rerror(r,p,"  AACacheControl       = %s", 
+    log_p_or_rerror(r,p,"  AACacheControl       = %s",
 		msg);
-    
+
     if (c->cookie_key == NULL) {
       log_p_or_rerror(r,p,"  AACookieKey          = NULL");
     } else {
       log_p_or_rerror(r,p,
-	    "  AACookieKey          = %-.4s... (%lu characters total)", 
+	    "  AACookieKey          = %-.4s... (%lu characters total)",
 		  c->cookie_key, (unsigned long)strlen(c->cookie_key));
     }
-    
+
     log_p_or_rerror(r,p,"  AACookieName         = %s",
 		(c->cookie_name == NULL ? "NULL" : c->cookie_name));
-    
+
     log_p_or_rerror(r,p,"  AACookiePath         = %s",
 		(c->cookie_path == NULL ? "NULL" : c->cookie_path));
-    
+
     log_p_or_rerror(r,p,"  AACookieDomain       = %s",
 		(c->cookie_domain == NULL ? "NULL" : c->cookie_domain));
-    
+
     log_p_or_rerror(r,p,"  AACookieForceSecure  = %d",
 		    c->cookie_force_secure);
 
     log_p_or_rerror(r,p,"  AAForceInteract      = %d",
 		c->force_interact);
-    
+
     log_p_or_rerror(r,p,"  AARefuseInteract     = %d",
 		c->refuse_interact);
-    
+
     log_p_or_rerror(r,p,"  AAFail               = %d",
 		c->fail);
-    
+
     log_p_or_rerror(r,p,"  AAIgnoreResponseLife = %d",
 		c->ign_response_life);
-    
+
     log_p_or_rerror(r,p,"  AACancelMsg          = %s",
 		(c->cancel_msg == NULL ? "NULL" : c->cancel_msg));
-    
+
     log_p_or_rerror(r,p,"  AANeedInteractMsg    = %s",
 		(c->need_interact_msg == NULL ? "NULL" : c->need_interact_msg));
-    
+
     log_p_or_rerror(r,p,"  AANoCookieMsg        = %s",
 		(c->no_cookie_msg == NULL ? "NULL" : c->no_cookie_msg));
 
     log_p_or_rerror(r,p,"  AAPtagsIncorrectMsg  = %s",
 		(c->ptags_incorrect_msg == NULL ? "NULL" : c->ptags_incorrect_msg));
-    
+
     log_p_or_rerror(r,p,"  AALogoutMsg          = %s",
 		(c->logout_msg == NULL ? "NULL" : c->logout_msg));
-    
+
     log_p_or_rerror(r,p,"  AAAlwaysDecode       = %d",
 		c->always_decode);
 
     if (NULL != msg) apr_cpystrn(msg,"",strlen(msg));
     if (c->headers & HDR_ISSUE)
-      msg = apr_pstrcat(pool, msg, "Issue ", NULL);      
+      msg = apr_pstrcat(pool, msg, "Issue ", NULL);
     if (c->headers & HDR_LAST)
-      msg = apr_pstrcat(pool, msg, "Last ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Last ", NULL);
     if (c->headers & HDR_LIFE)
-      msg = apr_pstrcat(pool, msg, "Life ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Life ", NULL);
     if (c->headers & HDR_TIMEOUT)
       msg = apr_pstrcat(pool, msg, "Timeout ", NULL);
     if (c->headers & HDR_ID)
-      msg = apr_pstrcat(pool, msg, "ID ", NULL); 
+      msg = apr_pstrcat(pool, msg, "ID ", NULL);
     if (c->headers & HDR_PRINCIPAL)
-      msg = apr_pstrcat(pool, msg, "Principal ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Principal ", NULL);
     if (c->headers & HDR_AUTH)
-      msg = apr_pstrcat(pool, msg, "Auth ", NULL); 
+      msg = apr_pstrcat(pool, msg, "Auth ", NULL);
     if (c->headers & HDR_SSO)
       msg = apr_pstrcat(pool, msg, "SSO", NULL);
     if (c->headers & HDR_PTAGS)
@@ -1941,7 +1941,7 @@ dump_config(request_rec *r, apr_pool_t *p,
       log_p_or_rerror(r,p,"  AAHeaderKey          = NULL");
     } else {
       log_p_or_rerror(r,p,
-	    "  AAHeaderKey          = %-.4s... (%lu characters total)", 
+	    "  AAHeaderKey          = %-.4s... (%lu characters total)",
 		  c->header_key, (unsigned long)strlen(c->header_key));
     }
 
@@ -1958,16 +1958,16 @@ dump_config(request_rec *r, apr_pool_t *p,
    ap_set_string_slot and ap_set flag_slot routines */
 
 static const char *
-set_response_timeout(cmd_parms *cmd, 
-		     void *mconfig, 
-		     const char *arg) 
-     
+set_response_timeout(cmd_parms *cmd,
+		     void *mconfig,
+		     const char *arg)
+
 {
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
- 
+
   cfg->response_timeout = safer_atoi(arg);
-  if (cfg->response_timeout < 0) 
+  if (cfg->response_timeout < 0)
     return "AAResponseTimeout: must be a positive number";
 
   return NULL;
@@ -1977,16 +1977,16 @@ set_response_timeout(cmd_parms *cmd,
 /* --- */
 
 static const char *
-set_clock_skew(cmd_parms *cmd, 
-		void *mconfig, 
-		const char *arg) 
+set_clock_skew(cmd_parms *cmd,
+		void *mconfig,
+		const char *arg)
 
 {
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
 
   cfg->clock_skew = safer_atoi(arg);
-  if (cfg->clock_skew < 0) 
+  if (cfg->clock_skew < 0)
     return "AAClockSkew: must be a positive number";
 
   return NULL;
@@ -1996,9 +1996,9 @@ set_clock_skew(cmd_parms *cmd,
 /* --- */
 
 static const char *
-set_max_session_life(cmd_parms *cmd, 
-		     void *mconfig, 
-		     const char *arg) 
+set_max_session_life(cmd_parms *cmd,
+		     void *mconfig,
+		     const char *arg)
 
 {
 
@@ -2007,7 +2007,7 @@ set_max_session_life(cmd_parms *cmd,
   cfg->max_session_life = safer_atoi(arg);
   if (cfg->max_session_life == -INT_MAX)
     return "AAMaxSessionLife: must be a whole number, at least 300";
-  if (cfg->max_session_life < 300) 
+  if (cfg->max_session_life < 300)
     return "AAMaxSessionLife: must be at least 300";
   return NULL;
 
@@ -2016,9 +2016,9 @@ set_max_session_life(cmd_parms *cmd,
 /* --- */
 
 static const char *
-set_inactive_timeout(cmd_parms *cmd, 
-		     void *mconfig, 
-		     const char *arg) 
+set_inactive_timeout(cmd_parms *cmd,
+		     void *mconfig,
+		     const char *arg)
 
 {
 
@@ -2027,7 +2027,7 @@ set_inactive_timeout(cmd_parms *cmd,
   cfg->inactive_timeout = safer_atoi(arg);
   if (cfg->inactive_timeout == -INT_MAX)
     return "AAInactiveTimeout: must be a whole number, at least 300";
-  if (cfg->inactive_timeout < 300) 
+  if (cfg->inactive_timeout < 300)
     return "AAInactiveTimeout: must be at least 300";
   return NULL;
 
@@ -2036,16 +2036,16 @@ set_inactive_timeout(cmd_parms *cmd,
 /* --- */
 
 static const char *
-set_cache_control(cmd_parms *cmd, 
-		  void *mconfig, 
-		  const char *arg) 
-     
+set_cache_control(cmd_parms *cmd,
+		  void *mconfig,
+		  const char *arg)
+
 {
-  
+
   char *str;
 
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
-  
+
   if ((str = ap_getword_conf(cmd->pool, &arg))) {
     if (!strcasecmp(str, "off")) {
       cfg->cache_control = CC_OFF;
@@ -2065,7 +2065,7 @@ set_cache_control(cmd_parms *cmd,
     return "AACacheControl: missing keyword - "
       "need one of off/on/paranoid";
   }
-  
+
   return NULL;
 
 }
@@ -2073,35 +2073,35 @@ set_cache_control(cmd_parms *cmd,
 /* --- */
 
 static const char *
-set_log_level(cmd_parms *cmd, 
-	      void *mconfig, 
-	      const char *arg) 
-     
+set_log_level(cmd_parms *cmd,
+	      void *mconfig,
+	      const char *arg)
+
 {
-  
+
 #ifdef APACHE1_3
   ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO, cmd->server,
 	       "The AALogLevel directive is deprecated and currently ignored");
 #else
   ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
 	       "The AALogLevel directive is deprecated and currently ignored");
-#endif  
-  
+#endif
+
   return NULL;
-  
+
 }
 
 /* --- */
 
 static const char *
-set_headers(cmd_parms *cmd, 
-	    void *mconfig, 
-	    const char *arg) 
-     
+set_headers(cmd_parms *cmd,
+	    void *mconfig,
+	    const char *arg)
+
 {
-  
+
   mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
-  
+
   cfg->headers = HDR_NONE;
 
   while (arg[0]) {
@@ -2147,9 +2147,9 @@ set_headers(cmd_parms *cmd,
 	"'ID', 'Principal', 'Auth', 'SSO', 'Ptags', 'All', or 'None'";
     }
   }
-  
+
   return NULL;
-  
+
 }
 
 /* --- */
@@ -2172,7 +2172,7 @@ set_required_ptags(cmd_parms *cmd,
 
     if (!strcasecmp(word, "Current")) {
       cfg->required_ptags |= PTAGS_CURRENT;
-    } 
+    }
     else if (!strcasecmp(word, "none")) {
       cfg->required_ptags = PTAGS_NONE;
     }
@@ -2191,20 +2191,20 @@ set_required_ptags(cmd_parms *cmd,
 /* Handler logic */
 
 static char *
-add_hash(request_rec *r, 
+add_hash(request_rec *r,
 	 const char *data,
 	 char *key)
 
 {
 
-  unsigned char *hash = 
+  unsigned char *hash =
     (unsigned char *)apr_pcalloc(r->pool, EVP_MAX_MD_SIZE + 1);
   char *string, *encoded;
   unsigned int raw_len, enc_len;
 
   /* Do nothing if the key is 'none' */
 
-  APACHE_LOG1(APLOG_DEBUG, "add_hash: data = %s", data); 
+  APACHE_LOG1(APLOG_DEBUG, "add_hash: data = %s", data);
 
   if (!strcasecmp(key,"none"))
        return apr_pstrdup(r->pool,data);
@@ -2213,7 +2213,7 @@ add_hash(request_rec *r,
 
   string = apr_pstrcat(r->pool, data, key, NULL);
 
-  HMAC(EVP_sha1(), key, strlen(key), 
+  HMAC(EVP_sha1(), key, strlen(key),
        (const unsigned char *)string, strlen(string), hash, &raw_len);
 
   encoded = (char*)apr_palloc(r->pool, 1+apr_base64_encode_len(raw_len));
@@ -2229,7 +2229,7 @@ add_hash(request_rec *r,
 /* --- */
 
 static int
-decode_cookie(request_rec *r, 
+decode_cookie(request_rec *r,
               mod_ucam_webauth_cfg *c)
 
 {
@@ -2240,17 +2240,17 @@ decode_cookie(request_rec *r,
   apr_time_t issue, last, now;
 
   /* Check for config errors */
-  
+
   if (c->cookie_key == NULL) {
     APACHE_LOG1(APLOG_CRIT,
 		"Access to %s failed: AACookieKey not defined", r->uri);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
-  
+
   if (r->parsed_uri.path != NULL &&
       apr_fnmatch(apr_pstrcat(r->pool, c->cookie_path, "*", NULL),
 		  r->parsed_uri.path, 0) == APR_FNM_NOMATCH) {
-    APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s", 
+    APACHE_LOG2(APLOG_CRIT, "AACookiePath %s is not a prefix of %s",
 		c->cookie_path, r->parsed_uri.path);
     return HTTP_INTERNAL_SERVER_ERROR;
   }
@@ -2261,28 +2261,28 @@ decode_cookie(request_rec *r,
     APACHE_LOG0(APLOG_INFO, "No existing authentication cookie");
     return DECLINED;
   }
-  
+
   APACHE_LOG0(APLOG_INFO, "Found session cookie");
   APACHE_LOG1(APLOG_DEBUG, "cookie str = %s", cookie_str);
-  
+
   cookie = make_cookie_table(r,  cookie_str);
-    
+
   /* check cookie signature */
-  
-  cookie_verify = 
-    SHA1_sig_verify(r, c, 
-		    cookie_check_sig_string(r, cookie), 
+
+  cookie_verify =
+    SHA1_sig_verify(r, c,
+		    cookie_check_sig_string(r, cookie),
 		    apr_table_get(cookie, "sig"));
-  
+
   if (cookie_verify == 0) {
-    APACHE_LOG0(APLOG_ERR, "Session cookie invalid or key has changed"); 
+    APACHE_LOG0(APLOG_ERR, "Session cookie invalid or key has changed");
     return DECLINED;
   }
 
-  APACHE_LOG0(APLOG_INFO, "Session cookie signature valid"); 
+  APACHE_LOG0(APLOG_INFO, "Session cookie signature valid");
 
   ver_in_cookie = safer_atoi(apr_table_get(cookie, "ver"));
-      
+
   /* check cookie status */
 
   /* Note that if the stored status isn't 200 (OK) then we need to
@@ -2293,10 +2293,10 @@ decode_cookie(request_rec *r,
   /* Respond to user cancelled */
 
   if (strcmp(apr_table_get(cookie, "status"), "410") == 0) {
-    APACHE_LOG0(APLOG_INFO, "Authentication status = 410, user cancelled"); 
+    APACHE_LOG0(APLOG_INFO, "Authentication status = 410, user cancelled");
     if (c->cancel_msg != NULL) {
       ap_custom_response(r, HTTP_FORBIDDEN, c->cancel_msg);
-    } 
+    }
     else {
       ap_custom_response(r, HTTP_FORBIDDEN, auth_cancelled(r));
     }
@@ -2308,10 +2308,10 @@ decode_cookie(request_rec *r,
 
   if (strcmp(apr_table_get(cookie, "status"), "540") == 0) {
     APACHE_LOG0(APLOG_INFO, "Authentication status = 540, "
-		"interaction required"); 
+		"interaction required");
     if (c->need_interact_msg != NULL) {
       ap_custom_response(r, HTTP_BAD_REQUEST, c->need_interact_msg);
-    } 
+    }
     else {
       ap_custom_response(r, HTTP_BAD_REQUEST, interact_required(r));
     }
@@ -2323,7 +2323,7 @@ decode_cookie(request_rec *r,
   if (!strcmp(apr_table_get(cookie, "status"), "601")) {
     APACHE_LOG0
       (APLOG_ERR, "cookie status 601 => ptags mismatch => forbidden");
-    if (c->ptags_incorrect_msg != NULL) 
+    if (c->ptags_incorrect_msg != NULL)
       ap_custom_response(r,HTTP_FORBIDDEN, c->ptags_incorrect_msg);
     else
       ap_custom_response(r,HTTP_FORBIDDEN,ptags_incorrect(r));
@@ -2340,7 +2340,7 @@ decode_cookie(request_rec *r,
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
-  
+
   /* V3 only - if AARequired_Ptags is set, check that the necessary
    * ptags are set
    */
@@ -2350,7 +2350,7 @@ decode_cookie(request_rec *r,
       APACHE_LOG2(APLOG_ERR, "Ptags mismatch, set=%s, required=%u",
 		  apr_table_get(cookie, "ptags"),
 		  c->required_ptags);
-      if (c->ptags_incorrect_msg != NULL) 
+      if (c->ptags_incorrect_msg != NULL)
 	ap_custom_response(r,HTTP_FORBIDDEN, c->ptags_incorrect_msg);
       else
 	ap_custom_response(r,HTTP_FORBIDDEN,ptags_incorrect(r));
@@ -2359,25 +2359,25 @@ decode_cookie(request_rec *r,
     }
 
   /* cookie timeout checks */
-  
-  APACHE_LOG3(APLOG_DEBUG, "issue = %s, last = %s, life = %s", 
+
+  APACHE_LOG3(APLOG_DEBUG, "issue = %s, last = %s, life = %s",
 	      apr_table_get(cookie, "issue"),
 	      apr_table_get(cookie, "last"),
 	      apr_table_get(cookie, "life"));
- 
+
   issue = iso2_time_decode
     (r,apr_table_get(cookie, "issue"));
   last = iso2_time_decode
     (r,apr_table_get(cookie, "last"));
   life = safer_atoi(apr_table_get(cookie, "life"));
-  
+
   if (issue == -1) {
-    APACHE_LOG0(APLOG_ERR, "Session cookie issue date incorrect length"); 
+    APACHE_LOG0(APLOG_ERR, "Session cookie issue date incorrect length");
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
   if (last == -1) {
-    APACHE_LOG0(APLOG_ERR, "Session cookie last use date incorrect length"); 
+    APACHE_LOG0(APLOG_ERR, "Session cookie last use date incorrect length");
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
@@ -2386,28 +2386,28 @@ decode_cookie(request_rec *r,
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   }
-  
+
   now = apr_time_now();
-  
-  APACHE_LOG4(APLOG_DEBUG, "now = %s, issue = %s, last = %s, life = %d", 
-	      iso2_time_encode(r, now), iso2_time_encode(r, issue), 
+
+  APACHE_LOG4(APLOG_DEBUG, "now = %s, issue = %s, last = %s, life = %d",
+	      iso2_time_encode(r, now), iso2_time_encode(r, issue),
 	      iso2_time_encode(r, last), life);
-  
+
   if (issue > now) {
-    APACHE_LOG0(APLOG_ERR, "Session cookie has issue date in the future"); 
+    APACHE_LOG0(APLOG_ERR, "Session cookie has issue date in the future");
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   } else if (last > now) {
-    APACHE_LOG0(APLOG_ERR, "Session cookie has last used date in the future"); 
+    APACHE_LOG0(APLOG_ERR, "Session cookie has last used date in the future");
     set_cookie(r, TESTSTRING, c);
     return HTTP_BAD_REQUEST;
   } else if (now >= issue + apr_time_from_sec(life)) {
-    APACHE_LOG0(APLOG_INFO, "Session cookie has expired"); 
+    APACHE_LOG0(APLOG_INFO, "Session cookie has expired");
     apr_table_set(r->notes,"AATimeout","expiry");
     return DECLINED;
-  } else if (c->inactive_timeout && 
+  } else if (c->inactive_timeout &&
 	     now >= last + apr_time_from_sec(c->inactive_timeout + 60)) {
-    APACHE_LOG0(APLOG_INFO, "Session cookie has expired due to inactivity"); 
+    APACHE_LOG0(APLOG_INFO, "Session cookie has expired due to inactivity");
     apr_table_set(r->notes,"AATimeout","inactivity");
     return DECLINED;
   }
@@ -2416,15 +2416,15 @@ decode_cookie(request_rec *r,
      and more than 60 sec have passed. Note that this won't work for a
      304 Not modified response because Set-Cookie: headers are not
      allowed (and are not sent) in this case. Such is life */
-  
+
   if (c->inactive_timeout && apr_time_sec(now - last) > 60) {
     apr_table_set(cookie,"last",iso2_time_encode(r, now));
     new_cookie_str = make_cookie_str(r, c, cookie);
     set_cookie(r, new_cookie_str, c);
   }
-  
+
   /* save info for future use */
-  
+
 #ifdef APACHE1_3
   r->connection->user = (char *)apr_table_get(cookie, "principal");
   r->connection->ap_auth_type = c->force_auth_type;
@@ -2432,30 +2432,30 @@ decode_cookie(request_rec *r,
   r->user = apr_pstrdup(r->pool,apr_table_get(cookie, "principal"));
   r->ap_auth_type = c->force_auth_type;
 #endif
-  
-  apr_table_set(r->subprocess_env, 
-		"AAISSUE", 
+
+  apr_table_set(r->subprocess_env,
+		"AAISSUE",
 		apr_table_get(cookie, "issue"));
-  apr_table_set(r->subprocess_env, 
-		"AALAST", 
+  apr_table_set(r->subprocess_env,
+		"AALAST",
 		apr_table_get(cookie, "last"));
-  apr_table_set(r->subprocess_env, 
-		"AALIFE", 
+  apr_table_set(r->subprocess_env,
+		"AALIFE",
 		apr_table_get(cookie, "life"));
-  apr_table_set(r->subprocess_env, 
-		"AATIMEOUT", 
+  apr_table_set(r->subprocess_env,
+		"AATIMEOUT",
 		apr_psprintf(r->pool,"%d",c->inactive_timeout));
-  apr_table_set(r->subprocess_env, 
-		"AAID", 
+  apr_table_set(r->subprocess_env,
+		"AAID",
 		apr_table_get(cookie, "id"));
-  apr_table_set(r->subprocess_env, 
-		"AAPRINCIPAL", 
+  apr_table_set(r->subprocess_env,
+		"AAPRINCIPAL",
 		apr_table_get(cookie, "principal"));
-  apr_table_set(r->subprocess_env, 
-		"AAAUTH", 
+  apr_table_set(r->subprocess_env,
+		"AAAUTH",
 		apr_table_get(cookie, "auth"));
-  apr_table_set(r->subprocess_env, 
-		"AASSO", 
+  apr_table_set(r->subprocess_env,
+		"AASSO",
 		apr_table_get(cookie, "sso"));
   if (ver_in_cookie >= 3)
     apr_table_set(r->subprocess_env,
@@ -2469,51 +2469,51 @@ decode_cookie(request_rec *r,
 
     hkey = c->header_key;
     if (!hkey) {
-      APACHE_LOG0(APLOG_ERR, "AAHeaders used but AAHeaderKey not set"); 
+      APACHE_LOG0(APLOG_ERR, "AAHeaders used but AAHeaderKey not set");
       return HTTP_INTERNAL_SERVER_ERROR;
     }
-      
+
     if (c->headers & HDR_ISSUE)
-      apr_table_set(r->headers_in, "X-AAIssue", 
+      apr_table_set(r->headers_in, "X-AAIssue",
 		    add_hash(r,apr_table_get(cookie, "issue"),hkey));
     if (c->headers & HDR_LAST)
-      apr_table_set(r->headers_in, "X-AAlast", 
+      apr_table_set(r->headers_in, "X-AAlast",
 		    add_hash(r,apr_table_get(cookie, "last"),hkey));
     if (c->headers & HDR_LIFE)
-      apr_table_set(r->headers_in, "X-AALife", 
+      apr_table_set(r->headers_in, "X-AALife",
 		    add_hash(r,apr_table_get(cookie, "life"),hkey));
     if (c->headers & HDR_TIMEOUT)
-      apr_table_set(r->headers_in, "X-AATimeout", 
+      apr_table_set(r->headers_in, "X-AATimeout",
 	      add_hash(r,apr_psprintf(r->pool,"%d",c->inactive_timeout),hkey));
     if (c->headers & HDR_ID)
-      apr_table_set(r->headers_in, "X-AAID", 
+      apr_table_set(r->headers_in, "X-AAID",
 		    add_hash(r,apr_table_get(cookie, "id"),hkey));
     if (c->headers & HDR_PRINCIPAL)
-      apr_table_set(r->headers_in, "X-AAPrincipal", 
+      apr_table_set(r->headers_in, "X-AAPrincipal",
 		    add_hash(r,apr_table_get(cookie, "principal"),hkey));
     if (c->headers & HDR_AUTH)
-      apr_table_set(r->headers_in, "X-AAAuth", 
+      apr_table_set(r->headers_in, "X-AAAuth",
 		    add_hash(r,apr_table_get(cookie, "auth"),hkey));
     if (c->headers & HDR_SSO)
-      apr_table_set(r->headers_in, "X-AASSO", 
+      apr_table_set(r->headers_in, "X-AASSO",
 		    add_hash(r,apr_table_get(cookie, "sso"),hkey));
     if ((ver_in_cookie >=3) && (c->headers & HDR_PTAGS))
-      apr_table_set(r->headers_in, "X-AAPtags", 
+      apr_table_set(r->headers_in, "X-AAPtags",
 		    add_hash(r,apr_table_get(cookie, "ptags"),hkey));
 
   }
-  
+
   /* set a custom HTTP_UNAUTHORIZED page if there isn't one already
      because the default Apache one if misleading in a Ucam WebAuth
      context but will be displayed if the authz phase of mod_auth (or
      equivalent) returns HTTP_UNAUTHORIZED */
-  
+
   if (wls_response_code_string(r, HTTP_UNAUTHORIZED) == NULL)
     ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
-  
-  APACHE_LOG2(APLOG_INFO, "Successfully decoded cookie for %s accessing %s", 
+
+  APACHE_LOG2(APLOG_INFO, "Successfully decoded cookie for %s accessing %s",
 	      apr_table_get(cookie, "principal"),r->uri);
-  
+
   /* Even though we may have been successfull, we return DECLINED so
      as not to prevent other phases from running */
 
@@ -2527,7 +2527,7 @@ decode_cookie(request_rec *r,
    and check that the URL parameter is at least sane */
 
 static int
-decode_response(request_rec *r, 
+decode_response(request_rec *r,
 		mod_ucam_webauth_cfg *c,
 		apr_table_t **response)
 
@@ -2542,21 +2542,21 @@ decode_response(request_rec *r,
      NULL) then use the corresponding main request */
 
   token_str = get_cgi_param(r->main ? r->main : r, "WLS-Response");
-  
+
   if (token_str == NULL)
     return DECLINED;
 
   APACHE_LOG1(APLOG_DEBUG, "WLS response data = %s", token_str);
 
   /* unwrap WLS token */
-    
+
   ap_unescape_url(token_str);
   response_ticket = unwrap_wls_token(r, token_str);
-    
+
   /* check that the URL in the token is plausible - note that if we
      are in a sub-request it's the URL from the corresponding main
-     request that we need */  
-  
+     request that we need */
+
   this_url = get_url(r->main ? r->main : r);
   this_url = ap_getword(r->pool, &this_url, '?');
   response_url = apr_table_get(response_ticket, "url");
@@ -2599,13 +2599,13 @@ static int is_valid_kid(request_rec *r,const char *s)
 /* --- */
 
 static int
-validate_response(request_rec *r, 
+validate_response(request_rec *r,
 		  mod_ucam_webauth_cfg *c,
 		  apr_table_t *response_ticket)
 
 {
 
-  char *cookie_str, *new_cookie_str, *msg; 
+  char *cookie_str, *new_cookie_str, *msg;
   const char *status, *url, *kid;
   int life, response_ticket_life, sig_verify_result, ver_in_response;
   apr_table_t *cookie;
@@ -2614,12 +2614,12 @@ validate_response(request_rec *r,
   /* Check that cookie exists because it should have been created
      previously and if it's not there we'll probably end up in a
      redirect loop */
-  
+
   APACHE_LOG1(APLOG_DEBUG, "Searching for cookie %s", c->cookie_name);
-  
+
   cookie_str = get_cookie_str(r, full_cookie_name(r, c->cookie_name));
   if (cookie_str == NULL) {
-    APACHE_LOG0(APLOG_WARNING, "Browser not accepting session cookie"); 
+    APACHE_LOG0(APLOG_WARNING, "Browser not accepting session cookie");
     if (c->no_cookie_msg != NULL) {
       ap_custom_response(r, HTTP_BAD_REQUEST, c->no_cookie_msg);
     } else {
@@ -2630,15 +2630,15 @@ validate_response(request_rec *r,
 
   msg = NULL;
   status = "200";
-  
+
   /* do all the validations  - protocol version first */
-    
-  APACHE_LOG0(APLOG_DEBUG, "validating version"); 
+
+  APACHE_LOG0(APLOG_DEBUG, "validating version");
   if (response_ticket == NULL)
-    APACHE_LOG0(APLOG_DEBUG, "response_ticket is NULL"); 
+    APACHE_LOG0(APLOG_DEBUG, "response_ticket is NULL");
 
   ver_in_response = safer_atoi(apr_table_get(response_ticket,"ver"));
-  if( (ver_in_response < 1) || 
+  if( (ver_in_response < 1) ||
       (ver_in_response > safer_atoi(PROTOCOL_VERSION)) ) {
     msg = apr_psprintf
       (r->pool,"Wrong protocol version (%s) in WLS response",
@@ -2647,26 +2647,26 @@ validate_response(request_rec *r,
     goto FINISHED;
   }
   APACHE_LOG0(APLOG_DEBUG, "validated version");
-  
+
   /* status */
-  
-  if (strcmp(apr_table_get(response_ticket, "status"), 
+
+  if (strcmp(apr_table_get(response_ticket, "status"),
 	     "200") != 0) {
     msg = apr_pstrdup(r->pool,error_message(safer_atoi(apr_table_get(response_ticket, "status"))));
     if (apr_table_get(response_ticket, "msg") != NULL) {
-      msg = apr_pstrcat(r->pool, msg, 
+      msg = apr_pstrcat(r->pool, msg,
 			apr_table_get(response_ticket, "msg"), NULL);
     }
     status = apr_table_get(response_ticket, "status");
     goto FINISHED;
   }
-  
+
   /* issue time */
-  
+
   now = apr_time_now();
-  issue = 
+  issue =
     iso2_time_decode(r, apr_table_get(response_ticket, "issue"));
-  
+
   if (issue < 0) {
     msg = apr_psprintf
       (r->pool,"Can't parse issue time (%s) in WLS response",
@@ -2674,7 +2674,7 @@ validate_response(request_rec *r,
     status = "600";
     goto FINISHED;
   }
-  
+
   if (issue > now + apr_time_from_sec(c->clock_skew) + 1) {
     msg = apr_psprintf
       (r->pool,"WLS response issued in the future "
@@ -2683,8 +2683,8 @@ validate_response(request_rec *r,
     status = "600";
     goto FINISHED;
   }
-  
-  if (now - apr_time_from_sec(c->clock_skew) - 1 > 
+
+  if (now - apr_time_from_sec(c->clock_skew) - 1 >
       issue + apr_time_from_sec(c->response_timeout)) {
     msg = apr_psprintf
       (r->pool,"WLS response issued too long ago "
@@ -2693,17 +2693,17 @@ validate_response(request_rec *r,
     status = "600";
     goto FINISHED;
   }
-  
+
   /* first-hand authentication if ForceInteract */
-  
-  if (c->force_interact == 1 && 
+
+  if (c->force_interact == 1 &&
       NULL != apr_table_get(response_ticket, "auth") &&
       strlen(apr_table_get(response_ticket, "auth")) == 0 ) {
     msg =apr_pstrdup(r->pool,"Non first-hand authentication under ForceInteract");
     status = "600";
     goto FINISHED;
   }
-  
+
   /* Protocol V3 only - check if the returned ptags are OK
    * ( a & ~b ) is bits in "a" that aren't in "b"
    * we want that to be 0 (i.e. there can be ptags in the cookie that
@@ -2711,7 +2711,7 @@ validate_response(request_rec *r,
    * If this is non-zero, then there's a problem
    */
   if (ver_in_response >= 3)
-    if( c->required_ptags & 
+    if( c->required_ptags &
 	~ parse_ptags(r,apr_table_get(response_ticket,"ptags"))) {
       APACHE_LOG2(APLOG_ERR, "Ptags mismatch, set=%s, required=%u",
 		  apr_table_get(response_ticket,"ptags"),
@@ -2730,14 +2730,14 @@ validate_response(request_rec *r,
     }
 
   /* signature valid */
-  
-  sig_verify_result = 
-    RSA_sig_verify(r, 
+
+  sig_verify_result =
+    RSA_sig_verify(r,
 		   wls_response_check_sig_string(r, response_ticket),
-		   apr_table_get(response_ticket, "sig"), 
+		   apr_table_get(response_ticket, "sig"),
 		   c->key_dir,
 		   apr_table_get(response_ticket, "kid"));
-  
+
   if (sig_verify_result == HTTP_BAD_REQUEST) {
     msg =apr_pstrdup(r->pool,"Missing or invalid signature in authentication service reply");
     status = "600";
@@ -2747,14 +2747,14 @@ validate_response(request_rec *r,
     msg = apr_pstrdup(r->pool,"Web server configuration error");
     status = "600";
     goto FINISHED;
-  } 
-  
+  }
+
   /* seems OK */
-  
+
  FINISHED:
 
   /* calculate session expiry */
-  
+
   life = c->max_session_life;
   response_ticket_life = safer_atoi(apr_table_get(response_ticket, "life"));
 
@@ -2766,73 +2766,73 @@ validate_response(request_rec *r,
     if (response_ticket_life > 0 && response_ticket_life < life)
       life = response_ticket_life;
   }
-  
+
   APACHE_LOG1(APLOG_DEBUG, "life = %d", life);
-  
+
   if (strcmp(status,"200") == 0 && life <= 0) {
     msg =apr_pstrdup(r->pool,"Requested session expiry time less that one second");
     status = "600";
   }
-  
+
   /* log the outcome */
-  
+
   if (strcmp(status,"200") == 0) {
     APACHE_LOG2
-      (APLOG_INFO, "Successfully validated WLS response ID %s, principal %s", 
+      (APLOG_INFO, "Successfully validated WLS response ID %s, principal %s",
        apr_table_get(response_ticket, "id"),
        apr_table_get(response_ticket, "principal"));
   } else {
     APACHE_LOG3
-      (APLOG_ERR, "Failed to validate WLS response ID %s: %s: %s", 
+      (APLOG_ERR, "Failed to validate WLS response ID %s: %s: %s",
        apr_table_get(response_ticket, "id"), status, msg);
   }
-  
+
   /* set new session ticket (cookie) */
 
   if (NULL==msg) msg=apr_pstrdup(r->pool,"");
-  
+
   cookie = (apr_table_t *)apr_table_make(r->pool, 12);
-  
-  apr_table_set(cookie, "ver", 
+
+  apr_table_set(cookie, "ver",
 		apr_table_get(response_ticket, "ver"));
-  apr_table_set(cookie, "status", 
+  apr_table_set(cookie, "status",
 		status);
-  apr_table_set(cookie, "msg", 
+  apr_table_set(cookie, "msg",
 		msg);
-  apr_table_set(cookie, "issue", 
-		iso2_time_encode(r, apr_time_now())); 
-  apr_table_set(cookie, "last",  
+  apr_table_set(cookie, "issue",
 		iso2_time_encode(r, apr_time_now()));
-  apr_table_set(cookie, "life", 
+  apr_table_set(cookie, "last",
+		iso2_time_encode(r, apr_time_now()));
+  apr_table_set(cookie, "life",
 		apr_psprintf(r->pool,"%d",life));
-  apr_table_set(cookie, "id", 
+  apr_table_set(cookie, "id",
 		apr_table_get(response_ticket, "id"));
-  apr_table_set(cookie, "principal", 
+  apr_table_set(cookie, "principal",
 		apr_table_get(response_ticket, "principal"));
   if( ver_in_response >= 3)
-    apr_table_set(cookie, "ptags", 
+    apr_table_set(cookie, "ptags",
 		  apr_table_get(response_ticket, "ptags"));
-  apr_table_set(cookie, "auth", 
+  apr_table_set(cookie, "auth",
 		apr_table_get(response_ticket, "auth"));
-  apr_table_set(cookie, "sso", 
+  apr_table_set(cookie, "sso",
 		apr_table_get(response_ticket, "sso"));
-  apr_table_set(cookie, "params", 
+  apr_table_set(cookie, "params",
 		apr_table_get(response_ticket, "params"));
-  
+
   new_cookie_str = make_cookie_str(r, c, cookie);
   APACHE_LOG1(APLOG_DEBUG, "session ticket = %s", new_cookie_str);
-  set_cookie(r, new_cookie_str, c);  
-  
+  set_cookie(r, new_cookie_str, c);
+
   /* redirect */
-  
-  url = apr_table_get(response_ticket, "url"); 
+
+  url = apr_table_get(response_ticket, "url");
   APACHE_LOG1(APLOG_INFO, "Issuing redirect to original URL %s", url);
-  
-  apr_table_set(r->headers_out, 
-		"Location", 
+
+  apr_table_set(r->headers_out,
+		"Location",
 		url);
-  
-  return (r->method_number == M_GET) ? 
+
+  return (r->method_number == M_GET) ?
     HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
 }
@@ -2840,13 +2840,13 @@ validate_response(request_rec *r,
 /* --- */
 
 static int
-construct_request(request_rec *r, 
+construct_request(request_rec *r,
 		  mod_ucam_webauth_cfg *c)
 
 {
 
   char *request;
-  
+
   /* We might be here as the result of a sub-request if it triggered
      authentication but the main request didn't. We can't send out
      current URL to the WLS becasue if we do we'll eventually be
@@ -2854,52 +2854,52 @@ construct_request(request_rec *r,
      requesting it will fail. So we actually send the WLS the URL from
      the main request and trap that specially when the sub-request is
      eventually re-run */
-  
+
   request = apr_pstrcat
     (r->pool,
      "ver=", PROTOCOL_VERSION,
      "&url=", escape_url(r->pool,get_url(r->main ? r->main : r)),
-     "&date=", 
+     "&date=",
      iso2_time_encode(r, apr_time_now()),
      NULL);
-  
+
   if (c->description != NULL)
     request = apr_pstrcat
-      (r->pool, 
-       request, 
-       "&desc=", escape_url(r->pool,c->description), 
+      (r->pool,
+       request,
+       "&desc=", escape_url(r->pool,c->description),
        NULL);
-  
+
   if (apr_table_get(r->notes, "AATimeout") != NULL)
     request = apr_pstrcat
-      (r->pool, 
-       request, 
-       "&msg=", escape_url(r->pool,c->timeout_msg), 
+      (r->pool,
+       request,
+       "&msg=", escape_url(r->pool,c->timeout_msg),
        NULL);
-  
+
   if (c->fail == 1)
     request = apr_pstrcat(r->pool, request, "&fail=yes", NULL);
-  
-  if (c->force_interact == 1) 
+
+  if (c->force_interact == 1)
     request = apr_pstrcat(r->pool, request, "&iact=yes", NULL);
-  else if (c->refuse_interact == 1) 
+  else if (c->refuse_interact == 1)
     request = apr_pstrcat(r->pool, request, "&iact=no", NULL);
-  
+
   request = apr_pstrcat
     (r->pool,
-     c->auth_service, 
+     c->auth_service,
      "?",
      request,
      NULL);
-  
+
   APACHE_LOG1(APLOG_DEBUG, "request = %s", request);
-  
+
   apr_table_set(r->headers_out, "Location", request);
   set_cookie(r, TESTSTRING, c);
-  
+
   APACHE_LOG1(APLOG_INFO, "Redirecting to login server at %s",
 	      c->auth_service);
-  
+
   return (r->method_number == M_GET) ? HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
 
 }
@@ -2913,24 +2913,24 @@ construct_request(request_rec *r,
 #ifdef APACHE1_3
 
 static void
-webauth_init(server_rec *s, apr_pool_t *p) 
-     
+webauth_init(server_rec *s, apr_pool_t *p)
+
 {
-  
+
   ap_add_version_component("mod_ucam_webauth/" VERSION);
 
 }
 
-#else  
+#else
 
-static int 
-webauth_init(apr_pool_t *p, 
-	     apr_pool_t *l, 
-	     apr_pool_t *t, 
+static int
+webauth_init(apr_pool_t *p,
+	     apr_pool_t *l,
+	     apr_pool_t *t,
 	     server_rec *s)
-     
+
 {
-  
+
   ap_add_version_component(p, "mod_ucam_webauth/" VERSION);
   return OK;
 
@@ -2941,22 +2941,22 @@ webauth_init(apr_pool_t *p,
 /* ---------------------------------------------------------------------- */
 
 /* Post read request */
-   
+
 static int
 webauth_post_read_request(request_rec *r)
-     
+
 {
 
   /* In some cases (mod_rewrite with a proxy target that includes a
      query string for example) r->args has been overriten by a new
      value by the time webauth_authn gets to run. So we save a copy of
-     the _original_ args for future reference */ 
+     the _original_ args for future reference */
 
-  APACHE_LOG2(APLOG_DEBUG, "post_read_request: for %s, args %s", 
+  APACHE_LOG2(APLOG_DEBUG, "post_read_request: for %s, args %s",
 	      r->uri, r->args);
 
-  if (r->args != NULL) 
-    apr_table_set(r->notes, "AA_orig_args", r->args); 
+  if (r->args != NULL)
+    apr_table_set(r->notes, "AA_orig_args", r->args);
 
   return DECLINED;
 
@@ -2968,19 +2968,19 @@ webauth_post_read_request(request_rec *r)
 
 /* --- */
 
-static int  
-webauth_authn(request_rec *r) 
-     
+static int
+webauth_authn(request_rec *r)
+
 {
-  
+
   mod_ucam_webauth_cfg *c;
   apr_table_t *response = NULL;
   int rc;
   char *host, *colon;
-  
+
   /* Do anything? */
 
-  if (ap_auth_type(r) == NULL || 
+  if (ap_auth_type(r) == NULL ||
       (strcasecmp(ap_auth_type(r), AUTH_TYPE1) != 0 &&
        strcasecmp(ap_auth_type(r), AUTH_TYPE2) != 0)) {
     APACHE_LOG2
@@ -2989,9 +2989,9 @@ webauth_authn(request_rec *r)
        r->uri, ap_auth_type(r) == NULL ? "(null)" : ap_auth_type(r));
     return DECLINED;
   }
-  
+
   APACHE_LOG2
-    (APLOG_INFO, "** mod_ucam_webauth (%s) authn handler started for %s", 
+    (APLOG_INFO, "** mod_ucam_webauth (%s) authn handler started for %s",
      VERSION, r->uri);
 
   /* If the hostname the user used (as reported by the 'Host' header)
@@ -3004,27 +3004,27 @@ webauth_authn(request_rec *r)
     colon = strchr(host,':');
     if (colon != NULL)
       *colon = '\0';
-    if (r->server->server_hostname && 
+    if (r->server->server_hostname &&
 	strcasecmp(r->server->server_hostname,host)) {
       colon = strchr(host,':');
       if (colon != NULL)
-	*colon = '\0'; 
+	*colon = '\0';
       APACHE_LOG2
 	(APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
 	 "configured hostname (%s) - redirecting",
 	 host, r->server->server_hostname);
       apr_table_set(r->headers_out, "Location", get_url(r));
-      return (r->method_number == M_GET) ? 
+      return (r->method_number == M_GET) ?
 	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
     }
   }
-  
-  c = (mod_ucam_webauth_cfg *) 
+
+  c = (mod_ucam_webauth_cfg *)
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
 
   dump_config(r,NULL,c);
-  
+
   cache_control(r,c->cache_control);
 
   rc = decode_cookie(r,c);
@@ -3039,17 +3039,17 @@ webauth_authn(request_rec *r)
      location bar */
 
   rc = decode_response(r, c, &response);
-  if (rc != OK && rc != DECLINED) 
+  if (rc != OK && rc != DECLINED)
     return rc;
 
   if (rc == OK) {
     APACHE_LOG0(APLOG_INFO, "Found a WLS response");
     if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
       APACHE_LOG0(APLOG_INFO, "Already authenticated - redirecting");
-      apr_table_set(r->headers_out, 
-		    "Location", 
+      apr_table_set(r->headers_out,
+		    "Location",
 		    apr_table_get(response, "url"));
-      return (r->method_number == M_GET) ? 
+      return (r->method_number == M_GET) ?
 	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
     }
     APACHE_LOG0(APLOG_INFO, "Validating response");
@@ -3057,12 +3057,12 @@ webauth_authn(request_rec *r)
     if (rc != DECLINED)
       return rc;
   }
-  
+
   /* having got this far we can return if we got an identity from the
      cookie */
 
   if (apr_table_get(r->subprocess_env, "AAPrincipal")) {
-    APACHE_LOG2(APLOG_INFO, "Successfully authenticated %s accessing %s", 
+    APACHE_LOG2(APLOG_INFO, "Successfully authenticated %s accessing %s",
        apr_table_get(r->subprocess_env, "AAPrincipal"),r->uri);
     return OK;
   }
@@ -3070,13 +3070,13 @@ webauth_authn(request_rec *r)
   /* and if none of that worked then send a request to the WLS. While
      we are at it then set a test value cookie so we can test that
      it's still available when we get back. */
-  
+
   APACHE_LOG0(APLOG_INFO, "Generating WLS request");
 
   if (r->method_number == M_POST)
     APACHE_LOG0(APLOG_WARNING, "Redirect required on a POST request - "
        "POSTed data will be lost");
-  
+
   return construct_request(r,c);
 
 }
@@ -3085,19 +3085,19 @@ webauth_authn(request_rec *r)
 
 /* Fixup */
 
-static int  
+static int
 webauth_fixup(request_rec *r)
-     
+
 {
-  
+
   /* Decode any session cookie that happens to be lying around if
      AAAlwaysDecode is in effect or we already did so in the auth
      handler */
 
   mod_ucam_webauth_cfg *c;
 
-  c = (mod_ucam_webauth_cfg *) 
-    ap_get_module_config(r->per_dir_config, &ucam_webauth_module); 
+  c = (mod_ucam_webauth_cfg *)
+    ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
 
   if (!c->always_decode  ||
@@ -3110,15 +3110,15 @@ webauth_fixup(request_rec *r)
   }
 
   APACHE_LOG2
-    (APLOG_INFO, "** mod_ucam_webauth (%s) fixup handler started for %s", 
+    (APLOG_INFO, "** mod_ucam_webauth (%s) fixup handler started for %s",
      VERSION, r->uri);
 
   dump_config(r,NULL,c);
-  
+
   /* Discard the result of decoding - either it worked or it didn't */
   (void)decode_cookie(r,c);
-  
-  return DECLINED; 
+
+  return DECLINED;
 
 }
 
@@ -3128,9 +3128,9 @@ webauth_fixup(request_rec *r)
 
 /* --- */
 
-static int  
-webauth_handler_logout(request_rec *r) 
-     
+static int
+webauth_handler_logout(request_rec *r)
+
 {
 
   mod_ucam_webauth_cfg *c;
@@ -3142,16 +3142,16 @@ webauth_handler_logout(request_rec *r)
     APACHE_LOG0(APLOG_DEBUG, "logout_handler: declining");
     return DECLINED;
   }
-  
+
   APACHE_LOG2(APLOG_INFO,
 	      "** mod_ucam_webauth (%s) logout handler started for %s",
 	      VERSION, r->uri);
 
-  c = (mod_ucam_webauth_cfg *) 
+  c = (mod_ucam_webauth_cfg *)
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
-  dump_config(r,NULL,c);  
-  
+  dump_config(r,NULL,c);
+
   cache_control(r,c->cache_control);
 
   set_cookie(r, TESTSTRING, c);
@@ -3190,7 +3190,7 @@ webauth_handler_logout(request_rec *r)
        "from accessing your personal information and visiting web sites "
        "using your identity. If for any reason you can't exit your browser "
        "you should first log-out of all other personalized sites that you "
-       "have accessed and then <a href=\"", c->logout_service, 
+       "have accessed and then <a href=\"", c->logout_service,
        "\">logout from the central authentication service</a>.",
        sig, "</body></hmtl>", NULL);
   }
@@ -3205,56 +3205,56 @@ webauth_handler_logout(request_rec *r)
 
 static const command_rec webauth_commands[] = {
 
-  AP_INIT_TAKE1("AAAuthService", 
-		ap_set_string_slot, 
-		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,auth_service), 
-		RSRC_CONF | OR_AUTHCFG,
-		"the URL of the authentication service at the WLS"),
-  
-  AP_INIT_TAKE1("AALogoutService", 
-		ap_set_string_slot, 
-		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,logout_service), 
-		RSRC_CONF | OR_AUTHCFG,
-		"the url of the logout service at the WLS"),
-  
-  AP_INIT_TAKE1("AADescription", 
+  AP_INIT_TAKE1("AAAuthService",
 		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,description), 
+		(mod_ucam_webauth_cfg,auth_service),
+		RSRC_CONF | OR_AUTHCFG,
+		"the URL of the authentication service at the WLS"),
+
+  AP_INIT_TAKE1("AALogoutService",
+		ap_set_string_slot,
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,logout_service),
+		RSRC_CONF | OR_AUTHCFG,
+		"the url of the logout service at the WLS"),
+
+  AP_INIT_TAKE1("AADescription",
+		ap_set_string_slot,
+		(void *)APR_OFFSETOF
+		(mod_ucam_webauth_cfg,description),
 		RSRC_CONF | OR_AUTHCFG,
 		"a description of the protected resource"),
-  
-  AP_INIT_TAKE1("AAResponseTimeout", 
-		set_response_timeout, 
-		NULL, 
+
+  AP_INIT_TAKE1("AAResponseTimeout",
+		set_response_timeout,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"the expected maximum delay in receiving response message "
 		"from the authentication server (seconds)"),
-  
-  AP_INIT_TAKE1("AAClockSkew", 
-		set_clock_skew, 
-		NULL, 
+
+  AP_INIT_TAKE1("AAClockSkew",
+		set_clock_skew,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"the maximum expected difference between this "
 		"server's clock and the one on the WLS (seconds)"),
-  
-  AP_INIT_TAKE1("AAKeyDir", 
+
+  AP_INIT_TAKE1("AAKeyDir",
 		ap_set_file_slot,
-		(void *)APR_OFFSETOF(mod_ucam_webauth_cfg,key_dir), 
+		(void *)APR_OFFSETOF(mod_ucam_webauth_cfg,key_dir),
 		RSRC_CONF | OR_AUTHCFG,
 		"the directory containing WLS keys (relative to "
 		"server root if not absolute)"),
-  
-  AP_INIT_TAKE1("AAMaxSessionLife", 
-		set_max_session_life, 
-		NULL, 
+
+  AP_INIT_TAKE1("AAMaxSessionLife",
+		set_max_session_life,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"the hard session timeout (seconds)"),
-  
+
   AP_INIT_FLAG("AAIgnoreResponseLife",
-		ap_set_flag_slot, 
+		ap_set_flag_slot,
 		(void *)APR_OFFSETOF(mod_ucam_webauth_cfg,ign_response_life),
 		RSRC_CONF | OR_AUTHCFG,
 		"either 'on' or 'off'; "
@@ -3262,52 +3262,52 @@ static const command_rec webauth_commands[] = {
 		"from being overriden by a shorter 'life' parameter from the "
                 "authentication service response mesage"),
 
-  AP_INIT_TAKE1("AAInactiveTimeout", 
-		set_inactive_timeout, 
-		NULL, 
+  AP_INIT_TAKE1("AAInactiveTimeout",
+		set_inactive_timeout,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"the session inactivity timeout (seconds)"),
-  
-  AP_INIT_TAKE1("AATimeoutMsg", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AATimeoutMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,timeout_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a message for display by the WLS when "
 		"authentication is caused by session expiry"),
-  
-  AP_INIT_TAKE1("AACacheControl", 
-		set_cache_control, 
-		NULL, 
+
+  AP_INIT_TAKE1("AACacheControl",
+		set_cache_control,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"'off' to suppress cache control headers; "
                 "'on' to disable most shared caching; "
 		"'paranoid' to do everything possible to discourage "
                 "re-use of cached content"),
-  
-  AP_INIT_TAKE1("AACookieKey", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AACookieKey",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,cookie_key), 
+		(mod_ucam_webauth_cfg,cookie_key),
 		RSRC_CONF | OR_AUTHCFG,
 		"the secret key for session cookie (required)"),
-  
-  AP_INIT_TAKE1("AACookieName", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AACookieName",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,cookie_name), 
+		(mod_ucam_webauth_cfg,cookie_name),
 		RSRC_CONF | OR_AUTHCFG,
 		"the name of the session cookie"),
-  
-  AP_INIT_TAKE1("AACookiePath", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AACookiePath",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,cookie_path), 
+		(mod_ucam_webauth_cfg,cookie_path),
 		RSRC_CONF | OR_AUTHCFG,
 		"a path prefix for the session cookie"),
-  
-  AP_INIT_TAKE1("AACookieDomain", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AACookieDomain",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,cookie_domain),
 		RSRC_CONF | OR_AUTHCFG,
@@ -3320,105 +3320,105 @@ static const command_rec webauth_commands[] = {
 	       RSRC_CONF | OR_AUTHCFG,
 	       "either 'on' or 'off'; "
 	       "on sets the 'secure' attribute in http cookies"),
-  
-  AP_INIT_FLAG("AAForceInteract", 
-	       ap_set_flag_slot, 
+
+  AP_INIT_FLAG("AAForceInteract",
+	       ap_set_flag_slot,
 	       (void *)APR_OFFSETOF
 	       (mod_ucam_webauth_cfg,force_interact),
 	       RSRC_CONF | OR_AUTHCFG,
 	       "either 'on' or 'off'; "
 	       "'on' suppresses 'single sign-on' at the WLS"),
-  
-  AP_INIT_FLAG("AARefuseInteract", 
-	       ap_set_flag_slot, 
+
+  AP_INIT_FLAG("AARefuseInteract",
+	       ap_set_flag_slot,
 	       (void *)APR_OFFSETOF
 	       (mod_ucam_webauth_cfg,refuse_interact),
 	       RSRC_CONF | OR_AUTHCFG,
 	       "either 'on' or 'off'; "
 	       "'on' asks WLS not to interact with user"),
-  
-  AP_INIT_FLAG("AAFail", 
-	       ap_set_flag_slot, 
+
+  AP_INIT_FLAG("AAFail",
+	       ap_set_flag_slot,
 	       (void *)APR_OFFSETOF(mod_ucam_webauth_cfg,fail),
 	       RSRC_CONF | OR_AUTHCFG,
 	       "either 'on' or 'off'; "
 	       "'on' causes the WLS to report errors directly"),
-  
-  AP_INIT_TAKE1("AACancelMsg", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AACancelMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,cancel_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'authentication cancelled'"),
-  
-  AP_INIT_TAKE1("AANeedInteractMsg", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AANeedInteractMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,need_interact_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'interaction required'"),
-  
-  AP_INIT_TAKE1("AANoCookieMsg", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AANoCookieMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,no_cookie_msg), 
+		(mod_ucam_webauth_cfg,no_cookie_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'no cookie'"),
 
-  AP_INIT_TAKE1("AAPtagsIncorrectMsg", 
-		ap_set_string_slot, 
+  AP_INIT_TAKE1("AAPtagsIncorrectMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,ptags_incorrect_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a custom error definition for 'required ptags not found'"),
-  
-  AP_INIT_TAKE1("AALogoutMsg", 
-		ap_set_string_slot, 
+
+  AP_INIT_TAKE1("AALogoutMsg",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,logout_msg), 
+		(mod_ucam_webauth_cfg,logout_msg),
 		RSRC_CONF | OR_AUTHCFG,
 		"a message or page to display on visiting the logout URL"),
-  
-  AP_INIT_TAKE1("AALogLevel", 
-		set_log_level, 
-		NULL, 
+
+  AP_INIT_TAKE1("AALogLevel",
+		set_log_level,
+		NULL,
 		RSRC_CONF | OR_AUTHCFG,
 		"THIS DIRECTIVE IS DEPRECATED AND IGNORED"),
-  
-  AP_INIT_FLAG("AAAlwaysDecode", 
-	       ap_set_flag_slot, 
+
+  AP_INIT_FLAG("AAAlwaysDecode",
+	       ap_set_flag_slot,
 	       (void *)APR_OFFSETOF
 	       (mod_ucam_webauth_cfg,always_decode),
 	       RSRC_CONF | OR_AUTHCFG,
 	       "either 'on' or 'off'; "
 	       "session cookies are always decoded"),
 
-  AP_INIT_RAW_ARGS("AAHeaders", 
-		   set_headers, 
+  AP_INIT_RAW_ARGS("AAHeaders",
+		   set_headers,
 		   NULL,
 		   RSRC_CONF | OR_AUTHCFG,
 		   "a list of additional headers to include in the request"),
 
-  AP_INIT_TAKE1("AAHeaderKey", 
-		ap_set_string_slot, 
+  AP_INIT_TAKE1("AAHeaderKey",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,header_key), 
+		(mod_ucam_webauth_cfg,header_key),
 		RSRC_CONF | OR_AUTHCFG,
 		"the secret key for additional headers (required)"),
 
-  AP_INIT_TAKE1("AAForceAuthType", 
-		ap_set_string_slot, 
+  AP_INIT_TAKE1("AAForceAuthType",
+		ap_set_string_slot,
 		(void *)APR_OFFSETOF
-		(mod_ucam_webauth_cfg,force_auth_type), 
+		(mod_ucam_webauth_cfg,force_auth_type),
 		RSRC_CONF | OR_AUTHCFG,
 		"override the returned authentication type"),
 
-  AP_INIT_RAW_ARGS("AARequiredPtags", 
-		   set_required_ptags, 
+  AP_INIT_RAW_ARGS("AARequiredPtags",
+		   set_required_ptags,
 		   NULL,
 		   RSRC_CONF | OR_AUTHCFG,
 		   "a list of required ptags for authentication to succeed"),
-  
+
   {NULL}
 
 };

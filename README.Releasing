@@ -31,7 +31,7 @@ In outline, the things that need doing are:
 *  Announce release
 
 As you create each release object, put them together in a single
-directory. 
+directory.
 
 The Windows and OSX builds require other people to do things, so it's
 worth getting them started fairly early in the process. Preferably
@@ -48,7 +48,7 @@ the admins who can do this for you), you can get a copy thus:
 git clone ucs@git.csx.cam.ac.uk:raven/projectwebsite
 
 If you've cloned a copy previously, then git pull will update your
-version. 
+version.
 
 3. Windows Build
 ================
@@ -59,7 +59,7 @@ ask nicely...
 
 He will return a .zip file that contains a series of .so files (32-
 and 64-bit for Apache 2.2 and 2.4). You need to add several things to
-this: 
+this:
 
 i) vcredist_x86.exe and vcredist_x64.exe. These are specific to a
 particular version of Visual Studio. The ones shipped with 2.0.0
@@ -81,7 +81,7 @@ Then zip your directory up, and that's the Windows build done.
 
 Currently, these are done by James Nairn (jwrn3) of Macintosh
 Support. Supply him with a source tarball ("make dist") and ask
-nicely... 
+nicely...
 
 The resulting .pkg.zip is ready to ship as-is, but it's worth making
 sure the wiki links to the new version, and asking James to check it's
@@ -98,8 +98,8 @@ is described here:
 http://www.debian.org/doc/debian-policy/ch-source.html#s-dpkgchangelog
 
 It's fairly straightforward. You then build a source package by
-running: 
-debuild -S -us -uc 
+running:
+debuild -S -us -uc
 (-S source-only, u{s,c} do not sign)
 
 You then need to use this source package (a .dsc and .tar.gz) to build
@@ -115,7 +115,7 @@ sbuild --append-to-version='~ubuntu' --arch=i386 -vd lucid libapache2-mod-ucam-w
 
 Similarly "jessie" and "trusty" for the apache24 packages.
 
-For setting up the chroots for these builds, see sbuild-createchroot. 
+For setting up the chroots for these builds, see sbuild-createchroot.
 
 Once you've got these, it's worth checking that they're installable
 against the supported Debian and Ubuntu releases. The debdepcheck.sh
@@ -154,7 +154,7 @@ over-write the old documentation pages with your new versions (and
 then use git add to tell git they've changed).
 
 If necessary, edit the .html files; again, use git add to note they've
-changed. 
+changed.
 
 Use git commit to commit your changes.
 

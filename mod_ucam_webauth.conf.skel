@@ -7,12 +7,12 @@
 # 'ClearModuleList' followed by 'AddModule' directives to ensure that
 # modules are used in the right order - if mod_ucam_webauth is loaded
 # loaded before 'ClearModuleList' then 'AddModule mod_ucam_webauth.c'
-# will also be required. 
+# will also be required.
 
 LoadModule ucam_webauth_module @@LIBEXECDIR@@/mod_ucam_webauth.so
 
 # AACookieKey MUST be assigned a value, here or elsewhere, before this
-# authentication module is used. 
+# authentication module is used.
 
 # AACookieKey
 
@@ -30,7 +30,7 @@ LoadModule ucam_webauth_module @@LIBEXECDIR@@/mod_ucam_webauth.so
 
 # AATimeoutMsg  'your session on the site has expired'
 # AACancelMsg
-# AANoCookieMsg 
+# AANoCookieMsg
 # AAlogoutMsg
 
 # AAKeyDir        conf/webauth_keys

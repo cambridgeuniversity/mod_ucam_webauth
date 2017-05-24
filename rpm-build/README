@@ -1,7 +1,7 @@
 This directory contains the files actually necessary to build an RPM
 from scratch. However if you just want an RPM you'd do better to
 install and then rebuild one of the source RPMs that are distributed
-from 
+from
 
   http://raven.cam.ac.uk/project/apache/
 

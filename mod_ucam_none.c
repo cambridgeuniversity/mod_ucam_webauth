@@ -1,6 +1,6 @@
-/* 
+/*
 
-   This file is part of the University of Cambridge Web Authentication 
+   This file is part of the University of Cambridge Web Authentication
    System Application Agent for Apache 1.3 and 2
    See http://raven.cam.ac.uk/ for more details
 
@@ -15,7 +15,7 @@
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    Lesser General Public License for more details.
-  
+
    You should have received a copy of the GNU Lesser General Public
    License along with this toolkit; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
@@ -33,7 +33,7 @@
 #include "http_config.h"
 #include "http_core.h"
 #include "http_log.h"
- 
+
 #if defined APACHE_RELEASE && APACHE_RELEASE < 20000000
 #define APACHE1_3
 #endif
@@ -73,13 +73,13 @@ module AP_MODULE_DECLARE_DATA ucam_none_module;
 
 /* Auth handler */
 
-static int  
-none_authn(request_rec *r) 
-     
+static int
+none_authn(request_rec *r)
+
 {
 
   const char *t;
-  
+
   if (!(t = ap_auth_type(r)) || strcasecmp(t, "None")) {
     APACHE_LOG2
       (APLOG_DEBUG,"mod_ucam_none declining authn for %s (AuthType = %s)",
@@ -88,7 +88,7 @@ none_authn(request_rec *r)
   }
 
   APACHE_LOG1(APLOG_DEBUG,"mod_ucam_none accepting authn for %s ", r->uri);
- 
+
 #ifdef APACHE1_3
   r->connection->user = "nobody";
   r->connection->ap_auth_type = "None";
