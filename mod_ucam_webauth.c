@@ -73,9 +73,6 @@ MODULE-DEFINITION-END
 
 #if defined( AP_RELEASE_H ) && AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER >=4
 #define APACHE2_4
-#if AP_SERVER_MINORVERSION_NUMBER > 4 || AP_SERVER_PATCHLEVEL_NUMBER >= 13
-#define APACHE2_4_13
-#endif
 #endif
 
 /*Facilitate per-module log-level setting in Apache 2.4*/
@@ -623,53 +620,6 @@ iso2_time_decode(request_rec *r,
   APACHE_LOG1(APLOG_DEBUG, "HTTP date = %s", t_http);
 
   return apr_date_parse_http(t_http);
-
-}
-
-/* --- */
-/* Get current customised response definition, if any */
-/* 'Borrowed' from the Apache source, informed by the mod_perl sources */
-
-static char *
-wls_response_code_string(request_rec *r,
-			 int status)
-
-{
-  core_dir_config *conf;
-  char *result;
-  int idx;
-#ifdef APACHE2_4_13
-  ap_expr_info_t *expr;
-#endif
-
-  APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: status = %d", status);
-
-  conf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
-						 &core_module);
-  /* conf = ap_get_core_module_config(r->per_dir_config); */
-  idx = ap_index_of_response(status);
-
-  if (conf->response_code_strings) {
-    /* Apache before 2.4.13 stored ErrorDocument in array of strings */
-    result = conf->response_code_strings[idx];
-#ifdef APACHE2_4_13
-  } else if (conf->response_code_exprs) {
-    /* Apache 2.4.13 and later use a hash table instead */
-    expr = apr_hash_get(conf->response_code_exprs, &idx, sizeof(idx));
-    if (expr == NULL) {
-      result = NULL;
-    } else {
-      result = "[expression]";
-    }
-#endif
-  } else {
-    result = NULL;
-  }
-
-  APACHE_LOG1(APLOG_DEBUG, "wls_response_code_string: result = %s",
-		   (result == NULL ? "NULL" : result));
-
-  return result;
 
 }
 
@@ -1474,56 +1424,6 @@ interact_required(request_rec *r)
      "reached this message by a reasonable means you may wish to contact "
      "the administrator of this server ", admin, " to correct the problem.",
      sig, "</body></html>", NULL);
-
-}
-
-/* --- */
-
-static char *
-auth_required(request_rec *r)
-
-{
-
-  const char *sig = ap_psignature("<hr>", r);
-  char *admin = ap_escape_html(r->pool, r->server->server_admin);
-#ifdef APACHE1_3
-  char *user = ap_escape_html(r->pool, r->connection->user);
-#else
-  char *user = ap_escape_html(r->pool, r->user);
-#endif
-
-  /* Apache core seems to default ServerAdmin to the unhelpful "[no
-     address given]" */
-
-  if (admin != NULL && strcmp(admin,"[no address given]") != 0) {
-    admin = apr_pstrcat(r->pool, "(<tt><b>", admin, "</b></tt>)", NULL);
-  } else {
-    admin = apr_pstrdup(r->pool,"");
-  }
-  if (user != NULL) {
-    user = apr_pstrcat(r->pool, "(<tt><b>", user, "</b></tt>)", NULL);
-  } else {
-    user = apr_pstrdup(r->pool,"");
-  }
-
-  return apr_pstrcat
-    (r->pool,
-     "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">"
-     "<html><head><title>Error - authorization required</title></head>"
-     "<body><h1>Error - authorization required</h1>"
-     "<p>Access to the web page or other resource you are trying to "
-     "obtain is restricted. The identity that you have established ", user,
-     " is not currently allowed access. Please contact the "
-     "administrator of the web server that provides the page ",
-      admin, " for further information.",
-     sig,
-     "\n\n"
-     "<!-- This is padding to convince STUPID INTERNET EXPLORER that"
-     "     I do know what I'm doing and that this error message"
-     "     contains useful information. Without the padding, IE"
-     "     will by default 'helpfully' display a useless error page"
-     "     in place of my carefully crafted words. Bah!"
-     "--></body></html>", NULL);
 
 }
 
@@ -2502,14 +2402,6 @@ decode_cookie(request_rec *r,
 		    add_hash(r,apr_table_get(cookie, "ptags"),hkey));
 
   }
-
-  /* set a custom HTTP_UNAUTHORIZED page if there isn't one already
-     because the default Apache one if misleading in a Ucam WebAuth
-     context but will be displayed if the authz phase of mod_auth (or
-     equivalent) returns HTTP_UNAUTHORIZED */
-
-  if (wls_response_code_string(r, HTTP_UNAUTHORIZED) == NULL)
-    ap_custom_response(r, HTTP_UNAUTHORIZED, auth_required(r));
 
   APACHE_LOG2(APLOG_INFO, "Successfully decoded cookie for %s accessing %s",
 	      apr_table_get(cookie, "principal"),r->uri);
