@@ -21,8 +21,6 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_webauth.c,v 1.73 2010-03-17 14:50:23 jw35 Exp $
-
    Author: Robin Brady-Roche <rbr268@cam.ac.uk> and 
            Jon Warbrick <jw35@cam.ac.uk>
 

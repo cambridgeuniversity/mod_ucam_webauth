@@ -269,7 +269,3 @@ also be protected. 'AuthType' must be set to 'Ucam-WebAuth'. A
 place.
 
 See README.Config for more information about configuring the module.
-
-
---
-$Id: INSTALL,v 1.2 2007-03-19 13:18:56 jw35 Exp $

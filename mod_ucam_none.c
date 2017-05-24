@@ -21,8 +21,6 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
    USA
 
-   $Id: mod_ucam_none.c,v 1.1 2005-05-18 15:30:43 jw35 Exp $
-
    Author: Jon Warbrick <jw35@cam.ac.uk>
 
 */
