@@ -33,7 +33,7 @@ to start a copy of Apache configured to use mod_ucam_webauth will
 result in messages similar to
 
   Syntax error on line <nnn> of httpd.conf:
-  Cannot load mod_ucam_webauth.so into server: 
+  Cannot load mod_ucam_webauth.so into server:
         (126) The specified module could not be found:
 
 even if mod_ucam_webauth.so is in fact present.
@@ -43,7 +43,7 @@ mod_ucam_webauth as described in sections 3 and 4 ('Operating
 requirements' and 'Initial configuration') of INSTALL.txt, and in
 README_Config.txt, but note the following:
 
-* The 'apxs' tool is not available. 
+* The 'apxs' tool is not available.
 
 * For a default installation of the Apache project distribution the
   RSA public keys should, unless configured otherwise, be stored in a
@@ -64,6 +64,6 @@ README_Config.txt, but note the following:
 * For a default installation of the Apache project distribution the
   error log file will be found in a file called 'error.log' in the
   'logs' directory within the Apache installation directory.
-   
+
 * The necessary OpenSSL components are included in the compiled module.
 

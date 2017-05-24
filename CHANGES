@@ -1,3 +1,11 @@
+2.0.4 - 2017-05-24 mgk25
+
+ . Fix handling of directive "ErrorDocument 401 ..." on Apache 2.4.13 or later
+
+2.0.3 - 2017-05-27 mcv21
+
+ . Updated Ubuntu packaging
+
 2.0.2 - 2015-03-11 mcv21
 
  . Restrict kid to be 1-8 digits, not beginning with a 0.
@@ -74,7 +82,7 @@
  Enhancements
 
  . Add partial support for silently querying the authentication server
-   in an attempt to identify the currently logged-in user. 
+   in an attempt to identify the currently logged-in user.
 
    The Ucam WebAuth protocol makes it possible to silently query the
    authentication server to identify the currently logged-in user. If
@@ -274,8 +282,8 @@ that the module is distributed under the GNU LGPL.
 
  Bugs fixed
 
- . The Host: header fix in 1.0.5 itself caused problems if a request 
-   didn't actually include a Host: header. 
+ . The Host: header fix in 1.0.5 itself caused problems if a request
+   didn't actually include a Host: header.
 
 1.0.5 - 2004-10-12 jw
 
@@ -283,7 +291,7 @@ that the module is distributed under the GNU LGPL.
 
  . A bug in fix for Host: and host name not matching in 1.0.4 caused a
    redirect loop when used by servers that were not running on the
-   default port (80 for http, 443 for https). Now fixed. 
+   default port (80 for http, 443 for https). Now fixed.
 
 1.0.4 - 2004-10-11 jw
 
@@ -408,7 +416,7 @@ that the module is distributed under the GNU LGPL.
    second'. Now fixed.
 
  . The warning about not supporting POST requests now only happens if
-   a POST request is actually redirected. 
+   a POST request is actually redirected.
 
 0.99-1.0.0rc7 - 2004-08-11 jw
 
@@ -475,7 +483,7 @@ that the module is distributed under the GNU LGPL.
 0.99-1.0.0rc5 - 2004-07-09 jw
 
  Bugs fixed:
-  
+
   . Second and subsequent CGI arguments in the original URL end up
     being interpreted as extra (bogus) request parameters by the WLS
     and get removed from the URL itself. Caused by a lack of URL
@@ -486,7 +494,7 @@ that the module is distributed under the GNU LGPL.
     sub-requests that does (such as when Apache goes looking for
     index.html in response to a request for '..../foo/' where
 
-      <Directory ...foo> 
+      <Directory ...foo>
         AuthType webauth
         ...
 
@@ -494,7 +502,7 @@ that the module is distributed under the GNU LGPL.
     the target of the sub-request which is quite likely to fail. This
     problem should now be resolved, though it's possible that the
     resolution will have introduced different problems in other
-    configurations. 
+    configurations.
 
 0.99-1.0.0rc4 - 2004-07-05 jw
 
@@ -502,7 +510,7 @@ that the module is distributed under the GNU LGPL.
 
   . AAKeyDir could become corrupt on second and subsequent calls to
     the module - reorganised the way default configuration directives
-    are managed to avoid this (todo#23). 
+    are managed to avoid this (todo#23).
 
 0.99-1.0.0rc3 - 2004-06-23 jw
 
@@ -561,7 +569,7 @@ that the module is distributed under the GNU LGPL.
     issue date and expiry date
 
   . Assorted code changes to better support building Apache 1.3 and
-    Apache 2 modules from the same source 
+    Apache 2 modules from the same source
 
   . Assorted changes to better support Apache 2
 
@@ -586,7 +594,7 @@ that the module is distributed under the GNU LGPL.
     AACookieKey to be used (toto#17)
 
   . Corrected potential bug in encoding/decoding base64 data
-    containing NULL 
+    containing NULL
 
   . Stopped sending 'skew' parameter in requests, since it's about to
     become deprecated in the protocol, and improved log messages that
@@ -620,7 +628,7 @@ that the module is distributed under the GNU LGPL.
 
 0.43 - 2004-04-20 jw
 
-  . Corrected a problem with Apache 1.3 where the port number 
+  . Corrected a problem with Apache 1.3 where the port number
     did not appear in the URL sent to the WLS
 
   . Fixed bogus reference to PerlSetVar in the docs

@@ -104,7 +104,7 @@ fi
 %changelog
 * Thu Mar 16 2017 Stephen Lovell <sml47@cam.ac.uk> -2.0.2
 - Update to 2.0.3
-- Addtion of dist check for redhat 
+- Addtion of dist check for redhat
 
 - Fixed changelog entry for Mar 30 2004 to be Tue not Thu
 
@@ -142,7 +142,7 @@ fi
 
 * Mon Nov 28 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.3.0-1
 - Update to 1.3.0
-- Remove much of the platform auto-detect code and go back to 
+- Remove much of the platform auto-detect code and go back to
   creating RPMs with 'standard' names
 
 * Thu Jun 09 2005 Jon Warbrick <jw35@cam.ac.uk> - 1.2.2-1

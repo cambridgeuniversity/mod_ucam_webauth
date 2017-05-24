@@ -5,7 +5,7 @@
 
 #   the used tools
 
-APXS=/usr/bin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere 
+APXS=/usr/bin/apxs    # Use 'make .... APXS=/path/to/apxs' if elsewhere
 SUFFIX=la              # Use 'make .... SUFFIX=so for Apache 1
 
 #   additional user defines, includes, libraries and options
@@ -44,11 +44,11 @@ dist:
          rm -rf mod_ucam_webauth-$$ver )
 
 rpmdirs:
-	mkdir -p ~/rpmdevel/BUILD  
-	mkdir -p ~/rpmdevel/RPMS 
+	mkdir -p ~/rpmdevel/BUILD
+	mkdir -p ~/rpmdevel/RPMS
 	mkdir -p ~/rpmdevel/SOURCES
-	mkdir -p ~/rpmdevel/SPECS 
-	mkdir -p ~/rpmdevel/SRPMS	
+	mkdir -p ~/rpmdevel/SPECS
+	mkdir -p ~/rpmdevel/SRPMS
 
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
@@ -68,7 +68,7 @@ windows:
 	cp COPYING                  zip_build/COPYING.txt
 	cp INSTALL                  zip_build/INSTALL.txt
 	cp INSTALL.Platforms        zip_build/INSTALL_Platforms.txt
-	cp README                   zip_build/README.txt 
+	cp README                   zip_build/README.txt
 	cp README.Config            zip_build/README_Config.txt
 	cp README.WIN32             zip_build/README_WIN32.txt
 	cp Windows/vcredist_x86.exe zip_build/vcredist_x86.exe

@@ -8,7 +8,7 @@ Cambridge Web Authentication System (UcamWebAuth) to identify
 users. Within the University, such a system is provided by Raven:
 http://raven.cam.ac.uk/.
 
-The file INSTALL contains instructions for building and installing      
+The file INSTALL contains instructions for building and installing
 this module. The file INSTALL.Platforms contains additional,
 platform-specific information for some platforms. The file
 README.Config contains details of how the module is configured and
@@ -33,13 +33,9 @@ The agent is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Lesser General Public License for more details.
-  
+
 You should have received a copy of the GNU Lesser General Public
 License along with this toolkit. If not, see
 <http://www.gnu.org/licenses/>.
 
 See the file COPYING for details.
-
----
-$Id: README,v 1.24 2005-11-29 13:15:58 jw35 Exp $
-

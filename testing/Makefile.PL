@@ -5,5 +5,5 @@ require Apache::TestRunPerl;
 Apache::TestMM->import(qw(test clean));
 Apache::TestMM::filter_args();
 
-Apache::TestRunPerl->generate_script();	
+Apache::TestRunPerl->generate_script();
 

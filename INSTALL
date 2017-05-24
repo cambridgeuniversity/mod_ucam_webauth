@@ -103,7 +103,7 @@ above). This is almost always the case with RPM-based distributions.
 To build an RPM, download the appropriate Source RPM, cd to the
 directory containing it, and then as root issue the command
 
-  rpmbuild --rebuild mod_ucam_webauth2-<ver>.src.rpm         
+  rpmbuild --rebuild mod_ucam_webauth2-<ver>.src.rpm
 
 Near the end of the resulting output will be a line identifying the
 binary RPM that was built, such as
@@ -269,7 +269,3 @@ also be protected. 'AuthType' must be set to 'Ucam-WebAuth'. A
 place.
 
 See README.Config for more information about configuring the module.
-
-
---
-$Id: INSTALL,v 1.2 2007-03-19 13:18:56 jw35 Exp $
