@@ -1,3 +1,7 @@
+2.0.3 - 2017-05-24 mgk25
+
+ . Fix handling of directive "ErrorDocument 401 ..." on Apache 2.4.13 or later
+
 2.0.2 - 2015-03-11 mcv21
 
  . Restrict kid to be 1-8 digits, not beginning with a 0.
