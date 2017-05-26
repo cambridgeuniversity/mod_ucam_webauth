@@ -1,7 +1,7 @@
 /*
 
    This file is part of the University of Cambridge Web Authentication
-   System Application Agent for Apache 1.3 and 2
+   System Application Agent for Apache 2
    See http://raven.cam.ac.uk/ for more details
 
    Copyright (c) University of Cambridge 2004,2005
@@ -67,11 +67,14 @@ MODULE-DEFINITION-END
 #include <openssl/err.h>
 #include <openssl/evp.h>
 
-#if defined APACHE_RELEASE && APACHE_RELEASE < 20000000
-#define APACHE1_3
+#if !defined(AP_SERVER_MAJORVERSION_NUMBER) || AP_SERVER_MAJORVERSION_NUMBER < 2
+#error "Requires Apache 2 or newer."
+#endif
+#if AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER < 0
+#error "Requires Apache 2.0 or newer."
 #endif
 
-#if defined( AP_RELEASE_H ) && AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER >=4
+#if AP_SERVER_MAJORVERSION_NUMBER > 2 || AP_SERVER_MINORVERSION_NUMBER >=4
 #define APACHE2_4
 #if AP_SERVER_MINORVERSION_NUMBER > 4 || AP_SERVER_PATCHLEVEL_NUMBER >= 13
 #define APACHE2_4_13
@@ -102,10 +105,6 @@ APLOG_USE_MODULE(ucam_webauth);
 */
 #undef strtoul
 
-#ifdef APACHE1_3
-#include "util_date.h"
-#include "fnmatch.h"
-#else
 #include "http_connection.h"
 #include "http_config.h"
 #include "apr_strings.h"
@@ -114,7 +113,6 @@ APLOG_USE_MODULE(ucam_webauth);
 #include "apr_base64.h"
 #include "apr_date.h"
 #include "apr_uri.h"
-#endif
 
 #define PROTOCOL_VERSION "3"
 #define AUTH_TYPE1 "webauth"
@@ -212,20 +210,9 @@ typedef struct {
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
-   'r' holds a copy of the current request record */
+   'r' holds a copy of the current request record. These macros
+   were once useful to maintain Apache 1.3 compatibility. */
 
-#ifdef APACHE1_3
-#define APACHE_LOG0(level, fmt) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt)
-#define APACHE_LOG1(level, fmt, a) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a)
-#define APACHE_LOG2(level, fmt, a, b) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a, b)
-#define APACHE_LOG3(level, fmt, a, b, c) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a, b, c)
-#define APACHE_LOG4(level, fmt, a, b, c, d) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a, b, c, d)
-#else
 #define APACHE_LOG0(level, fmt) \
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt)
 #define APACHE_LOG1(level, fmt, a) \
@@ -236,60 +223,6 @@ typedef struct {
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt, a, b, c)
 #define APACHE_LOG4(level, fmt, a, b, c, d) \
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt, a, b, c, d)
-#endif
-
-/* ---------------------------------------------------------------------- */
-
-/* Almost all of the code is written as for Apache 2. The folowing
-   macros adapt it for Apache 1.3 if necessary */
-
-#ifdef APACHE1_3
-
-/* types */
-
-#define apr_table_t table
-#define apr_time_t time_t
-#define apr_pool_t pool
-#define apr_uri_t uri_components
-
-/* functions */
-
-#define apr_base64_decode ap_base64decode
-#define apr_base64_decode_len ap_base64decode_len
-#define apr_base64_encode ap_base64encode
-#define apr_base64_encode_len ap_base64encode_len
-#define apr_date_parse_http ap_parseHTTPdate
-#define apr_fnmatch ap_fnmatch
-#define apr_palloc ap_palloc
-#define apr_pcalloc ap_pcalloc
-#define apr_psprintf ap_psprintf
-#define apr_pstrcat ap_pstrcat
-#define apr_pstrdup ap_pstrdup
-#define apr_table_add ap_table_add
-#define apr_table_get ap_table_get
-#define apr_table_make ap_make_table
-#define apr_table_set ap_table_set
-#define apr_table_unset ap_table_unset
-#define apr_time_sec(sec) sec
-#define apr_time_from_sec(sec) sec
-#define apr_uri_parse ap_parse_uri_components
-#define apr_uri_unparse ap_unparse_uri_components
-#define apr_time_now() time(NULL)
-
-/* other definitions */
-
-#define AP_MODULE_DECLARE_DATA MODULE_VAR_EXPORT
-#define APR_OFFSETOF XtOffsetOf
-#define APR_FNM_NOMATCH FNM_NOMATCH
-
-#define AP_INIT_TAKE1(name, func, data, override, errmsg) \
-  {name, func, data, override, TAKE1, errmsg}
-#define AP_INIT_FLAG(name, func, data, override, errmsg) \
-  {name, func, data, override, FLAG, errmsg}
-#define AP_INIT_RAW_ARGS(name, func, data, override, errmsg) \
-  {name, func, data, override, RAW_ARGS, errmsg}
-
-#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -1277,13 +1210,8 @@ get_url(request_rec *r)
      component with what we know we are really called
   */
 
-#ifdef APACHE1_3
-  if (apr_uri_parse(r->pool, url, &uri) != HTTP_OK)
-    APACHE_LOG0(APLOG_CRIT, "Failed to parse own URL");
-#else
   if (apr_uri_parse(r->pool, url, &uri))
     APACHE_LOG0(APLOG_CRIT, "Failed to parse own URL");
-#endif
   uri.hostname = r->server->server_hostname;
   result = apr_uri_unparse(r->pool, &uri, (unsigned)0);
 
@@ -1486,11 +1414,7 @@ auth_required(request_rec *r)
 
   const char *sig = ap_psignature("<hr>", r);
   char *admin = ap_escape_html(r->pool, r->server->server_admin);
-#ifdef APACHE1_3
-  char *user = ap_escape_html(r->pool, r->connection->user);
-#else
   char *user = ap_escape_html(r->pool, r->user);
-#endif
 
   /* Apache core seems to default ServerAdmin to the unhelpful "[no
      address given]" */
@@ -2079,13 +2003,8 @@ set_log_level(cmd_parms *cmd,
 
 {
 
-#ifdef APACHE1_3
-  ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO, cmd->server,
-	       "The AALogLevel directive is deprecated and currently ignored");
-#else
   ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
 	       "The AALogLevel directive is deprecated and currently ignored");
-#endif
 
   return NULL;
 
@@ -2425,13 +2344,8 @@ decode_cookie(request_rec *r,
 
   /* save info for future use */
 
-#ifdef APACHE1_3
-  r->connection->user = (char *)apr_table_get(cookie, "principal");
-  r->connection->ap_auth_type = c->force_auth_type;
-#else
   r->user = apr_pstrdup(r->pool,apr_table_get(cookie, "principal"));
   r->ap_auth_type = c->force_auth_type;
-#endif
 
   apr_table_set(r->subprocess_env,
 		"AAISSUE",
@@ -2910,19 +2824,6 @@ construct_request(request_rec *r,
 
 /* --- */
 
-#ifdef APACHE1_3
-
-static void
-webauth_init(server_rec *s, apr_pool_t *p)
-
-{
-
-  ap_add_version_component("mod_ucam_webauth/" VERSION);
-
-}
-
-#else
-
 static int
 webauth_init(apr_pool_t *p,
 	     apr_pool_t *l,
@@ -2935,8 +2836,6 @@ webauth_init(apr_pool_t *p,
   return OK;
 
 }
-
-#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -3172,9 +3071,6 @@ webauth_handler_logout(request_rec *r)
   if (response && *response == '"') ++response;
 
   r->content_type = "text/html";
-#ifdef APACHE1_3
-  ap_send_http_header(r);
-#endif
 
   APACHE_LOG0(APLOG_DEBUG, "logout_handler: sending response");
 
@@ -3427,37 +3323,6 @@ static const command_rec webauth_commands[] = {
 
 /* make Apache aware of the handlers */
 
-#ifdef APACHE1_3
-
-static const handler_rec webauth_handlers[] = {
-  { "aalogout", webauth_handler_logout },
-  { NULL }
-};
-
-module MODULE_VAR_EXPORT ucam_webauth_module = {
-  STANDARD_MODULE_STUFF,
-  webauth_init,                 /* initializer */
-  webauth_create_dir_config,    /* dir config creator */
-  webauth_merge_dir_config,     /* dir merger --- default is to override */
-  NULL,                         /* server config */
-  NULL,                         /* merge server config */
-  webauth_commands,             /* command table */
-  webauth_handlers,             /* handlers */
-  NULL,                         /* filename translation */
-  webauth_authn,                /* check_user_id */
-  NULL,                         /* check auth */
-  NULL,                         /* check access */
-  NULL,                         /* type_checker */
-  webauth_fixup,                /* fixups */
-  NULL,                         /* logger */
-  NULL,                         /* header parser */
-  NULL,                         /* child_init */
-  NULL,                         /* child_exit */
-  webauth_post_read_request     /* post read-request */
-};
-
-#else
-
 static void webauth_register_hooks(apr_pool_t *p) {
   ap_hook_post_config
     (webauth_init, NULL, NULL, APR_HOOK_MIDDLE);
@@ -3480,8 +3345,6 @@ module AP_MODULE_DECLARE_DATA ucam_webauth_module = {
   webauth_commands,             /* command handlers */
   webauth_register_hooks        /* register hooks */
 };
-
-#endif
 
 /* ---------------------------------------------------------------------- */
 

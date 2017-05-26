@@ -1,7 +1,7 @@
 /*
 
    This file is part of the University of Cambridge Web Authentication
-   System Application Agent for Apache 1.3 and 2
+   System Application Agent for Apache 2
    See http://raven.cam.ac.uk/ for more details
 
    Copyright (c) University of Cambridge 2005
@@ -34,35 +34,15 @@
 #include "http_core.h"
 #include "http_log.h"
 
-#if defined APACHE_RELEASE && APACHE_RELEASE < 20000000
-#define APACHE1_3
-#endif
-
 /* logging macro. Note that it will only work in an environment where
    'r' holds a copy of the current request record */
 
-#ifdef APACHE1_3
-#define APACHE_LOG0(level, fmt) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt)
-#define APACHE_LOG1(level, fmt, a) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a)
-#define APACHE_LOG2(level, fmt, a, b) \
-  ap_log_rerror(APLOG_MARK, level | APLOG_NOERRNO, r, fmt, a, b)
-#else
 #define APACHE_LOG0(level, fmt) \
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt)
 #define APACHE_LOG1(level, fmt, a) \
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt, a)
 #define APACHE_LOG2(level, fmt, a, b) \
   ap_log_rerror(APLOG_MARK, level, 0, r, fmt, a, b)
-#endif
-
-/* Almost all of the code is written as for Apache 2. The folowing
-   macros adapt it for Apache 1.3 if necessary */
-
-#ifdef APACHE1_3
-#define AP_MODULE_DECLARE_DATA MODULE_VAR_EXPORT
-#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -89,13 +69,8 @@ none_authn(request_rec *r)
 
   APACHE_LOG1(APLOG_DEBUG,"mod_ucam_none accepting authn for %s ", r->uri);
 
-#ifdef APACHE1_3
-  r->connection->user = "nobody";
-  r->connection->ap_auth_type = "None";
-#else
   r->user = "nobody";
   r->ap_auth_type = "None";
-#endif
 
   return OK;
 
@@ -104,32 +79,6 @@ none_authn(request_rec *r)
 /* ---------------------------------------------------------------------- */
 
 /* make Apache aware of the handlers */
-
-#ifdef APACHE1_3
-
-module MODULE_VAR_EXPORT ucam_none_module = {
-  STANDARD_MODULE_STUFF,
-  NULL,                         /* initializer */
-  NULL,                         /* dir config creator */
-  NULL,                         /* dir merger --- default is to override */
-  NULL,                         /* server config */
-  NULL,                         /* merge server config */
-  NULL,                         /* command table */
-  NULL,                         /* handlers */
-  NULL,                         /* filename translation */
-  none_authn,                   /* check_user_id */
-  NULL,                         /* check auth */
-  NULL,                         /* check access */
-  NULL,                         /* type_checker */
-  NULL,                         /* fixups */
-  NULL,                         /* logger */
-  NULL,                         /* header parser */
-  NULL,                         /* child_init */
-  NULL,                         /* child_exit */
-  NULL                          /* post read-request */
-};
-
-#else
 
 static void none_register_hooks(apr_pool_t *p) {
   ap_hook_check_user_id
@@ -145,8 +94,6 @@ module AP_MODULE_DECLARE_DATA ucam_none_module = {
   NULL,                         /* command handlers */
   none_register_hooks           /* register hooks */
 };
-
-#endif
 
 /* ---------------------------------------------------------------------- */
 
