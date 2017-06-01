@@ -1879,7 +1879,7 @@ dump_config(request_rec *r, apr_pool_t *p,
 /* --- */
 
 /* Note that most string and flag parameters are processed by the generic
-   ap_set_string_slot and ap_set flag_slot routines */
+   ap_set_string_slot and ap_set_flag_slot routines */
 
 static const char *
 set_response_timeout(cmd_parms *cmd,
@@ -1989,6 +1989,53 @@ set_cache_control(cmd_parms *cmd,
     return "AACacheControl: missing keyword - "
       "need one of off/on/paranoid";
   }
+
+  return NULL;
+
+}
+
+/* --- */
+
+static const char *
+set_cookie_key(cmd_parms *cmd,
+	       void *mconfig,
+	       const char *arg)
+
+{
+
+  mod_ucam_webauth_cfg *cfg = (mod_ucam_webauth_cfg *)mconfig;
+  const char *path;
+  apr_file_t *file;
+  apr_size_t len = 20;  /* maximum number of bytes to read from file */
+  apr_status_t status;
+  int i;
+
+  if (strncmp(arg, "file:", 5) == 0) {
+    if (ap_check_cmd_context(cmd, NOT_IN_HTACCESS))
+      return "AACookieKey: 'file:' access not permitted in .htaccess";
+    if (!arg[5]) return "AACookieKey: empty filename";
+    path = ap_server_root_relative(cmd->pool, arg + 5);
+    status = apr_file_open(&file, path, APR_FOPEN_READ | APR_FOPEN_BINARY,
+			   0, cmd->pool);
+    if (status != APR_SUCCESS) return "AACookieKey: cannot open file";
+    cfg->cookie_key = apr_pcalloc(cmd->pool, len+1);
+    if (!cfg->cookie_key) return "AACookieKey: apr_pcalloc() == NULL";
+    apr_file_read(file, cfg->cookie_key, &len);
+    if (len < 16) return "AACookieKey: file too short (16-20 bytes required)";
+    for (i = 0; i < len; i++) {
+      /* Supress \0 in binary input, so result can be handled as string. */
+      if (cfg->cookie_key[i] == 0)
+	cfg->cookie_key[i] = '@';
+    }
+    cfg->cookie_key[len] = '\0';
+    apr_file_close(file);
+  } else {
+    cfg->cookie_key = (char *) arg;
+  }
+
+  ap_log_error(APLOG_MARK, APLOG_DEBUG|APLOG_STARTUP, 0, cmd->server,
+	       "setting cookie_key = '%s' (%lu bytes)",
+	       cfg->cookie_key, strlen(cfg->cookie_key));
 
   return NULL;
 
@@ -3182,7 +3229,7 @@ static const command_rec webauth_commands[] = {
                 "re-use of cached content"),
 
   AP_INIT_TAKE1("AACookieKey",
-		ap_set_string_slot,
+		set_cookie_key,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,cookie_key),
 		RSRC_CONF | OR_AUTHCFG,
