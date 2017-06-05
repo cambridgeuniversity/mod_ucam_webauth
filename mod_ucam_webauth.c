@@ -1879,7 +1879,7 @@ dump_config(request_rec *r, apr_pool_t *p,
 /* --- */
 
 /* Note that most string and flag parameters are processed by the generic
-   ap_set_string_slot and ap_set flag_slot routines */
+   ap_set_string_slot and ap_set_flag_slot routines */
 
 static const char *
 set_response_timeout(cmd_parms *cmd,
@@ -1989,6 +1989,74 @@ set_cache_control(cmd_parms *cmd,
     return "AACacheControl: missing keyword - "
       "need one of off/on/paranoid";
   }
+
+  return NULL;
+
+}
+
+/* --- */
+
+/* process argument of AACookieKey and AAHeaderKey */
+static const char *
+set_key(cmd_parms *cmd,
+	void *mconfig,
+	const char *arg)
+
+{
+  int offset = (int)(long)cmd->info;
+  char **key = (char **)((char *)mconfig + offset);
+  const char *directive =
+    cmd->directive->directive;  /* "AACookieKey" or "AAHeaderKey" */
+  const char *path;
+  apr_file_t *file;
+  apr_size_t len = 64;  /* maximum number of bytes to read from file */
+  apr_status_t status;
+  char buf[256];
+  int i;
+
+  if (strncmp(arg, "file:", 5) == 0) {
+    /* load HMAC key bytes from file */
+    if (ap_check_cmd_context(cmd, NOT_IN_HTACCESS)) {
+      /* Reasons for not allowing 'file:' access in .htaccess:
+       *  - file would be read for each request (performance)
+       *  - could be abused by someone with control over
+       *    a .htaccess file to extract confidential information
+       *    from a file only readable to the Apache process.
+       *  - cmd->temp_pool no longer available
+       */
+      return "AACookieKey/AAHeaderKey: 'file:' key not permitted in .htaccess";
+    }
+    if (!arg[5] || !(path = ap_server_root_relative(cmd->temp_pool, arg + 5))) {
+      return apr_pstrcat(cmd->pool, directive, " 'file:", arg+5,
+			 "': invalid file path", NULL);
+    }
+    status = apr_file_open(&file, path, APR_FOPEN_READ | APR_FOPEN_BINARY,
+			   0, cmd->temp_pool);
+    if (status != APR_SUCCESS)
+      return apr_pstrcat(cmd->pool, directive, " 'file:",
+			 path, "': ", apr_strerror(status, buf, sizeof(buf)),
+			 NULL);
+    *key = apr_pcalloc(cmd->pool, len+1);
+    if (!*key) return "apr_pcalloc() == NULL";
+    apr_file_read(file, *key, &len);
+    apr_file_close(file);
+    if (len < 16)
+      return  apr_pstrcat(cmd->pool, directive, " 'file:", arg+5,
+			  "': key file too short (16 bytes required)", NULL);
+    /* Substitute \0 in binary input, so key can be handled as string. */
+    for (i = 0; i < len; i++) {
+      if ((*key)[i] == 0)
+	(*key)[i] = '@';
+    }
+    (*key)[len] = '\0';
+  } else {
+    /* use string argument directly as HMAC key */
+    *key = (char *) arg;
+  }
+
+  ap_log_error(APLOG_MARK, APLOG_DEBUG|APLOG_STARTUP, 0, cmd->server,
+	       "setting %s '%-.4s...' (%lu bytes)",
+	       directive, *key, strlen(*key));
 
   return NULL;
 
@@ -3182,7 +3250,7 @@ static const command_rec webauth_commands[] = {
                 "re-use of cached content"),
 
   AP_INIT_TAKE1("AACookieKey",
-		ap_set_string_slot,
+		set_key,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,cookie_key),
 		RSRC_CONF | OR_AUTHCFG,
@@ -3296,7 +3364,7 @@ static const command_rec webauth_commands[] = {
 		   "a list of additional headers to include in the request"),
 
   AP_INIT_TAKE1("AAHeaderKey",
-		ap_set_string_slot,
+		set_key,
 		(void *)APR_OFFSETOF
 		(mod_ucam_webauth_cfg,header_key),
 		RSRC_CONF | OR_AUTHCFG,
