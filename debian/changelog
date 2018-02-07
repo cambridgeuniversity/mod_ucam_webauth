@@ -1,3 +1,9 @@
+libapache2-mod-ucam-webauth (2.0.5apache24) unstable; urgency=low
+
+  * Modify package to include recent improvements
+
+ -- Sam Wenham <sdw37@cam.ac.uk>  Wed, 07 Feb 2018 15:45:00 +0000
+
 libapache2-mod-ucam-webauth (2.0.3apache24) unstable; urgency=low
 
   * Modify packaging to work with apache2.4

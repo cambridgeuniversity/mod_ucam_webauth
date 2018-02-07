@@ -2,9 +2,9 @@ Source: libapache2-mod-ucam-webauth
 Section: httpd
 Priority: extra
 Maintainer: UCS Raven Support <raven-support@ucs.cam.ac.uk>
-Uploaders: Matthew Vernon <mcv21@cam.ac.uk>
+Uploaders: Sam Wenham <sdw37@cam.ac.uk>
 Build-Depends: debhelper (>=7.0.50~), libssl-dev, dh-apache2, apache2-dev
-Standards-Version: 3.9.4
+Standards-Version: 3.9.7
 Homepage: http://raven.cam.ac.uk/project/apache/
 
 Package: libapache2-mod-ucam-webauth

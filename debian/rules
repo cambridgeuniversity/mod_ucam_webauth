@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-export DH_ALWAYS_EXCLUDE=MANIFEST:rpm-build:Windows:testing:mod_ucam_none.c
+export DH_ALWAYS_EXCLUDE=MANIFEST:rpm-build:Windows:testing:mod_ucam_none.c:.git
 
 %:
 	dh $@ --with apache2
