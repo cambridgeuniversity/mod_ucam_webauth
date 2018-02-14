@@ -102,7 +102,7 @@ fi
 %doc mod_ucam_webauth.conf.skel
 
 %changelog
-* Wed Feb 18 2018 Sam Wenham <sdw37@cam.ac.uk> -2.0.3
+* Wed Feb 7 2018 Sam Wenham <sdw37@cam.ac.uk> -2.0.3
 - Update to 2.0.5
 
 * Thu Mar 16 2017 Stephen Lovell <sml47@cam.ac.uk> -2.0.2
