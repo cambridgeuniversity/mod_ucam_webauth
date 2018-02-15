@@ -14,6 +14,8 @@ SUFFIX=la              # Use 'make .... SUFFIX=so for Apache 1
 #LIB=-Lmy/lib/dir -lmylib
 #OPT=-SLIBEXECDIR=$RPM_BUILD_ROOT%{_libdir}/apache/ -Wc,-Wall
 
+BUILD_LOC?=$(HOME)
+
 #   the default target
 
 all: mod_ucam_webauth.$(SUFFIX)
@@ -44,19 +46,19 @@ dist:
          rm -rf mod_ucam_webauth-$$ver )
 
 rpmdirs:
-	mkdir -p ~/rpmdevel/BUILD
-	mkdir -p ~/rpmdevel/RPMS
-	mkdir -p ~/rpmdevel/SOURCES
-	mkdir -p ~/rpmdevel/SPECS
-	mkdir -p ~/rpmdevel/SRPMS
+	mkdir -p $(BUILD_LOC)/rpmdevel/BUILD
+	mkdir -p $(BUILD_LOC)/rpmdevel/RPMS
+	mkdir -p $(BUILD_LOC)/rpmdevel/SOURCES
+	mkdir -p $(BUILD_LOC)/rpmdevel/SPECS
+	mkdir -p $(BUILD_LOC)/rpmdevel/SRPMS
 
 rpm2: dist rpmdirs
 	(ver=`grep '#define VERSION' mod_ucam_webauth.c |      \
 	 sed -e s/\"//g | cut -d' ' -f3`; \
-	cp -v mod_ucam_webauth-$$ver.tar.gz ~/rpmdevel/SOURCES/)
-	cp -v rpm-build/README.KEYS ~/rpmdevel/SOURCES
-	cp -v rpm-build/mod_ucam_webauth2.spec ~/rpmdevel/SPECS
-	rpmbuild --define "_topdir $(HOME)/rpmdevel/" -bs --nodeps /home/infosysansible/rpmdevel/SPECS/mod_ucam_webauth2.spec
+	cp -v mod_ucam_webauth-$$ver.tar.gz $(BUILD_LOC)/rpmdevel/SOURCES/)
+	cp -v rpm-build/README.KEYS $(BUILD_LOC)/rpmdevel/SOURCES
+	cp -v rpm-build/mod_ucam_webauth2.spec $(BUILD_LOC)/rpmdevel/SPECS
+	rpmbuild --define "_topdir $(BUILD_LOC)/rpmdevel/" -bs --nodeps $(BUILD_LOC)/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
 
 
