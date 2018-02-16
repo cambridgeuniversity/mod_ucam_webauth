@@ -58,7 +58,7 @@ rpm2: dist rpmdirs
 	cp -v mod_ucam_webauth-$$ver.tar.gz $(BUILD_LOC)/rpmdevel/SOURCES/)
 	cp -v rpm-build/README.KEYS $(BUILD_LOC)/rpmdevel/SOURCES
 	cp -v rpm-build/mod_ucam_webauth2.spec $(BUILD_LOC)/rpmdevel/SPECS
-	rpmbuild --define "_topdir $(BUILD_LOC)/rpmdevel/" -bs --nodeps $(BUILD_LOC)/rpmdevel/SPECS/mod_ucam_webauth2.spec
+	rpmbuild --define "_topdir $(BUILD_LOC)/rpmdevel/" -ba --nodeps $(BUILD_LOC)/rpmdevel/SPECS/mod_ucam_webauth2.spec
 
 
 
