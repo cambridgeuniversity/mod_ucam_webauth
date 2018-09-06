@@ -2,6 +2,8 @@
 
 sbuild -vd bionic libapache2-mod-ucam-webauth_2.0.5apache24.dsc -m "UIS Package Builder" --append-to-version='~ubuntu-18.04'
 
+sbuild -vd bionic libapache2-mod-ucam-webauth_2.0.5apache24.dsc -m "UIS Package Builder" --append-to-version='~ubuntu-18.04' --arch=i386
+
 sbuild -vd xenial libapache2-mod-ucam-webauth_2.0.5apache24.dsc -m "UIS Package Builder" --append-to-version='~ubuntu-16.04'
 
 sbuild -vd xenial libapache2-mod-ucam-webauth_2.0.5apache24.dsc -m "UIS Package Builder" --append-to-version='~ubuntu-16.04' --arch=i386
