@@ -3156,7 +3156,7 @@ webauth_handler_logout(request_rec *r)
        "you should first log-out of all other personalized sites that you "
        "have accessed and then <a href=\"", c->logout_service,
        "\">logout from the central authentication service</a>.",
-       sig, "</body></hmtl>", NULL);
+       sig, "</body></html>", NULL);
   }
   ap_rputs(response,r);
   return OK;
