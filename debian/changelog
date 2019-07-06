@@ -1,3 +1,12 @@
+libapache2-mod-ucam-webauth (2.0.6apache24) unstable; urgency=medium
+
+  * Add new configuration directive AACanonicaliseName to configure whether
+    to always redirect using ServerName (default) or to honour Apache's
+    UseCanonicalName configuration (useful for virtual hosts with configured
+    ServerAliases)
+
+ -- Malcolm Scott <mas90@cam.ac.uk>  Sat, 06 Jul 2019 12:37:24 +0100
+
 libapache2-mod-ucam-webauth (2.0.5apache24) unstable; urgency=low
 
   * Modify package to include recent improvements

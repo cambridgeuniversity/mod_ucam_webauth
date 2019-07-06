@@ -26,7 +26,7 @@
 
 */
 
-#define VERSION "2.0.5"
+#define VERSION "2.0.6"
 
 /*
 MODULE-DEFINITION-START
@@ -174,6 +174,7 @@ APLOG_USE_MODULE(ucam_webauth);
 #define DEFAULT_header_key         NULL
 #define DEFAULT_force_auth_type    "Ucam-WebAuth"
 #define DEFAULT_required_ptags     PTAGS_CURRENT
+#define DEFAULT_canonicalise_name  1
 
 /* module configuration structure */
 
@@ -207,6 +208,7 @@ typedef struct {
   char *header_key;
   char *force_auth_type;
   unsigned int required_ptags;
+  int  canonicalise_name;
 } mod_ucam_webauth_cfg;
 
 /* logging macro. Note that it will only work in an environment where
@@ -1191,7 +1193,8 @@ make_cookie_str(request_rec *r,
 /* --- */
 
 static char *
-get_url(request_rec *r)
+get_url(request_rec *r,
+	mod_ucam_webauth_cfg *c)
 
 {
 
@@ -1205,10 +1208,14 @@ get_url(request_rec *r)
   url = ap_construct_url(r->pool, r->unparsed_uri, r);
   APACHE_LOG1(APLOG_DEBUG, "get_url: raw url = %s", url);
 
-  /* ap_construct_url honours UseCannonicalName but we really don't
+  /* ap_construct_url honours UseCannonicalName but we might not
      want that so we re-parse this result and override the hostname
      component with what we know we are really called
   */
+
+  if (c->canonicalise_name == 0) {
+    return url;
+  }
 
   if (apr_uri_parse(r->pool, url, &uri))
     APACHE_LOG0(APLOG_CRIT, "Failed to parse own URL");
@@ -1503,6 +1510,7 @@ webauth_create_dir_config(apr_pool_t *p,
   cfg->header_key = NULL;
   cfg->force_auth_type = NULL;
   cfg->required_ptags = PTAGS_UNSET;
+  cfg->canonicalise_name = -1;
   return (void *)cfg;
 
 }
@@ -1586,6 +1594,8 @@ webauth_merge_dir_config(apr_pool_t *p,
     new->force_auth_type : base->force_auth_type;
   merged->required_ptags = new->required_ptags != PTAGS_UNSET ?
     new->required_ptags : base->required_ptags;
+  merged->canonicalise_name = new->canonicalise_name != -1 ?
+    new->canonicalise_name : base->canonicalise_name;
 
   log_p_or_rerror(NULL,p,"Merge result:");
   dump_config(NULL,p,merged);
@@ -1664,6 +1674,8 @@ apply_config_defaults(request_rec *r,
       apr_pstrdup(r->pool,DEFAULT_force_auth_type);
   n->required_ptags = c->required_ptags != PTAGS_UNSET ? c->required_ptags :
       DEFAULT_required_ptags;
+  n->canonicalise_name = c->canonicalise_name != -1 ? c->canonicalise_name :
+      DEFAULT_canonicalise_name;
 
   /* the string 'none' resets the various '...Msg' settings to default */
 
@@ -1871,6 +1883,9 @@ dump_config(request_rec *r, apr_pool_t *p,
 
     log_p_or_rerror(r,p,"  AAForceAuthType      = %s",
 		(c->force_auth_type == NULL ? "NULL" : c->force_auth_type));
+
+    log_p_or_rerror(r,p,"  AACanonicaliseName   = %d",
+		c->canonicalise_name);
 
   }
 
@@ -2539,7 +2554,7 @@ decode_response(request_rec *r,
      are in a sub-request it's the URL from the corresponding main
      request that we need */
 
-  this_url = get_url(r->main ? r->main : r);
+  this_url = get_url(r->main ? r->main : r, c);
   this_url = ap_getword(r->pool, &this_url, '?');
   response_url = apr_table_get(response_ticket, "url");
   response_url = ap_getword(r->pool, &response_url, '?');
@@ -2840,7 +2855,7 @@ construct_request(request_rec *r,
   request = apr_pstrcat
     (r->pool,
      "ver=", PROTOCOL_VERSION,
-     "&url=", escape_url(r->pool,get_url(r->main ? r->main : r)),
+     "&url=", escape_url(r->pool,get_url(r->main ? r->main : r, c)),
      "&date=",
      iso2_time_encode(r, apr_time_now()),
      NULL);
@@ -2961,36 +2976,38 @@ webauth_authn(request_rec *r)
     (APLOG_INFO, "** mod_ucam_webauth (%s) authn handler started for %s",
      VERSION, r->uri);
 
-  /* If the hostname the user used (as reported by the 'Host' header)
-     doesn't match the configured hostname for this server then we are
-     going to have all sorts of problems with cookies and redirects,
-     so fix it (with a redirect) now. */
-
-  host = apr_pstrdup(r->pool,apr_table_get(r->headers_in, "Host"));
-  if (host != NULL) {
-    colon = strchr(host,':');
-    if (colon != NULL)
-      *colon = '\0';
-    if (r->server->server_hostname &&
-	strcasecmp(r->server->server_hostname,host)) {
-      colon = strchr(host,':');
-      if (colon != NULL)
-	*colon = '\0';
-      APACHE_LOG2
-	(APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
-	 "configured hostname (%s) - redirecting",
-	 host, r->server->server_hostname);
-      apr_table_set(r->headers_out, "Location", get_url(r));
-      return (r->method_number == M_GET) ?
-	HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
-    }
-  }
-
   c = (mod_ucam_webauth_cfg *)
     ap_get_module_config(r->per_dir_config, &ucam_webauth_module);
   c = apply_config_defaults(r,c);
 
   dump_config(r,NULL,c);
+
+  /* If the hostname the user used (as reported by the 'Host' header)
+     doesn't match the configured hostname for this server then we are
+     going to have all sorts of problems with cookies and redirects,
+     so fix it (with a redirect) now. */
+
+  if (c->canonicalise_name != 0) {
+    host = apr_pstrdup(r->pool,apr_table_get(r->headers_in, "Host"));
+    if (host != NULL) {
+      colon = strchr(host,':');
+      if (colon != NULL)
+	*colon = '\0';
+      if (r->server->server_hostname &&
+	  strcasecmp(r->server->server_hostname,host)) {
+	colon = strchr(host,':');
+	if (colon != NULL)
+	  *colon = '\0';
+	APACHE_LOG2
+	  (APLOG_DEBUG,"Browser supplied hostname (%s) does not match "
+	   "configured hostname (%s) - redirecting",
+	   host, r->server->server_hostname);
+	apr_table_set(r->headers_out, "Location", get_url(r, c));
+	return (r->method_number == M_GET) ?
+	  HTTP_MOVED_TEMPORARILY : HTTP_SEE_OTHER;
+      }
+    }
+  }
 
   cache_control(r,c->cache_control);
 
@@ -3382,6 +3399,16 @@ static const command_rec webauth_commands[] = {
 		   NULL,
 		   RSRC_CONF | OR_AUTHCFG,
 		   "a list of required ptags for authentication to succeed"),
+
+  AP_INIT_FLAG("AACanonicaliseName",
+	       ap_set_flag_slot,
+	       (void *)APR_OFFSETOF
+	       (mod_ucam_webauth_cfg,canonicalise_name),
+	       RSRC_CONF | OR_AUTHCFG,
+	       "either 'on' or 'off'; "
+	       "'on' (default) always uses the virtual host's ServerName in "
+	       "redirect URLs; 'off' honours UseCanonicalName and may use the "
+	       "client-supplied Host header in URLs"),
 
   {NULL}
 
