@@ -47,3 +47,6 @@ LoadModule ucam_webauth_module @@LIBEXECDIR@@/mod_ucam_webauth.so
 # AAAlwaysDecode  Off
 
 # AAAlwaysDecode  Off
+
+# AACanonicaliseName On
+
