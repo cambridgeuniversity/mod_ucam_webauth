@@ -1608,7 +1608,7 @@ apply_config_defaults(request_rec *r,
 
   n->auth_service = c->auth_service != NULL ? c->auth_service :
       apr_pstrdup(r->pool,DEFAULT_auth_service);
-  n->logout_service = c->logout_service != NULL ? c->auth_service :
+  n->logout_service = c->logout_service != NULL ? c->logout_service :
       apr_pstrdup(r->pool, DEFAULT_logout_service);
   n->description = c->description != NULL ? c->description :
       DEFAULT_description;
